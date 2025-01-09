@@ -6,7 +6,7 @@
 #       - 扫描目录中的所有视频文件（排除 .!qB 文件）。
 #       - 提取文件名中的电视剧名称、集号、分辨率等信息。
 #       - 将文件移动到 OneDrive 的目标目录，按照指定的格式重命名。
-#       - 文件夹结构为：/od_shipin/media/国漫/电视剧名称/电视剧名称 E集号 分辨率.mp4
+#       - 文件夹结构为：/od_shipin/media/国漫/电视剧名称/Season 01/电视剧名称 S01E集号 分辨率.mp4
 #       - 删除空文件夹。
 #
 # 原文件结构:
@@ -21,8 +21,13 @@
 # - 最后一组：分辨率（如 "1080P"）
 #
 # 脚本会将文件移动并重命名为：
-# - /od_shipin/media/国漫/电视剧名称/电视剧名称 E集号 分辨率.mp4
-# 例如：完美世界 E184 1080P.mp4
+# - /od_shipin/media/国漫/电视剧名称/Season 01/电视剧名称 S01E集号 分辨率.mp4
+# 例如：完美世界 S01E184 1080P.mp4
+#
+# 处理季号：
+# - 如果文件名中包含季号（例如 "斗破苍穹 第5季"），则脚本会提取季号并使用它来构建文件夹路径。
+# - 文件夹结构将会是：/od_shipin/media/国漫/电视剧名称/Season XX/
+# - 文件名格式将是：电视剧名称 SXXEXX 分辨率.mp4，例如：完美世界 S01E184 1080P.mp4
 # ----------------------------------------------------------------------------
 
 # 默认源目录路径和目标目录路径
@@ -65,12 +70,20 @@ find "$source_directory" -mindepth 1 | while read -r path; do
       echo "找到集号: $episode_number"
       echo "找到分辨率: $resolution"
 
-      # 构建目标目录路径：不包含年份
-      target_directory="$onedrive_target_directory/$tv_show_name"
+      # 默认季号为 01，如果文件名中包含季号，则提取季号
+      season_number="01"  # 默认季号为 01
+      if [[ "$tv_show_name" =~ 第([0-9]+)季 ]]; then
+        season_number="${BASH_REMATCH[1]}"  # 提取季号
+        tv_show_name="${tv_show_name%% 第*}"  # 去掉季号部分
+        echo "找到季号: S$season_number"
+      fi
+
+      # 构建目标目录路径：包含季号
+      target_directory="$onedrive_target_directory/$tv_show_name/Season $season_number"
       mkdir -p "$target_directory"  # 创建目标目录（如果不存在）
 
-      # 构建新的文件名，格式为：电视剧名称 E集号 分辨率.mp4
-      new_filename="${tv_show_name} E${episode_number} ${resolution}.mp4"
+      # 构建新的文件名，格式为：电视剧名称 S01E集号 分辨率.mp4
+      new_filename="${tv_show_name} S${season_number}E${episode_number} ${resolution}.mp4"
 
       # 使用 mv 命令移动并重命名文件
       echo "移动文件 $path 到目标路径: $target_directory/$new_filename"
