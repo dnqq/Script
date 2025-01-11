@@ -30,6 +30,11 @@
 # - 文件名格式将是：电视剧名称 SXXEXX 分辨率.mp4，例如：完美世界 - S01E184 - 1080P.mp4
 # ----------------------------------------------------------------------------
 
+# 打印带时间戳的日志函数
+log_message() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
+
 # 默认源目录路径和目标目录路径
 default_source_directory="/opt/1panel/apps/qbittorrent/qbittorrent/data"
 default_onedrive_target_directory="/od_shipin/media/国漫"
@@ -38,9 +43,12 @@ default_onedrive_target_directory="/od_shipin/media/国漫"
 source_directory="${1:-$default_source_directory}"
 onedrive_target_directory="${2:-$default_onedrive_target_directory}"
 
+# 打印开始日志
+log_message "脚本开始运行"
+
 # 检查源目录是否存在
 if [ ! -d "$source_directory" ]; then
-  echo "目录 $source_directory 不存在"
+  log_message "目录 $source_directory 不存在"
   exit 1
 fi
 
@@ -48,7 +56,7 @@ fi
 find "$source_directory" -mindepth 1 | while read -r path; do
   # 如果是文件夹且为空，删除该文件夹
   if [ -d "$path" ] && [ ! "$(ls -A "$path")" ]; then
-    echo "删除空文件夹: $path"
+    log_message "删除空文件夹: $path"
     rmdir "$path"
   fi
   
@@ -66,16 +74,16 @@ find "$source_directory" -mindepth 1 | while read -r path; do
       tv_show_name="${BASH_REMATCH[1]}"   # 提取电视剧名称
       episode_number="${BASH_REMATCH[3]}" # 提取集号
       resolution="${BASH_REMATCH[4]}"     # 提取分辨率
-      echo "找到电视剧名称: $tv_show_name"
-      echo "找到集号: $episode_number"
-      echo "找到分辨率: $resolution"
+      log_message "找到电视剧名称: $tv_show_name"
+      log_message "找到集号: $episode_number"
+      log_message "找到分辨率: $resolution"
 
       # 默认季号为 01，如果文件名中包含季号，则提取季号
       season_number="01"  # 默认季号为 01
       if [[ "$tv_show_name" =~ 第([0-9]+)季 ]]; then
         season_number="${BASH_REMATCH[1]}"  # 提取季号
         tv_show_name="${tv_show_name%% 第*}"  # 去掉季号部分
-        echo "找到季号: S$season_number"
+        log_message "找到季号: S$season_number"
       fi
 
       # 构建目标目录路径：包含季号
@@ -86,14 +94,17 @@ find "$source_directory" -mindepth 1 | while read -r path; do
       new_filename="${tv_show_name} - S${season_number}E${episode_number} - ${resolution}.mp4"
 
       # 使用 mv 命令移动并重命名文件
-      echo "移动文件 $path 到目标路径: $target_directory/$new_filename"
+      log_message "移动文件 $path 到目标路径: $target_directory/$new_filename"
       mv "$path" "$target_directory/$new_filename"  # 移动并重命名文件
 
     else
       # 文件名格式不符合预期时打印原文件路径
-      echo "文件名格式不符合预期，无法提取信息: $path"
+      log_message "文件名格式不符合预期，无法提取信息: $path"
     fi
   else
-    echo "跳过文件 $path，扩展名为 .!qB"
+    log_message "跳过文件 $path，扩展名为 .!qB"
   fi
 done
+
+# 打印结束日志
+log_message "脚本运行结束"
