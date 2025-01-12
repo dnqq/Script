@@ -30,11 +30,9 @@
 # - 文件名格式将是：电视剧名称 SXXEXX 分辨率.mp4，例如：完美世界 - S01E184 - 1080P.mp4
 # ----------------------------------------------------------------------------
 
-# 打印带时间戳和日志级别的日志函数
+# 打印带时间戳的日志函数
 log_message_with_level() {
-  level=$1
-  message=$2
-  echo "$(date '+%Y-%m-%d %H:%M:%S') [$level] - $message"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1 - $2"
 }
 
 # 默认源目录路径和目标目录路径
@@ -56,10 +54,13 @@ fi
 
 # 遍历源目录下的所有文件和文件夹
 find "$source_directory" -mindepth 1 | while read -r path; do
+  # 在循环最开头打印当前文件路径
+  log_message_with_level "INFO" "正在处理文件: $path"
+  
   # 如果是文件夹且为空，删除该文件夹
   if [ -d "$path" ] && [ ! "$(ls -A "$path")" ]; then
     log_message_with_level "INFO" "删除空文件夹: $path"
-    rmdir "$path" || log_message_with_level "ERROR" "无法删除空文件夹: $path"
+    rmdir "$path"
   fi
   
   # 如果是文件且扩展名不是 .!.qB，进行处理
@@ -90,30 +91,31 @@ find "$source_directory" -mindepth 1 | while read -r path; do
 
       # 构建目标目录路径：包含季号
       target_directory="$onedrive_target_directory/$tv_show_name/Season $season_number"
-      mkdir -p "$target_directory" || { log_message_with_level "ERROR" "目录创建失败: $target_directory"; exit 1; }
+      mkdir -p "$target_directory"  # 创建目标目录（如果不存在）
 
       # 构建新的文件名，格式为：电视剧名称 S01E集号 分辨率.mp4
       new_filename="${tv_show_name} - S${season_number}E${episode_number} - ${resolution}.mp4"
-      current_file_path="$source_directory/$filename"
 
-      # 检查目标路径是否已经存在该文件
-      if [ -e "$target_directory/$new_filename" ]; then
-        log_message_with_level "INFO" "目标文件已存在，跳过文件: $target_directory/$new_filename"
+      # 在当前目录下重命名文件
+      current_file_path="$path"
+      if [ -f "$current_file_path" ]; then
+        # 文件重命名
+        mv "$current_file_path" "$source_directory/$new_filename" || log_message_with_level "ERROR" "文件重命名失败: $current_file_path"
       else
-        # 尝试在源目录中重命名文件
-        mv "$current_file_path" "$source_directory/$new_filename"
-        if [ $? -ne 0 ]; then
-          log_message_with_level "ERROR" "文件重命名失败: $current_file_path"
-          continue  # 跳过文件的移动步骤，继续处理下一个文件
-        fi
+        log_message_with_level "ERROR" "文件不存在: $current_file_path"
+      fi
 
-        # 移动文件到目标目录
-        mv "$source_directory/$new_filename" "$target_directory/$new_filename" || log_message_with_level "ERROR" "文件移动失败: $source_directory/$new_filename 到 $target_directory/$new_filename"
+      # 确保文件重命名成功后，才进行移动
+      if [ -f "$source_directory/$new_filename" ]; then
+        log_message_with_level "INFO" "移动文件 $current_file_path 到目标路径: $target_directory/$new_filename"
+        mv "$source_directory/$new_filename" "$target_directory/$new_filename" || log_message_with_level "ERROR" "文件移动失败: $current_file_path"
+      else
+        log_message_with_level "ERROR" "文件重命名后未找到目标文件: $source_directory/$new_filename"
       fi
 
     else
       # 文件名格式不符合预期时打印原文件路径
-      log_message_with_level "WARNING" "文件名格式不符合预期，无法提取信息: $path"
+      log_message_with_level "ERROR" "文件名格式不符合预期，无法提取信息: $path"
     fi
   else
     log_message_with_level "INFO" "跳过文件 $path，扩展名为 .!qB"
