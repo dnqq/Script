@@ -39,10 +39,14 @@ BACKUP_NAME="${SERVER_ID}_${SOURCE_FOLDER//\//_}_backup_$(date +'%Y%m%d_%H%M%S')
 echo "压缩文件夹 $SOURCE_FOLDER 为 $BACKUP_NAME ..."
 tar -czf "$BACKUP_NAME" -C "$(dirname "$SOURCE_FOLDER")" "$(basename "$SOURCE_FOLDER")"
 
+# 列出当前目录，确保压缩文件存在
+ls -lh "$BACKUP_NAME"
+
 # 2. 上传文件到WebDAV
 UPLOAD_PATH="$SERVER_ID/$BACKUP_NAME"
-echo "上传 $BACKUP_NAME 到 $DESTINATION_URL/$UPLOAD_PATH ..."
-curl -u "$USER:$PASSWORD" -T "$BACKUP_NAME" "$DESTINATION_URL/$UPLOAD_PATH"
+echo "上传路径：$UPLOAD_PATH"
+echo "上传到：$DESTINATION_URL/$UPLOAD_PATH"
+curl -v -u "$USER:$PASSWORD" -T "$BACKUP_NAME" "$DESTINATION_URL/$UPLOAD_PATH"
 
 # 3. 删除本地压缩文件（如果不再需要）
 echo "删除本地压缩文件 $BACKUP_NAME ..."
