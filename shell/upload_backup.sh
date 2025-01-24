@@ -57,13 +57,16 @@ if ! command -v curl &> /dev/null; then
     fi
 fi
 
-# 4. 使用curl上传文件到WebDAV
-UPLOAD_PATH="$SERVER_ID/$BACKUP_NAME"
-echo "上传文件到 WebDAV：$DESTINATION_URL/$UPLOAD_PATH"
+# 4. 获取当前年份和月份，构建上传路径
+YEAR=$(date +'%Y')
+MONTH=$(date +'%m')
+UPLOAD_PATH="$SERVER_ID/$YEAR/$MONTH/$BACKUP_NAME"
 
+# 5. 使用curl上传文件到WebDAV
+echo "上传文件到 WebDAV：$DESTINATION_URL/$UPLOAD_PATH"
 curl -T "$BACKUP_NAME" "$DESTINATION_URL/$UPLOAD_PATH" --user "$USER:$PASSWORD"
 
-# 5. 删除本地压缩文件（如果不再需要）
+# 6. 删除本地压缩文件（如果不再需要）
 rm -f "$BACKUP_NAME"
 
 # 完成
