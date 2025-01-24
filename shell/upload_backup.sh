@@ -19,6 +19,13 @@ while getopts "u:p:f:s:d:" opt; do
     esac
 done
 
+# 输出传入的参数，帮助调试
+echo "USER: $USER"
+echo "PASSWORD: $PASSWORD"
+echo "SERVER_ID: $SERVER_ID"
+echo "DESTINATION_URL: $DESTINATION_URL"
+echo "SOURCE_FOLDER: $SOURCE_FOLDER"
+
 # 检查是否提供了 USER、PASSWORD、SERVER_ID 和 DESTINATION_URL
 if [ -z "$USER" ] || [ -z "$PASSWORD" ] || [ -z "$SERVER_ID" ] || [ -z "$DESTINATION_URL" ]; then
     echo "用户名、密码、服务器标识和WebDAV服务器URL是必需的！"
