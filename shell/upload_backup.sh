@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# 禁用未定义变量报错
+set +u
+
 # 设置默认值
 SOURCE_FOLDER="/root"   # 默认为 /root 文件夹
 BACKUP_NAME="backup_$(date +'%Y%m%d_%H%M%S').tar.gz"  # 压缩文件名，带时间戳
