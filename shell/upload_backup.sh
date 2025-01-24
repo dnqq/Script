@@ -2,23 +2,23 @@
 
 # 设置默认值
 SOURCE_FOLDER="/root"   # 默认为 /root 文件夹
-DESTINATION_URL="https://alist.739999.xyz/dav"   # WebDAV服务器的URL
 BACKUP_NAME="backup_$(date +'%Y%m%d_%H%M%S').tar.gz"  # 压缩文件名，带时间戳
 
 # 解析参数
-while getopts "u:p:f:s:" opt; do
+while getopts "u:p:f:s:d:" opt; do
     case ${opt} in
         u) USER=${OPTARG} ;;  # WebDAV用户名
         p) PASSWORD=${OPTARG} ;;  # WebDAV密码
         f) SOURCE_FOLDER=${OPTARG} ;;  # 待压缩文件夹路径
         s) SERVER_ID=${OPTARG} ;;  # 服务器标识
-        \?) echo "Usage: $0 [-u USERNAME] [-p PASSWORD] [-f FOLDER_PATH] [-s SERVER_ID]" ;;
+        d) DESTINATION_URL=${OPTARG} ;;  # WebDAV服务器的URL
+        \?) echo "Usage: $0 [-u USERNAME] [-p PASSWORD] [-f FOLDER_PATH] [-s SERVER_ID] [-d DESTINATION_URL]" ;;
     esac
 done
 
-# 检查是否提供了 USER 和 PASSWORD
-if [ -z "$USER" ] || [ -z "$PASSWORD" ] || [ -z "$SERVER_ID" ]; then
-    echo "用户名、密码和服务器标识是必需的！"
+# 检查是否提供了 USER、PASSWORD、SERVER_ID 和 DESTINATION_URL
+if [ -z "$USER" ] || [ -z "$PASSWORD" ] || [ -z "$SERVER_ID" ] || [ -z "$DESTINATION_URL" ]; then
+    echo "用户名、密码、服务器标识和WebDAV服务器URL是必需的！"
     exit 1
 fi
 
