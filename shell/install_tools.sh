@@ -2,7 +2,7 @@
 
 # 更新软件包索引并安装常用工具
 echo "正在更新系统并安装常用工具..."
-apt update && apt -y install vim curl net-tools ufw sudo nfs-common parted lvm2
+apt update && apt -y install vim curl net-tools sudo nfs-common parted lvm2 unzip
 
 # 定义别名并追加到 ~/.bashrc
 echo "配置自定义命令别名..."
