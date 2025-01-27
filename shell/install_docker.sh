@@ -39,7 +39,7 @@ read -p "🚀 是否允许当前用户 ($USER) 免 sudo 运行 Docker？(y/n): "
 if [[ "$ADD_USER" == "y" || "$ADD_USER" == "Y" ]]; then
     sudo usermod -aG docker $USER
     echo -e "${GREEN}✅ 用户 $USER 已添加到 docker 组，请重新登录或重启系统生效.${RESET}"
-fi
+fi  # 这里之前可能漏掉了 `then` 或者缩进问题
 
 # 配置国内镜像加速（可选）
 read -p "🌏 是否配置国内 Docker 镜像加速？(y/n): " SET_MIRROR
