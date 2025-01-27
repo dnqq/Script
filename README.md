@@ -8,7 +8,11 @@
 ``curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/delete_empty_folders.sh | bash -s .
 ``
 
-## install_tools.sh debian/ubuntu一键安装常用工具
+## install_docker.sh 一键安装docker
+``curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_docker.sh | bash
+``
+
+## install_tools.sh debian/ubuntu 一键安装常用工具
 ``curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_tools.sh | bash
 ``
 
