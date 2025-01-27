@@ -28,11 +28,11 @@ fi
 
 # 删除原有规则
 iptables -t nat -D PREROUTING -p tcp --dport $TRANSFER_PORT -j DNAT --to-destination $TARGET_IP:$TARGET_PORT
-iptables -t nat -D POSTROUTING -p tcp -d $TARGET_IP --dport $TRANSFER_PORT -j MASQUERADE
+iptables -t nat -D POSTROUTING -p tcp -d $TARGET_IP --dport $TARGET_PORT -j MASQUERADE
 
 # 添加新规则
 iptables -t nat -A PREROUTING -p tcp --dport $TRANSFER_PORT -j DNAT --to-destination $TARGET_IP:$TARGET_PORT
-iptables -t nat -A POSTROUTING -p tcp -d $TARGET_IP --dport $TRANSFER_PORT -j MASQUERADE
+iptables -t nat -A POSTROUTING -p tcp -d $TARGET_IP --dport $TARGET_PORT -j MASQUERADE
 
 # 保存规则
 iptables-save > /etc/iptables.up.rules
