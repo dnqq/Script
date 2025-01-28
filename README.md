@@ -14,6 +14,13 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/delete_empt
 
 ---
 
+## deploy_nginx_proxy_manager.sh - 一键部署nginx_proxy_manager
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/deploy_nginx_proxy_manager.sh | bash
+```
+
+---
+
 ## install_docker.sh - 一键安装 Docker
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_docker.sh | bash

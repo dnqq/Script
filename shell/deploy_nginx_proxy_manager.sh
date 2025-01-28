@@ -35,7 +35,7 @@ EOF
 # 启动 Nginx Proxy Manager
 echo "启动 Nginx Proxy Manager..."
 cd $PROJECT_DIR
-docker-compose up -d
+docker compose up -d
 
 # 输出结果
 echo "Nginx Proxy Manager 部署完成！"
