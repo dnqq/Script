@@ -36,7 +36,7 @@ services:
 EOF
 
 # 启动 Memos 服务
-docker-compose up -d
+docker compose up -d
 
 # 检查服务是否启动成功
 if [ $? -eq 0 ]; then
