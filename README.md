@@ -16,7 +16,7 @@
 ``curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_tools.sh | bash
 ``
 
-## iptables_redirect.sh iptables端口转发
+## iptables_redirect.sh iptables端口转发 
 ### 修改参数
 transfer_port 本地端口
 target_domain_or_ip 目标服务器域名或IP，域名会被解析成IP后写入规则
@@ -29,7 +29,7 @@ target_port 目标服务器端口
     u) USER=${OPTARG} ;;  # WebDAV用户名
     p) PASSWORD=${OPTARG} ;;  # WebDAV密码
     f) SOURCE_FOLDER=${OPTARG} ;;  # 待压缩文件夹路径
-    s) SERVER_ID=${OPTARG} ;;  # 服务器标识
+    s) SERVER_ID=${OPTARG} ;;  # 服务器标识，用于构建上传路径
     d) DESTINATION_URL=${OPTARG} ;;  # WebDAV服务器的URL
 ``curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/upload_backup.sh | bash -s -- -u your_username -p your_password -s your_server_id -d https://dav.com/dav -f /path/to/folder
 ``
