@@ -45,6 +45,12 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_too
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_redirect.sh | bash -s <transfer_port> <target_domain_or_ip> <target_port>
 ```
+---
+
+## iptables_reset.sh - iptables 清除所有规则
+
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_reset.sh | bash 
 
 ---
 
