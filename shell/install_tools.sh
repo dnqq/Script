@@ -14,7 +14,7 @@ timedatectl set-timezone Asia/Shanghai
 echo "正在更新系统并安装常用工具..."
 apt update
 apt upgrade -y
-apt -y install vim curl net-tools sudo nfs-common parted lvm2 unzip
+apt -y install vim curl net-tools sudo nfs-common parted lvm2 unzip wget lsb-release
 
 # 定义别名并追加到 ~/.bashrc
 echo "配置自定义命令别名..."

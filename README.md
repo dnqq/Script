@@ -57,7 +57,7 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_re
 
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_reset.sh | bash 
-
+```
 ---
 
 ## upload_backup.sh - 备份文件夹到 WebDAV
