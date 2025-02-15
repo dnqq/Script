@@ -102,7 +102,6 @@ WEB_PASSWORD=$(generate_random_password)  # 生成随机的 Web 控制台密码
 
 # 创建 FRP 客户端配置文件（TOML 格式）
 cat > $FRP_DIR/frpc.toml <<EOF
-[common]
 serverAddr = "<FRP_SERVER_IP>"  # 设置 FRP 服务端的 IP 地址
 serverPort = 7000               # 服务端监听端口
 auth.token = "<AUTH_TOKEN>"       # 设置与 FRP 服务端一致的认证 Token
@@ -147,7 +146,7 @@ systemctl daemon-reload  # 重新加载 Systemd 配置，使新服务生效
 systemctl enable frpc  # 设置 FRP 客户端服务开机自启
 
 # 启动 FRP 客户端
-systemctl start frpc  # 启动 FRP 客户端服务
+systemctl restart frpc  # 启动 FRP 客户端服务
 
 # 验证 FRP 客户端是否成功启动
 if systemctl is-active --quiet frpc; then
