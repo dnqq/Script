@@ -125,18 +125,19 @@ sed -i "s|<AUTH_TOKEN>|$AUTH_TOKEN|" $FRP_DIR/frpc.toml
 # 创建 Systemd 服务文件
 cat > /etc/systemd/system/frpc.service <<EOF
 [Unit]
-Description=Frp Client Service  # 服务描述
-After=network.target            # 在网络服务启动后启动
+Description=Frp Client Service
+After=network.target
 
 [Service]
 Type=simple
-User=root                       # 以 root 用户运行
-Restart=on-failure              # 失败时自动重启
-RestartSec=5s                   # 重启间隔时间
-ExecStart=$FRP_DIR/frpc -c $FRP_DIR/frpc.toml  # 启动命令
+User=root
+Restart=on-failure
+RestartSec=5s
+ExecStart=/root/app/frp_client/frpc -c /root/app/frp_client/frpc.toml
 
 [Install]
-WantedBy=multi-user.target      # 多用户模式下启用
+WantedBy=multi-user.target
+
 EOF
 
 # 重新加载 Systemd 配置

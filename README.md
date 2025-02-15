@@ -1,7 +1,3 @@
-以下是带有序号的Markdown文件：
-
----
-
 # Script
 
 ## 1. delete_empty_folders.sh - 删除空文件夹
@@ -34,7 +30,7 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frp
 
 ### 指定版本
 ```bash
-curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash -s v0.61.1
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash -s 0.61.1
 ```
 
 ---
@@ -48,7 +44,7 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frp
 
 ### 指定版本
 ```bash
-curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash -s v0.61.1
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash -s 0.61.1
 ```
 
 ---
