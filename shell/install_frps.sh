@@ -38,7 +38,7 @@
 # ========================================================
 
 # 默认 FRP 版本
-DEFAULT_FRP_VERSION="0.61.1"
+DEFAULT_FRP_VERSION="v0.61.1"
 
 # 检查 jq 是否已安装，如果没有安装则进行安装
 if ! command -v jq &> /dev/null; then
@@ -94,7 +94,7 @@ cd $FRP_DIR        # 进入安装目录
 
 # 下载 FRP
 FRP_PACKAGE="frp_${FRP_VERSION}_linux_${FRP_ARCH}.tar.gz"  # 根据版本和架构生成下载包名称
-wget https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/${FRP_PACKAGE}  # 下载 FRP 安装包
+wget https://github.com/fatedier/frp/releases/download/${FRP_VERSION}/${FRP_PACKAGE}  # 下载 FRP 安装包
 
 # 解压安装包
 tar -zxvf $FRP_PACKAGE  # 解压下载的安装包
