@@ -20,6 +20,17 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_doc
 ```
 ---
 
+## install_frps.sh - 一键安装frp服务端
+### 默认版本
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash
+```
+### 指定版本
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash -s 0.61.1
+```
+---
+
 ## install_memos.sh - 一键部署memos
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_memos.sh | bash
