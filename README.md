@@ -1,10 +1,10 @@
-以下是格式化后的Markdown文件：
+以下是带有序号的Markdown文件：
 
 ---
 
 # Script
 
-## delete_empty_folders.sh - 删除空文件夹
+## 1. delete_empty_folders.sh - 删除空文件夹
 
 ### 修改 `/path/to/your/folder`
 ```bash
@@ -18,14 +18,14 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/delete_empt
 
 ---
 
-## install_docker.sh - 一键安装 Docker
+## 2. install_docker.sh - 一键安装 Docker
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_docker.sh | bash
 ```
 
 ---
 
-## install_frpc.sh - 一键安装frp客户端
+## 3. install_frpc.sh - 一键安装frp客户端
 
 ### 默认版本
 ```bash
@@ -39,7 +39,7 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frp
 
 ---
 
-## install_frps.sh - 一键安装frp服务端
+## 4. install_frps.sh - 一键安装frp服务端
 
 ### 默认版本
 ```bash
@@ -53,35 +53,35 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frp
 
 ---
 
-## install_memos.sh - 一键部署memos
+## 5. install_memos.sh - 一键部署memos
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_memos.sh | bash
 ```
 
 ---
 
-## install_nginx_proxy_manager.sh - 一键部署nginx_proxy_manager
+## 6. install_nginx_proxy_manager.sh - 一键部署nginx_proxy_manager
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_nginx_proxy_manager.sh | bash
 ```
 
 ---
 
-## install_syncthing.sh - 一键部署syncthing
+## 7. install_syncthing.sh - 一键部署syncthing
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_syncthing.sh | bash
 ```
 
 ---
 
-## install_tools.sh - Debian/Ubuntu 一键安装常用工具
+## 8. install_tools.sh - Debian/Ubuntu 一键安装常用工具
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_tools.sh | bash
 ```
 
 ---
 
-## iptables_redirect.sh - iptables 端口转发
+## 9. iptables_redirect.sh - iptables 端口转发
 
 ### 修改参数：
 - `transfer_port` - 本地端口
@@ -94,14 +94,14 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_re
 
 ---
 
-## iptables_reset.sh - iptables 清除所有规则
+## 10. iptables_reset.sh - iptables 清除所有规则
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_reset.sh | bash
 ```
 
 ---
 
-## upload_backup.sh - 备份文件夹到 WebDAV
+## 11. upload_backup.sh - 备份文件夹到 WebDAV
 
 ### 修改参数：
 - `-u` - WebDAV 用户名
