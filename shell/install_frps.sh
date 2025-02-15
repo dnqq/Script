@@ -152,7 +152,7 @@ systemctl daemon-reload  # 重新加载 Systemd 配置，使新服务生效
 systemctl enable $FRP_SERVICE  # 设置 FRP 服务开机自启
 
 # 启动 FRP 服务
-systemctl start $FRP_SERVICE  # 启动 FRP 服务
+systemctl restart $FRP_SERVICE  # 启动 FRP 服务
 
 # 验证 FRP 服务是否成功启动
 if systemctl is-active --quiet $FRP_SERVICE; then
