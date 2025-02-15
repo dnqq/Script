@@ -46,6 +46,9 @@ tar -zxvf $FRP_PACKAGE
 mv frp_${FRP_VERSION}_linux_${FRP_ARCH}/* $FRP_DIR
 rm -rf frp_${FRP_VERSION}_linux_${FRP_ARCH}*
 
+# 设置 FRP 二进制文件可执行权限
+chmod +x $FRP_DIR/frps
+
 # 生成随机 auth.token 和 webServer.password
 generate_random_string() {
     cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 18 | head -n 1
@@ -74,7 +77,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=nobody
+User=root
 Restart=on-failure
 RestartSec=5s
 ExecStart=$FRP_DIR/frps -c $FRP_DIR/frps.toml
