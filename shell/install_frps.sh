@@ -18,10 +18,10 @@
 #
 # 使用方法：
 # 1. 直接运行脚本（使用最新版本，如获取失败则使用默认 FRP 版本：0.61.1）：
-#    sudo ./deploy_frps.sh
+#    sudo ./install_frps.sh
 #
 # 2. 指定 FRP 版本运行脚本（例如：0.62.0）：
-#    sudo ./deploy_frps.sh 0.62.0
+#    sudo ./install_frps.sh 0.62.0
 #
 # 3. 脚本执行过程中会下载 FRP 包并自动解压，配置 FRP 服务端，生成认证 Token 和 Web 控制台密码，
 #    并设置 FRP 服务为开机自启。

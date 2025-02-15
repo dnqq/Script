@@ -1,8 +1,12 @@
+以下是格式化后的Markdown文件：
+
+---
+
 # Script
 
-## delete_empty_folders.sh - 删除空文件夹 
+## delete_empty_folders.sh - 删除空文件夹
 
-### 修改 `/path/to/your/folder` 
+### 修改 `/path/to/your/folder`
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/delete_empty_folders.sh | bash -s /path/to/your/folder
 ```
@@ -18,17 +22,35 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/delete_empt
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_docker.sh | bash
 ```
+
 ---
 
-## install_frps.sh - 一键安装frp服务端
+## install_frpc.sh - 一键安装frp客户端
+
 ### 默认版本
 ```bash
-curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frpc.sh | bash
 ```
+
 ### 指定版本
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash -s v0.61.1
 ```
+
+---
+
+## install_frps.sh - 一键安装frp服务端
+
+### 默认版本
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash
+```
+
+### 指定版本
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash -s v0.61.1
+```
+
 ---
 
 ## install_memos.sh - 一键部署memos
@@ -69,13 +91,14 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_too
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_redirect.sh | bash -s <transfer_port> <target_domain_or_ip> <target_port>
 ```
+
 ---
 
 ## iptables_reset.sh - iptables 清除所有规则
-
 ```bash
-curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_reset.sh | bash 
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_reset.sh | bash
 ```
+
 ---
 
 ## upload_backup.sh - 备份文件夹到 WebDAV
