@@ -34,6 +34,13 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_ngi
 
 ---
 
+## install_syncthing.sh - 一键部署syncthing
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_syncthing.sh | bash
+```
+
+---
+
 ## install_tools.sh - Debian/Ubuntu 一键安装常用工具
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_tools.sh | bash

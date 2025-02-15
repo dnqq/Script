@@ -36,8 +36,6 @@ mkdir -p $PROJECT_DIR
 # 创建 docker-compose.yml 文件
 echo "创建 docker-compose.yml 文件..."
 cat > $PROJECT_DIR/docker-compose.yml <<EOF
-version: '3'
-
 services:
   app:
     image: 'docker.io/jc21/nginx-proxy-manager:latest'
