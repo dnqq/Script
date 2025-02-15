@@ -103,9 +103,9 @@ WEB_PASSWORD=$(generate_random_password)  # 生成随机的 Web 控制台密码
 # 创建 FRP 客户端配置文件（TOML 格式）
 cat > $FRP_DIR/frpc.toml <<EOF
 [common]
-server_addr = "<FRP_SERVER_IP>"  # 设置 FRP 服务端的 IP 地址
-server_port = 7000               # 服务端监听端口
-auth_token = "<AUTH_TOKEN>"       # 设置与 FRP 服务端一致的认证 Token
+serverAddr = "<FRP_SERVER_IP>"  # 设置 FRP 服务端的 IP 地址
+serverPort = 7000               # 服务端监听端口
+auth.token = "<AUTH_TOKEN>"       # 设置与 FRP 服务端一致的认证 Token
 
 # Web 控制台配置
 webServer.addr = "0.0.0.0"  # Web 控制台监听地址（0.0.0.0 表示允许公网访问）

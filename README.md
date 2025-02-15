@@ -25,12 +25,12 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_doc
 
 ### 默认版本
 ```bash
-curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frpc.sh | bash
+curl -O https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh
 ```
 
 ### 指定版本
 ```bash
-curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash -s 0.61.1
+curl -O https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh 0.61.1
 ```
 
 ---
