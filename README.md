@@ -21,14 +21,14 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_doc
 
 ---
 
-## 3. install_freshrss.sh - 一键部署FreshRSS
+## 3. install_freshrss.sh - 一键部署 FreshRSS
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_freshrss.sh | bash
 ```
 
 ---
 
-## 4. install_frpc.sh - 一键安装frp客户端
+## 4. install_frpc.sh - 一键安装 frp 客户端
 
 ### 默认版本
 ```bash
@@ -42,7 +42,7 @@ curl -O https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frp
 
 ---
 
-## 5. install_frps.sh - 一键安装frp服务端
+## 5. install_frps.sh - 一键安装 frp 服务端
 
 ### 默认版本
 ```bash
@@ -56,35 +56,43 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frp
 
 ---
 
-## 6. install_memos.sh - 一键部署memos
+## 6. install_memos.sh - 一键部署 Memos
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_memos.sh | bash
 ```
 
 ---
 
-## 7. install_nginx_proxy_manager.sh - 一键部署nginx_proxy_manager
+## 7. install_nginx_proxy_manager.sh - 一键部署 nginx_proxy_manager
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_nginx_proxy_manager.sh | bash
 ```
 
 ---
 
-## 8. install_syncthing.sh - 一键部署syncthing
+## 8. install_rsshub.sh - 一键部署 RSSHub
+
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_rsshub.sh | bash
+```
+
+---
+
+## 9. install_syncthing.sh - 一键部署 Syncthing
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_syncthing.sh | bash
 ```
 
 ---
 
-## 9. install_tools.sh - Debian/Ubuntu 一键安装常用工具
+## 10. install_tools.sh - Debian/Ubuntu 一键安装常用工具
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_tools.sh | bash
 ```
 
 ---
 
-## 10. iptables_redirect.sh - iptables 端口转发
+## 11. iptables_redirect.sh - iptables 端口转发
 
 ### 修改参数：  
 - `transfer_port` - 本地端口  
@@ -97,14 +105,14 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_re
 
 ---
 
-## 11. iptables_reset.sh - iptables 清除所有规则
+## 12. iptables_reset.sh - iptables 清除所有规则
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_reset.sh | bash
 ```
 
 ---
 
-## 12. upload_backup.sh - 备份文件夹到 WebDAV
+## 13. upload_backup.sh - 备份文件夹到 WebDAV
 
 ### 修改参数：  
 - `-u` - WebDAV 用户名  
