@@ -21,7 +21,14 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_doc
 
 ---
 
-## 3. install_frpc.sh - 一键安装frp客户端
+## 3. install_freshrss.sh - 一键部署FreshRSS
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_freshrss.sh | bash
+```
+
+---
+
+## 4. install_frpc.sh - 一键安装frp客户端
 
 ### 默认版本
 ```bash
@@ -35,7 +42,7 @@ curl -O https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frp
 
 ---
 
-## 4. install_frps.sh - 一键安装frp服务端
+## 5. install_frps.sh - 一键安装frp服务端
 
 ### 默认版本
 ```bash
@@ -49,40 +56,40 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frp
 
 ---
 
-## 5. install_memos.sh - 一键部署memos
+## 6. install_memos.sh - 一键部署memos
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_memos.sh | bash
 ```
 
 ---
 
-## 6. install_nginx_proxy_manager.sh - 一键部署nginx_proxy_manager
+## 7. install_nginx_proxy_manager.sh - 一键部署nginx_proxy_manager
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_nginx_proxy_manager.sh | bash
 ```
 
 ---
 
-## 7. install_syncthing.sh - 一键部署syncthing
+## 8. install_syncthing.sh - 一键部署syncthing
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_syncthing.sh | bash
 ```
 
 ---
 
-## 8. install_tools.sh - Debian/Ubuntu 一键安装常用工具
+## 9. install_tools.sh - Debian/Ubuntu 一键安装常用工具
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_tools.sh | bash
 ```
 
 ---
 
-## 9. iptables_redirect.sh - iptables 端口转发
+## 10. iptables_redirect.sh - iptables 端口转发
 
-### 修改参数：
-- `transfer_port` - 本地端口
-- `target_domain_or_ip` - 目标服务器域名或 IP（域名会被解析成 IP 后写入规则）
-- `target_port` - 目标服务器端口
+### 修改参数：  
+- `transfer_port` - 本地端口  
+- `target_domain_or_ip` - 目标服务器域名或 IP（域名会被解析成 IP 后写入规则）  
+- `target_port` - 目标服务器端口  
 
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_redirect.sh | bash -s <transfer_port> <target_domain_or_ip> <target_port>
@@ -90,21 +97,21 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_re
 
 ---
 
-## 10. iptables_reset.sh - iptables 清除所有规则
+## 11. iptables_reset.sh - iptables 清除所有规则
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_reset.sh | bash
 ```
 
 ---
 
-## 11. upload_backup.sh - 备份文件夹到 WebDAV
+## 12. upload_backup.sh - 备份文件夹到 WebDAV
 
-### 修改参数：
-- `-u` - WebDAV 用户名
-- `-p` - WebDAV 密码
-- `-f` - 待压缩文件夹路径
-- `-s` - 服务器标识，用于构建上传路径
-- `-d` - WebDAV 服务器的 URL
+### 修改参数：  
+- `-u` - WebDAV 用户名  
+- `-p` - WebDAV 密码  
+- `-f` - 待压缩文件夹路径  
+- `-s` - 服务器标识，用于构建上传路径  
+- `-d` - WebDAV 服务器的 URL  
 
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/upload_backup.sh | bash -s -- -u your_username -p your_password -s your_server_id -d https://dav.com/dav -f /path/to/folder
