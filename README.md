@@ -1,5 +1,16 @@
 # Script
 
+这是一个包含各种实用脚本的集合，包括 Shell 脚本、Python 脚本、PowerShell 脚本、Tampermonkey 脚本和批处理脚本。
+
+## 目录
+- [Shell 脚本](#shell-脚本)
+- [Python 脚本](#python-脚本)
+- [PowerShell 脚本](#powershell-脚本)
+- [Tampermonkey 脚本](#tampermonkey-脚本)
+- [批处理脚本](#批处理脚本)
+
+## Shell 脚本
+
 ## 1. delete_empty_folders.sh - 删除空文件夹
 
 ### 修改 `/path/to/your/folder`
@@ -71,7 +82,6 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_ngi
 ---
 
 ## 8. install_rsshub.sh - 一键部署 RSSHub
-
 ```bash
 curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_rsshub.sh | bash
 ```
@@ -126,3 +136,29 @@ curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/upload_back
 ```
 
 ---
+
+## 14. install_alist.sh - 一键部署 Alist
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_alist.sh | bash
+```
+
+---
+
+## 15. clean_empty_dirs.sh - 清理空目录
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/clean_empty_dirs.sh | bash
+```
+
+---
+
+## 16. find_empty_dirs.sh - 查找空目录
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/find_empty_dirs.sh | bash
+```
+
+---
+
+## 17. guomang_qb_move.sh - 国漫 QB 移动脚本
+```bash
+curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/guomang_qb_move.sh | bash
+```
