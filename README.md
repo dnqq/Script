@@ -16,25 +16,25 @@
 1. **delete_empty_folders.sh** - 删除空文件夹
    ```bash
    # 修改 `/path/to/your/folder`
-   curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/delete_empty_folders.sh | bash -s /path/to/your/folder
+   curl -s https://script.739999.xyz/shell/delete_empty_folders.sh | bash -s /path/to/your/folder
    
    # 在当前目录运行
-   curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/delete_empty_folders.sh | bash -s .
+   curl -s https://script.739999.xyz/shell/delete_empty_folders.sh | bash -s .
    ```
 
 2. **clean_empty_dirs.sh** - 清理空目录
    ```bash
-   curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/clean_empty_dirs.sh | bash
+   curl -s https://script.739999.xyz/shell/clean_empty_dirs.sh | bash
    ```
 
 3. **find_empty_dirs.sh** - 查找空目录
    ```bash
-   curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/find_empty_dirs.sh | bash
+   curl -s https://script.739999.xyz/shell/find_empty_dirs.sh | bash
    ```
 
 4. **enable_swap.sh** - 启用交换空间
    ```bash
-   curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/enable_swap.sh | bash
+   curl -s https://script.739999.xyz/shell/enable_swap.sh | bash
    ```
 
 ### 备份工具
@@ -46,7 +46,7 @@
    # -f - 待压缩文件夹路径  
    # -s - 服务器标识，用于构建上传路径  
    # -d - WebDAV 服务器的 URL  
-   curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/upload_backup.sh | bash -s -- -u your_username -p your_password -s your_server_id -d https://dav.com/dav -f /path/to/folder
+   curl -s https://script.739999.xyz/shell/upload_backup.sh | bash -s -- -u your_username -p your_password -s your_server_id -d https://dav.com/dav -f /path/to/folder
    ```
 
 ### 网络工具
@@ -56,78 +56,78 @@
    # transfer_port - 本地端口  
    # target_domain_or_ip - 目标服务器域名或 IP（域名会被解析成 IP 后写入规则）  
    # target_port - 目标服务器端口  
-   curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_redirect.sh | bash -s <transfer_port> <target_domain_or_ip> <target_port>
+   curl -s https://script.739999.xyz/shell/iptables_redirect.sh | bash -s <transfer_port> <target_domain_or_ip> <target_port>
    ```
 
 7. **iptables_reset.sh** - iptables 清除所有规则
    ```bash
-   curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/iptables_reset.sh | bash
+   curl -s https://script.739999.xyz/shell/iptables_reset.sh | bash
    ```
 
 ### Docker 安装工具
 8. **install_docker.sh** - 一键安装 Docker
    ```bash
-   curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_docker.sh | bash
+   curl -s https://script.739999.xyz/shell/install_docker.sh | bash
    ```
 
 ### 应用程序安装脚本
 9. **install_alist.sh** - 一键部署 Alist 文件列表程序
    ```bash
-   curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_alist.sh | bash
+   curl -s https://script.739999.xyz/shell/install_alist.sh | bash
    ```
 
 10. **install_freshrss.sh** - 一键部署 FreshRSS 阅读器
     ```bash
-    curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_freshrss.sh | bash
+    curl -s https://script.739999.xyz/shell/install_freshrss.sh | bash
     ```
 
 11. **install_frpc.sh** - 一键安装 frp 客户端
     ```bash
     # 默认版本
-    curl -O https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh
+    curl -O https://script.739999.xyz/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh
     
     # 指定版本
-    curl -O https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh 0.61.1
+    curl -O https://script.739999.xyz/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh 0.61.1
     ```
 
 12. **install_frps.sh** - 一键安装 frp 服务端
     ```bash
     # 默认版本
-    curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash
+    curl -s https://script.739999.xyz/shell/install_frps.sh | bash
     
     # 指定版本
-    curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_frps.sh | bash -s 0.61.1
+    curl -s https://script.739999.xyz/shell/install_frps.sh | bash -s 0.61.1
     ```
 
 13. **install_memos.sh** - 一键部署 Memos 笔记应用
     ```bash
-    curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_memos.sh | bash
+    curl -s https://script.739999.xyz/shell/install_memos.sh | bash
     ```
 
 14. **install_nginx_proxy_manager.sh** - 一键部署 nginx_proxy_manager
     ```bash
-    curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_nginx_proxy_manager.sh | bash
+    curl -s https://script.739999.xyz/shell/install_nginx_proxy_manager.sh | bash
     ```
 
 15. **install_rsshub.sh** - 一键部署 RSSHub RSS生成器
     ```bash
-    curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_rsshub.sh | bash
+    curl -s https://script.739999.xyz/shell/install_rsshub.sh | bash
     ```
 
 16. **install_syncthing.sh** - 一键部署 Syncthing 文件同步工具
     ```bash
-    curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_syncthing.sh | bash
+    curl -s https://script.739999.xyz/shell/install_syncthing.sh | bash
     ```
 
 17. **install_tools.sh** - Debian/Ubuntu 一键安装常用工具
     ```bash
-    curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/install_tools.sh | bash
+    curl -s https://script.739999.xyz/shell/install_tools.sh | bash
     ```
 
 ### 特定用途脚本
 18. **guomang_qb_move.sh** - 国漫 QB 移动脚本
     ```bash
-    curl -s https://raw.githubusercontent.com/AshinLin/Script/main/shell/guomang_qb_move.sh | bash
+    curl -s https://script.739999.xyz/shell/guomang_qb_move.sh | bash
     ```
 
 ## Python 脚本
