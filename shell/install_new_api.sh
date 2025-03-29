@@ -26,7 +26,7 @@ mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR" || { echo "无法进入目录 $INSTALL_DIR"; exit 1; }
 
 # 创建 docker-compose.yml 文件
-cat <<EOF > docker-compose.yml
+cat <<'EOF' > docker-compose.yml
 version: '3.4'
 
 services:
@@ -78,6 +78,9 @@ services:
 volumes:
   mysql_data:
 EOF
+
+# 替换 docker-compose.yml 中的 INSTALL_DIR 变量
+sed -i "s|\$INSTALL_DIR|$INSTALL_DIR|g" docker-compose.yml
 
 # 启动 new-api 服务
 docker compose up -d
