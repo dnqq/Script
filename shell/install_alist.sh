@@ -15,7 +15,7 @@
 # ==================================================
 
 # 定义安装目录
-INSTALL_DIR="/app/alist"
+INSTALL_DIR="/root/app/alist"
 
 # 创建安装目录
 mkdir -p "$INSTALL_DIR"

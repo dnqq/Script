@@ -17,7 +17,7 @@
 # ================================================================
 
 # 定义安装目录
-INSTALL_DIR="/app/new-api"
+INSTALL_DIR="/root/app/new-api"
 
 # 创建安装目录
 mkdir -p "$INSTALL_DIR"
@@ -38,8 +38,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/data
-      - ./logs:/app/logs
+      - $INSTALL_DIR/data:/data
+      - $INSTALL_DIR/logs:/app/logs
     environment:
       - SQL_DSN=root:123456@tcp(mysql:3306)/new-api  # Point to the mysql service
       - REDIS_CONN_STRING=redis://redis
