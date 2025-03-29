@@ -14,92 +14,98 @@
 
 ### 文件管理
 1. **delete_empty_folders.sh** - 删除空文件夹
-   ```bash
-   # 指定目标文件夹参数（必须）
-   curl -s https://script.739999.xyz/shell/delete_empty_folders.sh | bash -s /path/to/your/folder
    
-   # 在当前目录运行
+   指定目标文件夹参数（必须）:
+   ```bash
+   curl -s https://script.739999.xyz/shell/delete_empty_folders.sh | bash -s /path/to/your/folder
+   ```
+   
+   在当前目录运行:
+   ```bash
    curl -s https://script.739999.xyz/shell/delete_empty_folders.sh | bash -s .
    ```
 
 2. **clean_empty_dirs.sh** - 清理空目录
    ```bash
-   
    curl -s https://script.739999.xyz/shell/clean_empty_dirs.sh | bash
    ```
 
 3. **find_empty_dirs.sh** - 查找空目录
    ```bash
-   
    curl -s https://script.739999.xyz/shell/find_empty_dirs.sh | bash
    ```
 
 4. **enable_swap.sh** - 启用交换空间
    ```bash
-   
    curl -s https://script.739999.xyz/shell/enable_swap.sh | bash
    ```
 
 ### 备份工具
 5. **upload_backup.sh** - 备份文件夹到 WebDAV
+   
+   所有参数都是必需的：
+   - -u - WebDAV 用户名  
+   - -p - WebDAV 密码  
+   - -f - 待压缩文件夹路径  
+   - -s - 服务器标识，用于构建上传路径  
+   - -d - WebDAV 服务器的 URL  
+   
    ```bash
-   # 所有参数都是必需的：
-   # -u - WebDAV 用户名  
-   # -p - WebDAV 密码  
-   # -f - 待压缩文件夹路径  
-   # -s - 服务器标识，用于构建上传路径  
-   # -d - WebDAV 服务器的 URL  
    curl -s https://script.739999.xyz/shell/upload_backup.sh | bash -s -- -u your_username -p your_password -s your_server_id -d https://dav.com/dav -f /path/to/folder
    ```
 
 ### 网络工具
 6. **iptables_redirect.sh** - iptables 端口转发
+   
+   所有参数都是必需的：
+   - transfer_port - 本地端口  
+   - target_domain_or_ip - 目标服务器域名或 IP（域名会被解析成 IP 后写入规则）  
+   - target_port - 目标服务器端口  
+   
    ```bash
-   # 所有参数都是必需的：
-   # transfer_port - 本地端口  
-   # target_domain_or_ip - 目标服务器域名或 IP（域名会被解析成 IP 后写入规则）  
-   # target_port - 目标服务器端口  
    curl -s https://script.739999.xyz/shell/iptables_redirect.sh | bash -s <transfer_port> <target_domain_or_ip> <target_port>
    ```
 
 7. **iptables_reset.sh** - iptables 清除所有规则
    ```bash
-   
    curl -s https://script.739999.xyz/shell/iptables_reset.sh | bash
    ```
 
 ### Docker 安装工具
 8. **install_docker.sh** - 一键安装 Docker
    ```bash
-   
    curl -s https://script.739999.xyz/shell/install_docker.sh | bash
    ```
 
 ### 应用程序安装脚本
 9. **install_alist.sh** - 一键部署 Alist 文件列表程序
    ```bash
-   
    curl -s https://script.739999.xyz/shell/install_alist.sh | bash
    ```
+   
    服务启动后，将监听以下端口:
    - Web界面: `5244` - 访问地址：http://localhost:5244
 
 10. **install_freshrss.sh** - 一键部署 FreshRSS 阅读器
     ```bash
-    
     curl -s https://script.739999.xyz/shell/install_freshrss.sh | bash
     ```
+    
     服务启动后，将监听以下端口:
     - Web界面: `8080` - 访问地址：http://localhost:8080
 
 11. **install_frpc.sh** - 一键安装 frp 客户端
-    ```bash
-    # 无参数运行，使用最新版本
-    curl -O https://script.739999.xyz/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh
     
-    # 指定版本（可选参数）
+    无参数运行，使用最新版本:
+    ```bash
+    curl -O https://script.739999.xyz/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh
+    ```
+    
+    指定版本（可选参数）:
+    ```bash
     curl -O https://script.739999.xyz/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh 0.61.1
     ```
+    
     安装过程中会要求输入:
     - FRP服务端IP地址
     - FRP服务端认证Token
@@ -110,13 +116,17 @@
     - 密码: 安装过程中随机生成（执行脚本时会显示）
 
 12. **install_frps.sh** - 一键安装 frp 服务端
-    ```bash
-    # 无参数运行，使用最新版本
-    curl -s https://script.739999.xyz/shell/install_frps.sh | bash
     
-    # 指定版本（可选参数）
+    无参数运行，使用最新版本:
+    ```bash
+    curl -s https://script.739999.xyz/shell/install_frps.sh | bash
+    ```
+    
+    指定版本（可选参数）:
+    ```bash
     curl -s https://script.739999.xyz/shell/install_frps.sh | bash -s 0.61.1
     ```
+    
     服务启动后，将监听以下端口:
     - FRP服务端口: `7000`
     - Web管理界面: `7500` - 访问地址：http://localhost:7500
@@ -126,28 +136,32 @@
 
 13. **install_memos.sh** - 一键部署 Memos 笔记应用
     ```bash
-    
     curl -s https://script.739999.xyz/shell/install_memos.sh | bash
     ```
+    
     服务启动后，将监听以下端口:
     - Web界面: `5230` - 访问地址：http://localhost:5230
 
 14. **install_new_api.sh** - 一键部署 new-api 服务
-    ```bash
-    # 方法1：下载后执行
-    curl -O https://script.739999.xyz/shell/install_new_api.sh && chmod +x install_new_api.sh && ./install_new_api.sh
     
-    # 方法2：直接执行
+    方法1：下载后执行
+    ```bash
+    curl -O https://script.739999.xyz/shell/install_new_api.sh && chmod +x install_new_api.sh && ./install_new_api.sh
+    ```
+    
+    方法2：直接执行
+    ```bash
     curl -s https://script.739999.xyz/shell/install_new_api.sh | bash
     ```
+    
     服务启动后，将监听以下端口:
     - Web界面: `3000` - 访问地址：http://localhost:3000
 
 15. **install_nginx_proxy_manager.sh** - 一键部署 nginx_proxy_manager
     ```bash
-    
     curl -s https://script.739999.xyz/shell/install_nginx_proxy_manager.sh | bash
     ```
+    
     服务启动后，将监听以下端口:
     - HTTP: `80`
     - HTTPS: `443`
@@ -158,17 +172,17 @@
 
 16. **install_rsshub.sh** - 一键部署 RSSHub RSS生成器
     ```bash
-    
     curl -s https://script.739999.xyz/shell/install_rsshub.sh | bash
     ```
+    
     服务启动后，将监听以下端口:
     - Web界面: `1200` - 访问地址：http://localhost:1200
 
 17. **install_syncthing.sh** - 一键部署 Syncthing 文件同步工具
     ```bash
-    
     curl -s https://script.739999.xyz/shell/install_syncthing.sh | bash
     ```
+    
     服务启动后，将监听以下端口:
     - Web管理界面: `8384` - 访问地址：http://localhost:8384
     - 数据传输端口: `22000` (TCP/UDP)
@@ -176,14 +190,12 @@
 
 18. **install_tools.sh** - Debian/Ubuntu 一键安装常用工具
     ```bash
-    
     curl -s https://script.739999.xyz/shell/install_tools.sh | bash
     ```
 
 ### 特定用途脚本
 19. **guomang_qb_move.sh** - 国漫 QB 移动脚本
     ```bash
-    
     curl -s https://script.739999.xyz/shell/guomang_qb_move.sh | bash
     ```
 
@@ -197,9 +209,8 @@
    - 按照"艺术家/专辑"目录结构整理音乐文件
    - 标准化文件命名为"艺术家 - 标题"格式
    
-   使用方法：
+   直接运行（需要先修改脚本中的source_folder和destination_folder路径）:
    ```python
-   # 直接运行（需要先修改脚本中的source_folder和destination_folder路径）
    python music_tag_processor.py
    ```
 
@@ -213,13 +224,15 @@
    - 提供一键清除DNS缓存功能
    - 显示当前网络配置状态
    
-   使用方法：
-   ```powershell
-   # 以管理员权限运行
-   # 可能需要先设置执行策略才能运行脚本
-   Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+   以管理员权限运行
    
-   # 然后执行脚本
+   设置执行策略:
+   ```powershell
+   Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+   ```
+   
+   执行脚本:
+   ```powershell
    .\SetNetwork.ps1
    ```
 
