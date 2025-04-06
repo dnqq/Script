@@ -55,8 +55,10 @@ echo "当前工作目录: $(pwd)"
 echo "生成基础配置文件: $INSTALL_DIR/tinyproxy.conf"
 cat <<EOF > tinyproxy.conf
 User nobody
-Group nogroup # 使用 nogroup 更通用，某些基础镜像可能没有 nobody 组
-Port 8888 # 这是容器内部监听的端口
+# 使用 nogroup 更通用，某些基础镜像可能没有 nobody 组
+Group nogroup
+# 这是容器内部监听的端口
+Port 8888
 
 Timeout 600
 DefaultErrorFile "/usr/share/tinyproxy/default.html"
@@ -71,7 +73,8 @@ MaxRequestsPerChild 0
 
 # --- 安全性配置 ---
 # !!! 重要 !!!
-Allow 127.0.0.1       # 始终允许本机访问
+# 始终允许本机访问
+Allow 127.0.0.1
 EOF
 
 # 创建基础 tinyproxy.conf 文件 - 第二部分 (根据传入 IP 添加 Allow)
@@ -82,7 +85,8 @@ if [ -n "$ALLOWED_IP" ]; then
     #     echo "错误：提供的 IP 地址或网段 '$ALLOWED_IP' 格式无效。"
     #     # exit 1 # 如果需要严格验证则退出
     # fi
-    echo "Allow $ALLOWED_IP       # 允许通过脚本参数传入的 IP/网段" >> tinyproxy.conf
+    echo "# 允许通过脚本参数传入的 IP/网段" >> tinyproxy.conf
+    echo "Allow $ALLOWED_IP" >> tinyproxy.conf
     ALLOW_INFO="配置已允许来自本机 (127.0.0.1) 和 ${ALLOWED_IP} 的连接。" # 更新提示信息
 else
     echo "未指定允许的 IP，将仅允许本机 (127.0.0.1) 访问。"
