@@ -25,7 +25,7 @@ INSTALL_DIR="/root/app/tinyproxy"
 # 定义对外暴露的端口
 HOST_PORT="34555"
 # 定义使用的 Docker 镜像 (可以使用特定版本替换 latest)
-DOCKER_IMAGE="dannydirect/tinyproxy:latest"
+DOCKER_IMAGE="ajoergensen/tinyproxy:latest"
 # --- 配置结束 ---
 
 # 获取传入的 IP 参数
