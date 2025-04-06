@@ -64,7 +64,7 @@ Timeout 600
 DefaultErrorFile "/usr/share/tinyproxy/default.html"
 StatFile "/usr/share/tinyproxy/stats.html"
 LogLevel Info
-PidFile "/var/run/tinyproxy/tinyproxy.pid"
+PidFile "/tmp/tinyproxy.pid"
 MaxClients 100
 MinSpareServers 5
 MaxSpareServers 20
