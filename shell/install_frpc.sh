@@ -74,7 +74,7 @@ fi
 echo "使用的 FRP 版本: $FRP_VERSION"
 
 # FRP 客户端安装目录
-FRP_DIR="/root/app/frp_client"
+FRP_DIR="/opt/frp_client"
 # 创建 FRP 目录
 mkdir -p $FRP_DIR  # 创建安装目录
 cd $FRP_DIR        # 进入安装目录
@@ -132,7 +132,7 @@ Type=simple
 User=root
 Restart=on-failure
 RestartSec=5s
-ExecStart=/root/app/frp_client/frpc -c /root/app/frp_client/frpc.toml
+ExecStart=/opt/frp_client/frpc -c /opt/frp_client/frpc.toml
 
 [Install]
 WantedBy=multi-user.target

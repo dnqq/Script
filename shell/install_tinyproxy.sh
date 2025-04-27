@@ -14,14 +14,14 @@
 #      - 仅允许本机访问: sudo ./install_tinyproxy.sh
 #      - 允许特定 IP (例如 192.168.1.100) 访问: sudo ./install_tinyproxy.sh 192.168.1.100
 # 代理地址: <你的服务器IP>:34555
-# 配置及数据存储路径: /root/app/tinyproxy (可修改下面的 INSTALL_DIR)
+# 配置及数据存储路径: /opt/tinyproxy (可修改下面的 INSTALL_DIR)
 # 重要提示: 传入 IP 后，将允许该 IP 和本机 (127.0.0.1) 访问。
 #           如需更复杂的规则，请手动修改 tinyproxy.conf。
 # ==================================================
 
 # --- 可配置变量 ---
 # 定义安装目录 (请确保运行脚本的用户有权限在此路径下创建目录和文件)
-INSTALL_DIR="/root/app/tinyproxy"
+INSTALL_DIR="/opt/tinyproxy"
 # 定义对外暴露的端口
 HOST_PORT="34555"
 # 定义使用的 Docker 镜像 (可以使用特定版本替换 latest)

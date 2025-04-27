@@ -13,7 +13,7 @@
 # ==================================================
 
 # 定义安装目录
-INSTALL_DIR="/root/app/rsshub"
+INSTALL_DIR="/opt/rsshub"
 
 # 创建安装目录
 mkdir -p "$INSTALL_DIR"

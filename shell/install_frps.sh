@@ -84,7 +84,7 @@ fi
 echo "使用的 FRP 版本: $FRP_VERSION"
 
 # FRP 安装目录
-FRP_DIR="/root/app/frp"
+FRP_DIR="/opt/frp"
 # Systemd 服务名称
 FRP_SERVICE="frps.service"
 

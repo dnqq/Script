@@ -3,7 +3,7 @@
 # ==================================================
 # 脚本名称: install_alist.sh
 # 脚本作用: 自动安装并启动 Alist 服务
-#           - 创建 /etc/alist 目录
+#           - 创建 /opt/alist 目录
 #           - 生成 docker-compose.yml 文件
 #           - 启动 Alist 服务
 # 使用方式:
@@ -11,11 +11,11 @@
 #   2. 赋予脚本执行权限: chmod +x install_alist.sh
 #   3. 运行脚本: sudo ./install_alist.sh
 # 访问地址: http://localhost:5244
-# 数据存储路径: /etc/alist
+# 数据存储路径: /opt/alist
 # ==================================================
 
 # 定义安装目录
-INSTALL_DIR="/root/app/alist"
+INSTALL_DIR="/opt/alist"
 
 # 创建安装目录
 mkdir -p "$INSTALL_DIR"

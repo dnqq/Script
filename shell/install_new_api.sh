@@ -12,12 +12,12 @@
 #
 # 安装后：
 #   - 服务访问地址：http://localhost:3000
-#   - 数据存储位置：/app/new-api/data
-#   - 日志存储位置：/app/new-api/logs
+#   - 数据存储位置：/opt/new-api/data
+#   - 日志存储位置：/opt/new-api/logs
 # ================================================================
 
 # 定义安装目录
-INSTALL_DIR="/root/app/new-api"
+INSTALL_DIR="/opt/new-api"
 
 # 创建安装目录
 mkdir -p "$INSTALL_DIR"

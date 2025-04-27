@@ -3,7 +3,7 @@
 # ==================================================
 # 脚本名称: install_freshrss.sh
 # 脚本作用: 自动安装并启动 FreshRSS 服务
-#           - 创建 /root/app/freshrss 目录
+#           - 创建 /opt/freshrss 目录
 #           - 生成 docker-compose.yml 文件
 #           - 启动 FreshRSS 服务
 # 使用方式:
@@ -11,11 +11,11 @@
 #   2. 赋予脚本执行权限: chmod +x install_freshrss.sh
 #   3. 运行脚本: sudo ./install_freshrss.sh
 # 访问地址: http://localhost:8080
-# 数据存储路径: /root/app/freshrss/data
+# 数据存储路径: /opt/freshrss/data
 # ==================================================
 
 # 定义安装目录
-INSTALL_DIR="/root/app/freshrss"
+INSTALL_DIR="/opt/freshrss"
 
 # 创建安装目录
 mkdir -p "$INSTALL_DIR"

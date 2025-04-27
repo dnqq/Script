@@ -22,7 +22,7 @@
 # ========================================================
 
 # 设置项目目录
-PROJECT_DIR="/root/app/syncthing"
+PROJECT_DIR="/opt/syncthing"
 
 # 创建项目目录
 echo "创建目录：$PROJECT_DIR"

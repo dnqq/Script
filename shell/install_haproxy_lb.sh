@@ -22,7 +22,7 @@
 #         sudo ./install_haproxy_lb.sh
 #
 # 启动后的代理入口: <运行HAProxy的服务器IP>:<HAPROXY_HOST_PORT配置的端口> (默认为 5556)
-# 配置及数据存储路径: /root/app/haproxy_lb (可以通过修改下面的 INSTALL_DIR 变量更改)
+# 配置及数据存储路径: /opt/haproxy_lb (可以通过修改下面的 INSTALL_DIR 变量更改)
 #
 # 重要提示:
 #   - 当使用参数启动时，参数必须是逗号分隔的 "IP地址:端口号" 列表，中间不能有空格。
@@ -35,7 +35,7 @@
 # --- Script Configuration Variables ---
 # 定义 HAProxy 相关文件和配置的安装目录
 # 请确保执行此脚本的用户对该路径具有创建目录和文件的权限。
-INSTALL_DIR="/root/app/haproxy_lb"
+INSTALL_DIR="/opt/haproxy_lb"
 # 定义 HAProxy 服务在宿主机上监听的端口号
 # 客户端将通过 <宿主机IP>:<此端口> 来访问负载均衡服务。
 HAPROXY_HOST_PORT="5556"

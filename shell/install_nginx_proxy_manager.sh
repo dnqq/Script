@@ -27,7 +27,7 @@
 # ========================================================
 
 # 设置项目目录
-PROJECT_DIR="/root/app/nginx-proxy-manager"
+PROJECT_DIR="/opt/nginx-proxy-manager"
 
 # 创建项目目录
 echo "创建目录：$PROJECT_DIR"
