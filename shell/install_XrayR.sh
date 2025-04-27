@@ -118,12 +118,12 @@ if [ -z "$CF_TOKEN" ]; then
 fi
 
 # 替换配置文件中的参数
-sed -i "s/{{API_HOST}}/$API_HOST/g" config/config.yml
-sed -i "s/{{API_KEY}}/$API_KEY/g" config/config.yml
-sed -i "s/{{NODE_ID}}/$NODE_ID/g" config/config.yml
-sed -i "s/{{CERT_DOMAIN}}/$CERT_DOMAIN/g" config/config.yml
-sed -i "s/{{EMAIL}}/$EMAIL/g" config/config.yml
-sed -i "s/{{CF_TOKEN}}/$CF_TOKEN/g" config/config.yml
+sed -i "s|{{API_HOST}}|${API_HOST}|g" config/config.yml
+sed -i "s|{{API_KEY}}|${API_KEY}|g" config/config.yml
+sed -i "s|{{NODE_ID}}|${NODE_ID}|g" config/config.yml
+sed -i "s|{{CERT_DOMAIN}}|${CERT_DOMAIN}|g" config/config.yml
+sed -i "s|{{EMAIL}}|${EMAIL}|g" config/config.yml
+sed -i "s|{{CF_TOKEN}}|${CF_TOKEN}|g" config/config.yml
 
 # 启动 XrayR 服务
 docker compose up -d
