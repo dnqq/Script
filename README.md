@@ -35,10 +35,23 @@
    curl -s https://script.739999.xyz/shell/find_empty_dirs.sh | bash
    ```
 
-4. **enable_swap.sh** - 启用交换空间
+4. **enable_swap.sh** - 一键为 Debian 系统创建并启用 Swap 分区
+   
+   默认创建 2G Swap:
    ```bash
    curl -s https://script.739999.xyz/shell/enable_swap.sh | bash
    ```
+   
+   指定 Swap 大小（如 4G）:
+   ```bash
+   curl -s https://script.739999.xyz/shell/enable_swap.sh | bash -s 4
+   ```
+   
+   注意：
+   - 需要 root 权限运行
+   - 如果系统中已存在 Swap 分区，脚本不会重复创建
+   - Swap 文件位置：`/swapfile`
+   - 系统重启后会自动启用
 
 ### 备份工具
 5. **upload_backup.sh** - 备份文件夹到 WebDAV
@@ -193,8 +206,40 @@
     curl -s https://script.739999.xyz/shell/install_tools.sh | bash
     ```
 
+19. **install_vaultwarden.sh** - 一键部署 Vaultwarden 密码管理器
+    ```bash
+    curl -s https://script.739999.xyz/shell/install_vaultwarden.sh | bash
+    ```
+    
+    服务启动后，将监听以下端口:
+    - Web界面: `8687` - 访问地址：http://localhost:8687
+    - 数据存储路径: `/opt/vaultwarden/vw-data`
+    - 管理员Token: 安装时自动生成（请妥善保管，用于访问管理界面）
+
+20. **install_XrayR.sh** - 一键部署 XrayR 代理服务
+    
+    方法1：交互式安装（推荐）
+    ```bash
+    curl -s https://script.739999.xyz/shell/install_XrayR.sh | bash
+    ```
+    
+    方法2：带参数安装
+    ```bash
+    curl -s https://script.739999.xyz/shell/install_XrayR.sh | bash -s -- "api_host" "api_key" "node_id" "cert_domain" "email" "cf_token"
+    ```
+    
+    安装过程中需要提供以下信息：
+    - 面板地址 (ApiHost)
+    - 面板密钥 (ApiKey)
+    - 节点ID (NodeID)
+    - 域名 (CertDomain)
+    - 邮箱 (Email)
+    - Cloudflare API Token
+    
+    配置文件路径：`/opt/XrayR/config/config.yml`
+
 ### 特定用途脚本
-19. **guomang_qb_move.sh** - 国漫 QB 移动脚本
+21. **guomang_qb_move.sh** - 国漫 QB 移动脚本
     ```bash
     curl -s https://script.739999.xyz/shell/guomang_qb_move.sh | bash
     ```
