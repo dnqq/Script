@@ -6,17 +6,20 @@
 # 上传路径格式为：<SERVER_ID>/<YEAR>/<MONTH>/<BACKUP_NAME>。
 # 用户需要提供WebDAV的用户名、密码、服务器标识、WebDAV服务器URL以及待压缩的文件夹路径。
 # 如果系统没有安装curl，脚本会自动安装curl。
-
+# 新增功能：可以根据复杂的保留策略自动清理旧的备份。
+#
 # 输入参数说明：
 # -u USERNAME    WebDAV用户名
 # -p PASSWORD    WebDAV密码
 # -f FOLDER_PATH 待压缩文件夹路径（默认：/root）
 # -s SERVER_ID   服务器标识，用于构建上传路径
 # -d DESTINATION_URL WebDAV服务器的URL
-
+# -c             启用备份清理功能
+#
 # 输出：
 # 脚本会将指定文件夹压缩并上传至WebDAV服务器，并打印出上传的路径和文件名。
-
+# 如果启用了清理功能，脚本还会根据预设策略删除旧的备份。
+#
 # -----------------------------------
 
 # 禁用未定义变量报错
@@ -35,23 +38,44 @@ while getopts "u:p:f:s:d:c" opt; do
         s) SERVER_ID=${OPTARG} ;;      # 服务器标识
         d) DESTINATION_URL=${OPTARG} ;; # WebDAV服务器的URL
         c) CLEANUP=true ;;             # 启用清理
-        \?) echo "Usage: $0 [-u USERNAME] [-p PASSWORD] [-f FOLDER_PATH] [-s SERVER_ID] [-d DESTINATION_URL] [-c]" ;; # 如果参数错误，输出用法
+        \?) echo "用法: $0 [-u USER] [-p PASS] [-f FOLDER] [-s SERVER_ID] [-d URL] [-c]"
+            exit 1 ;;
     esac
 done
 
-# 输出传入的参数，帮助调试
-echo "USER: $USER"
-echo "PASSWORD: $PASSWORD"
-echo "SERVER_ID: $SERVER_ID"
-echo "DESTINATION_URL: $DESTINATION_URL"
-echo "SOURCE_FOLDER: $SOURCE_FOLDER"
-
 # 检查是否提供了 USER、PASSWORD、SERVER_ID 和 DESTINATION_URL
 if [ -z "$USER" ] || [ -z "$PASSWORD" ] || [ -z "$SERVER_ID" ] || [ -z "$DESTINATION_URL" ]; then
-    echo "用户名、密码、服务器标识和WebDAV服务器URL是必需的！"
+    echo "错误：用户名、密码、服务器标识和WebDAV服务器URL是必需的！"
+    echo "用法: $0 -u USER -p PASS -f FOLDER -s SERVER_ID -d URL [-c]"
+    exit 1
+fi
+
+# 输出传入的参数，帮助调试
+echo "--- 参数信息 ---"
+echo "用户名: $USER"
+echo "密码: [已隐藏]"
+echo "服务器标识: $SERVER_ID"
+echo "WebDAV URL: $DESTINATION_URL"
+echo "备份文件夹: $SOURCE_FOLDER"
+echo "启用清理: $CLEANUP"
+echo "----------------"
+
 # -----------------------------------
-# 备份清理功能
+# 辅助函数
 # -----------------------------------
+
+# 函数：URL编码
+# 用于处理路径中的特殊字符，特别是中文
+urlencode() {
+    if command -v python3 &>/dev/null; then
+        python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"
+    elif command -v python &>/dev/null; then
+        python -c 'import sys, urllib; print urllib.quote(sys.argv[1], safe="")' "$1"
+    else
+        echo "警告：未找到python，URL编码可能不完整。尝试使用Perl。"
+        perl -MURI::Escape -e 'print uri_escape($ARGV[0])' "$1"
+    fi
+}
 
 # 函数：清理旧的备份
 # 根据复杂的保留策略删除WebDAV上的旧备份
@@ -59,9 +83,6 @@ if [ -z "$USER" ] || [ -z "$PASSWORD" ] || [ -z "$SERVER_ID" ] || [ -z "$DESTINA
 cleanup_backups() {
     echo "开始清理旧的备份..."
     
-    # 获取当前日期用于计算
-    # date on macOS doesn't support -d, this requires GNU date.
-    # On macOS, you can use `gdate` from `coreutils`.
     if ! date -d "2020-01-01" &>/dev/null; then
         echo "错误：此脚本的清理功能需要 GNU 'date' 命令。"
         echo "在 macOS 上, 请运行 'brew install coreutils' 并使用 'gdate'。"
@@ -69,35 +90,31 @@ cleanup_backups() {
     fi
     
     local current_ts=$(date +%s)
-    
-    # 使用关联数组来跟踪已保留的备份
-    declare -A kept_daily
-    declare -A kept_weekly
-    declare -A kept_monthly
-    declare -A kept_yearly
+    declare -A kept_daily kept_weekly kept_monthly kept_yearly
 
-    echo "正在从 WebDAV 获取备份列表..."
-    # 使用 PROPFIND 递归获取所有文件。深度为 infinity 可能不被所有服务器支持。
-    # 我们将尝试深度为 infinity，如果失败，则需要更复杂的逐级遍历。
-    local all_files_raw=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$DESTINATION_URL/$SERVER_ID/" --header "Depth: infinity" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '\.tar\.gz$')
+    local encoded_server_id=$(urlencode "$SERVER_ID")
+    local list_url="$DESTINATION_URL/$encoded_server_id/"
+    
+    echo "正在从 $list_url 获取备份列表..."
+    
+    # 使用 PROPFIND 递归获取所有文件。
+    # grep -oP 使用Perl兼容正则表达式，需要GNU grep
+    local all_files_raw=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$list_url" --header "Depth: infinity" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '\.tar\.gz$')
 
     if [ -z "$all_files_raw" ]; then
-        echo "在 $DESTINATION_URL/$SERVER_ID/ 未找到备份文件或无法列出文件。"
+        echo "在 $list_url 未找到备份文件或无法列出文件。"
         return
     fi
 
-    # 为了处理文件名中的URL编码（例如空格变为%20），我们需要解码
-    # 这里我们用一个简单的 sed 替换，更复杂的需要一个专门的函数
-    local all_files=$(echo "$all_files_raw" | sed 's/%20/ /g')
+    # 从DESTINATION_URL中提取主机部分 (e.g., https://example.com)
+    local host_url=$(echo "$DESTINATION_URL" | grep -oP 'https?://[^/]+')
 
     # 按文件名反向排序，这样最新的文件会先被处理
-    # 这有助于在“保留第一个”策略中保留最新的那个
-    all_files=$(echo "$all_files" | sort -r)
+    local all_files=$(echo "$all_files_raw" | sort -r)
 
     for full_path in $all_files; do
         local file=$(basename "$full_path")
         
-        # 从文件名中提取日期 YYYYMMDD
         local backup_date_str=$(echo "$file" | grep -oP '(?<=_backup_)[0-9]{8}')
         if [ -z "$backup_date_str" ]; then
             echo "警告: 跳过无法解析日期的文件: $file"
@@ -108,9 +125,9 @@ cleanup_backups() {
         local days_diff=$(((current_ts - backup_ts) / 86400))
 
         local backup_date_ymd=$(date -d "$backup_date_str" +%Y-%m-%d)
-        local year_week=$(date -d "$backup_date_str" +%Y-%U) # 年份-周数
-        local year_month=$(date -d "$backup_date_str" +%Y-%m) # 年份-月份
-        local backup_year=$(date -d "$backup_date_str" +%Y)   # 年份
+        local year_week=$(date -d "$backup_date_str" +%Y-%U)
+        local year_month=$(date -d "$backup_date_str" +%Y-%m)
+        local backup_year=$(date -d "$backup_date_str" +%Y)
 
         # 策略1: 保留最近30天的所有备份
         if [ "$days_diff" -le 30 ]; then
@@ -153,70 +170,64 @@ cleanup_backups() {
         fi
 
         # 如果不符合任何保留策略，则删除
-        # 构造完整的 URL 进行删除
-        local delete_url="$DESTINATION_URL$full_path"
-        echo "删除: $file (URL: $delete_url)"
-        curl -s -u "$USER:$PASSWORD" -X DELETE "$delete_url"
-        # 检查curl的退出码
-        if [ $? -eq 0 ]; then
-            echo "成功删除: $file"
-        else
-            echo "错误: 删除失败: $file"
-        fi
+        local delete_url="$host_url$full_path"
+        echo "删除: $file"
+        curl -s -o /dev/null -w "删除状态: %{http_code}\n" -u "$USER:$PASSWORD" -X DELETE "$delete_url"
     done
     echo "备份清理完成。"
 }
-    exit 1
-fi
+
+# -----------------------------------
+# 主流程
+# -----------------------------------
 
 # 1. 生成备份文件名
-# 备份文件名格式：<SERVER_ID>_<SOURCE_FOLDER>_backup_<DATE>.tar.gz
+echo "1. 生成备份文件名..."
 BACKUP_NAME="${SERVER_ID}_$(basename "$SOURCE_FOLDER")_backup_$(date +'%Y%m%d_%H%M%S').tar.gz"
+echo "备份文件名: $BACKUP_NAME"
 
 # 2. 压缩文件夹
-# 使用 tar 命令将指定的文件夹压缩成一个 tar.gz 文件
+echo "2. 正在压缩文件夹: $SOURCE_FOLDER..."
 tar -czf "$BACKUP_NAME" -C "$(dirname "$SOURCE_FOLDER")" "$(basename "$SOURCE_FOLDER")"
-
-# 3. 检查是否安装了curl命令，如果没有则自动安装
-# 如果 curl 命令未安装，则自动尝试安装 curl
-if ! command -v curl &> /dev/null; then
-    echo "curl未安装，尝试自动安装curl..."
-    
-    # 检测系统类型并安装curl
-    if [ -f /etc/debian_version ]; then
-        # Debian/Ubuntu 系统
-        echo "检测到Debian/Ubuntu系统，正在安装curl..."
-        sudo apt-get update
-        sudo apt-get install -y curl
-# 7. 如果启用了清理功能，则执行清理
-if [ "$CLEANUP" = true ]; then
-    echo "-----------------------------------"
-    cleanup_backups
+if [ $? -ne 0 ]; then
+    echo "错误：压缩文件夹失败。"
+    rm -f "$BACKUP_NAME"
+    exit 1
 fi
+echo "压缩完成。"
+
+# 3. 检查并安装curl
+if ! command -v curl &> /dev/null; then
+    echo "curl未安装，尝试自动安装..."
+    if [ -f /etc/debian_version ]; then
+        sudo apt-get update && sudo apt-get install -y curl
     elif [ -f /etc/redhat-release ]; then
-        # RHEL/CentOS 系统
-        echo "检测到RHEL/CentOS系统，正在安装curl..."
         sudo yum install -y curl
     else
         echo "无法识别系统类型，请手动安装curl。"
+        rm -f "$BACKUP_NAME"
         exit 1
     fi
 fi
 
-# 4. 获取当前年份和月份，构建上传路径
-# 使用当前日期的年份和月份来构建上传路径
+# 4. 构建上传路径
 YEAR=$(date +'%Y')
 MONTH=$(date +'%m')
-UPLOAD_PATH="$SERVER_ID/$YEAR/$MONTH/$BACKUP_NAME"  # 上传路径：<SERVER_ID>/<YEAR>/<MONTH>/<BACKUP_NAME>
+UPLOAD_PATH_ENCODED="$(urlencode "$SERVER_ID")/$YEAR/$MONTH/$(urlencode "$BACKUP_NAME")"
+FULL_DEST_URL="$DESTINATION_URL/$UPLOAD_PATH_ENCODED"
 
-# 5. 使用curl上传文件到WebDAV
-# 通过curl上传压缩后的文件到WebDAV服务器
-echo "上传文件到 WebDAV：$DESTINATION_URL/$UPLOAD_PATH"
-curl -T "$BACKUP_NAME" "$DESTINATION_URL/$UPLOAD_PATH" --user "$USER:$PASSWORD"
+# 5. 上传文件
+echo "3. 正在上传文件到: $FULL_DEST_URL"
+curl -s -o /dev/null -w "上传状态: %{http_code}\n" -T "$BACKUP_NAME" "$FULL_DEST_URL" --user "$USER:$PASSWORD" --ftp-create-dirs
 
-# 6. 删除本地压缩文件（如果不再需要）
-# 上传完成后删除本地的压缩文件，节省磁盘空间
+# 6. 删除本地压缩文件
+echo "4. 删除本地临时文件: $BACKUP_NAME"
 rm -f "$BACKUP_NAME"
 
-# 完成提示
+# 7. 如果启用了清理功能，则执行清理
+if [ "$CLEANUP" = true ]; then
+    echo "5. 开始执行备份清理..."
+    cleanup_backups
+fi
+
 echo "操作完成！"
