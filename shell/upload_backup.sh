@@ -93,23 +93,13 @@ cleanup_backups() {
     
     echo "正在从 $base_url/ 递归获取备份列表..."
     
-    local all_files_raw=""
-    local base_path=$(echo "$base_url" | grep -oP 'https?://[^/]+\K.*')
-    [[ "$base_path" != */ ]] && base_path="$base_path/"
-
-    local year_hrefs=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$base_url/" --header "Depth: 1" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '/$' | grep -v "^$base_path$")
-
-    for year_href in $year_hrefs; do
-        local month_hrefs=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$host_url$year_href" --header "Depth: 1" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '/$' | grep -v "^$year_href$")
-        for month_href in $month_hrefs; do
-            local file_hrefs=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$host_url$month_href" --header "Depth: 1" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '\.tar\.gz$')
-            if [ -n "$file_hrefs" ]; then
-                all_files_raw+="${file_hrefs}"$'\n'
-            fi
-        done
-    done
-
-    all_files_raw=$(echo "$all_files_raw" | sed '/^$/d')
+    # 使用 awk 解析 PROPFIND XML 响应，这种方法比 grep 更健壮
+    # 注意：XML 标签是区分大小写的，使用 D:href
+    # 使用 awk 解析 PROPFIND XML 响应，这种方法比 grep 更健壮
+    # 注意：XML 标签是区分大小写的，使用 D:href
+    local all_files_raw=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$base_url/" --header "Depth: infinity" |
+        awk -F'</?D:href>' '{for (i=2; i<=NF; i+=2) print $i}' |
+        grep '\.tar\.gz$')
 
     if [ -z "$all_files_raw" ]; then
         echo "在 $base_url/ 的子目录中未找到任何备份文件。"
