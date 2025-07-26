@@ -8,16 +8,17 @@ from mutagen.asf import ASF
 from mutagen.wave import WAVE
 from opencc import OpenCC
 
+cc = OpenCC('t2s')
+
 def is_music_file(file_path):
     ext = os.path.splitext(file_path)[1].lower()
-    return ext in {'.mp3', '.wav', '.flac', '.aac', '.ogg', 
+    return ext in {'.mp3', '.wav', '.flac', '.aac', '.ogg',
                    '.m4a', '.wma', '.ape', '.opus'}
 
 def preprocess_tag(tag_value):
     if not tag_value:
         return None
-    processed = tag_value.replace('/', '&')
-    cc = OpenCC('t2s')
+    processed = str(tag_value).replace('/', '&')
     return cc.convert(processed)
 
 def process_music_file(file_path, dest_dir):
@@ -42,27 +43,46 @@ def process_music_file(file_path, dest_dir):
             print(f"Unsupported format: {file_path}")
             return
 
-        # 获取并预处理标签
-        artist = preprocess_tag(audio.get('artist', [''])[0]) if 'artist' in audio else None
-        title = preprocess_tag(audio.get('title', [''])[0]) if 'title' in audio else None
-        album = preprocess_tag(audio.get('album', [''])[0]) if 'album' in audio else None
+        # 遍历并预处理所有标签
+        for key in list(audio.keys()):
+            # ASF, the value is an ASFValue object.
+            if isinstance(audio, ASF):
+                tag = audio[key]
+                if hasattr(tag, 'value') and isinstance(tag.value, str):
+                    audio[key] = preprocess_tag(tag.value)
+                continue
 
-        # 设置默认值
-        artist = artist or 'Unknown Artist'
-        title = title or 'Unknown Title'
-        album = album or 'Unknown Album'
+            # For other formats, values are lists of strings
+            values = audio[key]
+            if isinstance(values, list):
+                processed_values = [preprocess_tag(v) if isinstance(v, str) else v for v in values]
+                audio[key] = processed_values
 
-        # 更新标签
-        audio['artist'] = artist
-        audio['title'] = title
-        audio['album'] = album
+        # 获取用于构建路径的特定标签
+        def get_first_tag(tag_name):
+            value = audio.get(tag_name)
+            if not value:
+                return None
+            if isinstance(value, list):
+                return value[0] if value and isinstance(value[0], str) else None
+            if isinstance(value, str):
+                return value
+            if hasattr(value, 'value') and isinstance(value.value, str):
+                return value.value
+            return None
+
+        artist = get_first_tag('artist') or 'Unknown Artist'
+        title = get_first_tag('title') or 'Unknown Title'
+        album = get_first_tag('album') or 'Unknown Album'
+        albumartist = get_first_tag('albumartist')
 
         # 保存修改到原文件
         audio.save()
 
         # 构建新路径
+        path_artist = albumartist or artist
         new_filename = f"{artist} - {title}{ext}"
-        dest_path = os.path.join(dest_dir, artist, album, new_filename)
+        dest_path = os.path.join(dest_dir, path_artist, album, new_filename)
         os.makedirs(os.path.dirname(dest_path), exist_ok=True)
 
         # 复制文件到新位置
@@ -85,6 +105,6 @@ def process_music_files(source_folder, destination_folder):
             process_music_file(file_path, destination_folder)
 
 if __name__ == "__main__":
-    source_folder = "D:\\KwDownload\\song"
-    destination_folder = "D:\\KwDownload\\song"
+    source_folder = "D:\\ashin\\Desktop\\音乐临时文件夹"
+    destination_folder = "D:\\ashin\\Desktop\\音乐临时文件夹"
     process_music_files(source_folder, destination_folder)

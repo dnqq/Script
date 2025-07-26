@@ -130,18 +130,18 @@ EOF
 if [ ! -f "/etc/systemd/system/$FRP_SERVICE" ]; then
     cat > /etc/systemd/system/$FRP_SERVICE <<EOF
 [Unit]
-Description=Frp Server Service  # 服务描述
-After=network.target            # 在网络服务启动后启动
+Description=Frp Server Service
+After=network.target
 
 [Service]
 Type=simple
-User=root                       # 以 root 用户运行
-Restart=on-failure              # 失败时自动重启
-RestartSec=5s                   # 重启间隔时间
-ExecStart=$FRP_DIR/frps -c $FRP_DIR/frps.toml  # 启动命令
+User=root
+Restart=on-failure
+RestartSec=5s
+ExecStart=$FRP_DIR/frps -c $FRP_DIR/frps.toml
 
 [Install]
-WantedBy=multi-user.target      # 多用户模式下启用
+WantedBy=multi-user.target
 EOF
 fi
 
