@@ -68,18 +68,17 @@ echo "----------------"
 # 用于处理路径中的特殊字符，特别是中文
 urlencode() {
     if command -v python3 &>/dev/null; then
-        python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"
+        python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe="/"))' "$1"
     elif command -v python &>/dev/null; then
-        python -c 'import sys, urllib; print urllib.quote(sys.argv[1], safe="")' "$1"
+        python -c 'import sys, urllib; print urllib.quote(sys.argv[1], safe="/")' "$1"
     else
-        echo "警告：未找到python，URL编码可能不完整。尝试使用Perl。"
-        perl -MURI::Escape -e 'print uri_escape($ARGV[0])' "$1"
+        # Fallback for systems without python, may not be perfect
+        echo "$1" | sed 's/ /%20/g'
     fi
 }
 
 # 函数：清理旧的备份
 # 根据复杂的保留策略删除WebDAV上的旧备份
-# 注意：此功能依赖 GNU date 和 GNU grep。
 cleanup_backups() {
     echo "开始清理旧的备份..."
     
@@ -93,21 +92,50 @@ cleanup_backups() {
     declare -A kept_daily kept_weekly kept_monthly kept_yearly
 
     local encoded_server_id=$(urlencode "$SERVER_ID")
-    local list_url="$DESTINATION_URL/$encoded_server_id/"
+    local base_url="$DESTINATION_URL/$encoded_server_id"
+    local host_url=$(echo "$DESTINATION_URL" | grep -oP 'https?://[^/]+')
     
-    echo "正在从 $list_url 获取备份列表..."
+    echo "正在从 $base_url/ 递归获取备份列表..."
     
-    # 使用 PROPFIND 递归获取所有文件。
-    # grep -oP 使用Perl兼容正则表达式，需要GNU grep
-    local all_files_raw=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$list_url" --header "Depth: infinity" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '\.tar\.gz$')
+    # 手动遍历 YEAR/MONTH 目录，以提高兼容性
+    local all_files_raw=""
+    
+    # 获取 base_url 的路径部分 (例如 /dav/server_id)
+    local base_path=$(echo "$base_url" | grep -oP 'https?://[^/]+\K.*')
+    [[ "$base_path" != */ ]] && base_path="$base_path/"
+
+    # 1. 列出年份目录
+    local year_hrefs=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$base_url/" --header "Depth: 1" \
+        | grep -oP '(?<=<d:href>).*(?=</d:href>)' \
+        | grep '/$' \
+        | grep -v "^$base_path$")
+
+    for year_href in $year_hrefs; do
+        # 2. 列出月份目录
+        local month_hrefs=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$host_url$year_href" --header "Depth: 1" \
+            | grep -oP '(?<=<d:href>).*(?=</d:href>)' \
+            | grep '/$' \
+            | grep -v "^$year_href$")
+
+        for month_href in $month_hrefs; do
+            # 3. 列出备份文件
+            local file_hrefs=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$host_url$month_href" --header "Depth: 1" \
+                | grep -oP '(?<=<d:href>).*(?=</d:href>)' \
+                | grep '\.tar\.gz$')
+            
+            if [ -n "$file_hrefs" ]; then
+                all_files_raw+="${file_hrefs}"$'\n'
+            fi
+        done
+    done
+
+    # 清理潜在的空行
+    all_files_raw=$(echo "$all_files_raw" | sed '/^$/d')
 
     if [ -z "$all_files_raw" ]; then
-        echo "在 $list_url 未找到备份文件或无法列出文件。"
+        echo "在 $base_url/ 的子目录中未找到任何备份文件。"
         return
     fi
-
-    # 从DESTINATION_URL中提取主机部分 (e.g., https://example.com)
-    local host_url=$(echo "$DESTINATION_URL" | grep -oP 'https?://[^/]+')
 
     # 按文件名反向排序，这样最新的文件会先被处理
     local all_files=$(echo "$all_files_raw" | sort -r)
