@@ -75,14 +75,12 @@ urlencode() {
     fi
 }
 
-# 函数：清理旧的备份 (调试模式)
+# 函数：清理旧的备份
 cleanup_backups() {
-    echo "--- 进入备份清理函数 (调试模式) ---"
-    set -x # 启用详细命令追踪
-
+    echo "开始清理旧的备份..."
+    
     if ! date -d "2020-01-01" &>/dev/null; then
         echo "错误：此脚本的清理功能需要 GNU 'date' 命令。"
-        set +x
         return 1
     fi
     
@@ -92,75 +90,43 @@ cleanup_backups() {
     local encoded_server_id=$(urlencode "$SERVER_ID")
     local base_url="$DESTINATION_URL/$encoded_server_id"
     local host_url=$(echo "$DESTINATION_URL" | grep -oP 'https?://[^/]+')
-    local base_path=$(echo "$base_url" | grep -oP 'https?://[^/]+\K.*')
-    [[ "$base_path" != */ ]] && base_path="$base_path/"
     
-    echo "--- 开始递归获取备份列表 ---"
+    echo "正在从 $base_url/ 递归获取备份列表..."
     
     local all_files_raw=""
-    
-    # 1. 列出年份目录
-    local year_hrefs_xml=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$base_url/" --header "Depth: 1")
-    echo "--- [DEBUG] PROPFIND 年份目录的原始XML响应 ---"
-    echo "$year_hrefs_xml"
-    echo "-------------------------------------------"
-    
-    local year_hrefs=$(echo "$year_hrefs_xml" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '/$' | grep -v "^$base_path$")
-    echo "--- [DEBUG] 解析出的年份目录 ---"
-    echo "$year_hrefs"
-    echo "--------------------------------"
+    local base_path=$(echo "$base_url" | grep -oP 'https?://[^/]+\K.*')
+    [[ "$base_path" != */ ]] && base_path="$base_path/"
+
+    local year_hrefs=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$base_url/" --header "Depth: 1" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '/$' | grep -v "^$base_path$")
 
     for year_href in $year_hrefs; do
-        # 2. 列出月份目录
-        local month_hrefs_xml=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$host_url$year_href" --header "Depth: 1")
-        echo "--- [DEBUG] PROPFIND 月份目录的原始XML响应 ($year_href) ---"
-        echo "$month_hrefs_xml"
-        echo "-------------------------------------------------------"
-
-        local month_hrefs=$(echo "$month_hrefs_xml" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '/$' | grep -v "^$year_href$")
-        echo "--- [DEBUG] 解析出的月份目录 ---"
-        echo "$month_hrefs"
-        echo "--------------------------------"
-
+        local month_hrefs=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$host_url$year_href" --header "Depth: 1" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '/$' | grep -v "^$year_href$")
         for month_href in $month_hrefs; do
-            # 3. 列出备份文件
-            local file_hrefs_xml=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$host_url$month_href" --header "Depth: 1")
-            echo "--- [DEBUG] PROPFIND 文件的原始XML响应 ($month_href) ---"
-            echo "$file_hrefs_xml"
-            echo "----------------------------------------------------"
-
-            local file_hrefs=$(echo "$file_hrefs_xml" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '\.tar\.gz$')
-            echo "--- [DEBUG] 解析出的文件 ---"
-            echo "$file_hrefs"
-            echo "----------------------------"
-            
+            local file_hrefs=$(curl -s -u "$USER:$PASSWORD" -X PROPFIND "$host_url$month_href" --header "Depth: 1" | grep -oP '(?<=<d:href>).*(?=</d:href>)' | grep '\.tar\.gz$')
             if [ -n "$file_hrefs" ]; then
                 all_files_raw+="${file_hrefs}"$'\n'
             fi
         done
     done
 
-    set +x # 禁用详细命令追踪
-    echo "--- 结束递归获取备份列表 ---"
-
     all_files_raw=$(echo "$all_files_raw" | sed '/^$/d')
 
     if [ -z "$all_files_raw" ]; then
         echo "在 $base_url/ 的子目录中未找到任何备份文件。"
-        echo "--- 退出备份清理函数 ---"
         return
     fi
-
-    echo "--- 找到的所有备份文件 ---"
-    echo "$all_files_raw"
-    echo "--------------------------"
 
     local all_files=$(echo "$all_files_raw" | sort -r)
 
     for full_path in $all_files; do
         local file=$(basename "$full_path")
         local backup_date_str=$(echo "$file" | grep -oP '(?<=_backup_)[0-9]{8}')
-        if [ -z "$backup_date_str" ]; continue; fi
+        
+        if [ -z "$backup_date_str" ]; then
+            echo "警告: 跳过无法解析日期的文件: $file"
+            continue
+        fi
+
         local backup_ts=$(date -d "$backup_date_str" +%s)
         local days_diff=$(((current_ts - backup_ts) / 86400))
         local backup_date_ymd=$(date -d "$backup_date_str" +%Y-%m-%d)
@@ -168,17 +134,46 @@ cleanup_backups() {
         local year_month=$(date -d "$backup_date_str" +%Y-%m)
         local backup_year=$(date -d "$backup_date_str" +%Y)
 
-        if [ "$days_diff" -le 30 ]; then echo "保留 (30天内): $file"; continue; fi
-        if [ "$days_diff" -le 90 ]; then if [ -z "${kept_daily[$backup_date_ymd]}" ]; then echo "保留 (90天内每天一份): $file"; kept_daily[$backup_date_ymd]=1; continue; fi; fi
-        if [ "$days_diff" -le 180 ]; then if [ -z "${kept_weekly[$year_week]}" ]; then echo "保留 (180天内每周一份): $file"; kept_weekly[$year_week]=1; continue; fi; fi
-        if [ "$days_diff" -le 1095 ]; then if [ -z "${kept_monthly[$year_month]}" ]; then echo "保留 (3年内每月一份): $file"; kept_monthly[$year_month]=1; continue; fi; fi
-        if [ -z "${kept_yearly[$backup_year]}" ]; then echo "保留 (每年一份): $file"; kept_yearly[$backup_year]=1; continue; fi
+        if [ "$days_diff" -le 30 ]; then
+            echo "保留 (30天内): $file"
+            continue
+        fi
+
+        if [ "$days_diff" -le 90 ]; then
+            if [ -z "${kept_daily[$backup_date_ymd]}" ]; then
+                echo "保留 (90天内每天一份): $file"
+                kept_daily[$backup_date_ymd]=1
+                continue
+            fi
+        fi
+
+        if [ "$days_diff" -le 180 ]; then
+            if [ -z "${kept_weekly[$year_week]}" ]; then
+                echo "保留 (180天内每周一份): $file"
+                kept_weekly[$year_week]=1
+                continue
+            fi
+        fi
+
+        if [ "$days_diff" -le 1095 ]; then
+            if [ -z "${kept_monthly[$year_month]}" ]; then
+                echo "保留 (3年内每月一份): $file"
+                kept_monthly[$year_month]=1
+                continue
+            fi
+        fi
+        
+        if [ -z "${kept_yearly[$backup_year]}" ]; then
+            echo "保留 (每年一份): $file"
+            kept_yearly[$backup_year]=1
+            continue
+        fi
 
         local delete_url="$host_url$full_path"
         echo "删除: $file"
         curl -s -o /dev/null -w "删除状态: %{http_code}\n" -u "$USER:$PASSWORD" -X DELETE "$delete_url"
     done
-    echo "--- 备份清理完成 ---"
+    echo "备份清理完成。"
 }
 
 # -----------------------------------
