@@ -26,7 +26,7 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 # 2. 检查 iptables-persistent 是否安装
-if ! which iptables-persistent >/dev/null 2>&1; then
+if ! which netfilter-persistent >/dev/null 2>&1; then
     echo "--------------------------------------------------------------------"
     echo "错误: 核心依赖 'iptables-persistent' 未安装。"
     echo "此工具用于在系统重启后自动加载 iptables 规则。"
