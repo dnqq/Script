@@ -1,21 +1,46 @@
 #!/bin/bash
 
-# 脚本名称: iptables_redirect.sh
-# 脚本效果: 通过 iptables 设置端口转发规则，将外部请求通过指定的中转端口转发到目标服务器的指定端口。
-#          支持目标为域名或 IP 地址。如果传入的是域名，脚本会解析域名为 IP 地址。
-#          所有的规则将保存到 /etc/iptables.up.rules，重启后保持生效。
-# 
-# 使用方式:
-#   ./iptables_redirect.sh <transfer_port> <target_domain_or_ip> <target_port>
+# 脚本名称: iptables_redirect_safe.sh
+# 脚本效果: 安全地设置 iptables 端口转发，并使用 iptables-persistent 实现规则持久化。
 #
-# 参数说明:
-#   <transfer_port>    - 中转端口，外部访问的端口
-#   <target_domain_or_ip> - 目标服务器的域名或 IP 地址
-#   <target_port>      - 目标服务器的端口
+# 特性:
+#   1. 自动检查并提示安装 iptables-persistent。
+#   2. 在保存新规则前，自动备份现有的持久化规则文件，确保万无一失。
+#   3. 支持目标为域名或 IP 地址。
+#   4. 需要以 root 权限运行。
+#
+# 使用方式:
+#   sudo ./iptables_redirect_safe.sh <transfer_port> <target_domain_or_ip> <target_port>
 #
 # 示例:
-#   ./iptables_redirect.sh 34002 example.com 34001
-#   这将把 34002 端口的请求转发到 example.com 的 34001 端口。
+#   sudo ./iptables_redirect_safe.sh 34002 example.com 34001
+#   这将把发往本机 34002 端口的 TCP 请求，转发到 example.com 的 34001 端口。
+
+# --- 安全检查 ---
+
+# 1. 检查是否以 root 权限运行
+if [ "$(id -u)" != "0" ]; then
+   echo "错误: 此脚本需要以 root 权限运行。"
+   echo "请尝试使用: sudo $0 $*"
+   exit 1
+fi
+
+# 2. 检查 iptables-persistent 是否安装
+if ! which iptables-persistent >/dev/null 2>&1; then
+    echo "--------------------------------------------------------------------"
+    echo "错误: 核心依赖 'iptables-persistent' 未安装。"
+    echo "此工具用于在系统重启后自动加载 iptables 规则。"
+    echo ""
+    echo "请运行以下命令进行安装:"
+    echo "  sudo apt update"
+    echo "  sudo apt install iptables-persistent"
+    echo ""
+    echo "在安装过程中，当被问及是否保存当前规则时，请选择 <Yes>。"
+    echo "--------------------------------------------------------------------"
+    exit 1
+fi
+
+# --- 参数处理 ---
 
 # 获取传入的参数
 TRANSFER_PORT=$1
@@ -24,43 +49,70 @@ TARGET_PORT=$3
 
 # 判断是否传入了所有必需的参数
 if [ -z "$TRANSFER_PORT" ] || [ -z "$TARGET" ] || [ -z "$TARGET_PORT" ]; then
-    # 如果有参数缺失，输出使用说明并退出脚本
-    echo "Usage: $0 <transfer_port> <target> <target_port>"
+    echo "用法: sudo $0 <中转端口> <目标域名或IP> <目标端口>"
+    echo "示例: sudo $0 34002 example.com 34001"
     exit 1
 fi
 
+# --- 域名解析 ---
+
 # 判断目标是域名还是 IP 地址
 if [[ "$TARGET" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    # 如果是 IP 地址，直接使用
     TARGET_IP=$TARGET
 else
-    # 如果是域名，解析成 IP 地址
-    TARGET_IP=$(dig +short $TARGET)
+    # 使用 dig 解析域名，优先获取 A 记录
+    TARGET_IP=$(dig +short A "$TARGET" | head -n 1)
 
-    # 检查域名解析是否成功
     if [ -z "$TARGET_IP" ]; then
-        # 如果解析失败，输出错误信息并退出脚本
-        echo "Error: Unable to resolve domain name $TARGET"
+        echo "错误: 无法将域名 '$TARGET' 解析为 IP 地址。"
         exit 1
     fi
+     echo "--> 域名 '$TARGET' 已成功解析为 IP: $TARGET_IP"
 fi
 
-# 打印正在操作的规则，方便调试和确认
-echo "Setting up port forwarding: $TRANSFER_PORT -> $TARGET_IP:$TARGET_PORT"
+# --- 核心操作 ---
 
-# 删除可能已存在的原有规则（清理旧的 NAT 规则）
-iptables -t nat -D PREROUTING -p tcp --dport $TRANSFER_PORT -j DNAT --to-destination $TARGET_IP:$TARGET_PORT
-iptables -t nat -D POSTROUTING -p tcp -d $TARGET_IP --dport $TARGET_PORT -j MASQUERADE
+echo "--> 准备设置端口转发: 本机端口 $TRANSFER_PORT -> $TARGET_IP:$TARGET_PORT"
 
-# 添加新的规则：PREROUTING 链用于将外部请求转发到目标服务器的指定端口
-iptables -t nat -A PREROUTING -p tcp --dport $TRANSFER_PORT -j DNAT --to-destination $TARGET_IP:$TARGET_PORT
+# 为防止重复添加，先尝试删除可能已存在的相同规则
+# 使用 -C 检查规则是否存在，如果存在再删除，避免不必要的错误提示
+iptables -t nat -C PREROUTING -p tcp --dport "$TRANSFER_PORT" -j DNAT --to-destination "$TARGET_IP:$TARGET_PORT" >/dev/null 2>&1 && \
+    iptables -t nat -D PREROUTING -p tcp --dport "$TRANSFER_PORT" -j DNAT --to-destination "$TARGET_IP:$TARGET_PORT"
+iptables -t nat -C POSTROUTING -p tcp -d "$TARGET_IP" --dport "$TARGET_PORT" -j MASQUERADE >/dev/null 2>&1 && \
+    iptables -t nat -D POSTROUTING -p tcp -d "$TARGET_IP" --dport "$TARGET_PORT" -j MASQUERADE
 
-# 添加新的规则：POSTROUTING 链用于修改发往目标服务器的请求，确保源地址保持一致
-iptables -t nat -A POSTROUTING -p tcp -d $TARGET_IP --dport $TARGET_PORT -j MASQUERADE
+# 添加新的转发规则
+iptables -t nat -A PREROUTING -p tcp --dport "$TRANSFER_PORT" -j DNAT --to-destination "$TARGET_IP:$TARGET_PORT"
+iptables -t nat -A POSTROUTING -p tcp -d "$TARGET_IP" --dport "$TARGET_PORT" -j MASQUERADE
 
-# 保存规则到配置文件（用于重启后保持规则）
-iptables-save > /etc/iptables.up.rules
-iptables-restore < /etc/iptables.up.rules
+echo "--> 新规则已成功应用到当前系统内存。"
 
-# 输出成功信息
-echo "Port forwarding setup complete: $TRANSFER_PORT -> $TARGET_IP:$TARGET_PORT"
+# --- 持久化操作 (关键部分) ---
+
+# 定义规则文件路径
+RULES_FILE_V4="/etc/iptables/rules.v4"
+
+# 1. 自动备份现有规则，确保万无一失
+if [ -f "$RULES_FILE_V4" ]; then
+    BACKUP_FILE="${RULES_FILE_V4}.bak_$(date +%Y%m%d_%H%M%S)"
+    echo "--> 发现现有规则文件，正在备份到: $BACKUP_FILE"
+    cp "$RULES_FILE_V4" "$BACKUP_FILE"
+else
+    echo "--> 未发现现有规则文件，将直接创建新文件。"
+fi
+
+# 2. 保存当前所有生效的 IPv4 规则（包括刚才添加的新规则和所有已存在的旧规则）
+echo "--> 正在将当前所有 IPv4 规则保存到 $RULES_FILE_V4..."
+iptables-save > "$RULES_FILE_V4"
+
+# --- 完成 ---
+echo "--------------------------------------------------------"
+echo "✅ 操作成功！"
+echo ""
+echo "  转发规则: 本机端口 $TRANSFER_PORT -> $TARGET_IP:$TARGET_PORT"
+echo "  所有规则已保存，系统重启后将自动生效。"
+echo "  如果出现问题，您可以使用备份文件恢复: $BACKUP_FILE"
+echo "--------------------------------------------------------"
+
+exit 0
+
