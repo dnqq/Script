@@ -11,9 +11,10 @@
 # 输入参数说明：
 # -u USERNAME    WebDAV用户名
 # -p PASSWORD    WebDAV密码
-# -f FOLDER_PATH 待压缩文件夹路径（默认：/root）
+# -f FOLDER_PATH 待压缩文件夹路径 (可多次使用, 默认: /root)
 # -s SERVER_ID   服务器标识，用于构建上传路径
 # -d DESTINATION_URL WebDAV服务器的URL
+# -e EXCLUDE_PATH 要排除的子文件夹 (可多次使用)
 # -c             启用备份清理功能
 #
 # 输出：
@@ -26,19 +27,21 @@
 set +u
 
 # 设置默认值
-SOURCE_FOLDER="/root"   # 默认为 /root 文件夹
+SOURCE_FOLDERS=()       # 待压缩文件夹路径数组
+EXCLUDE_PATHS=()        # 要排除的文件夹路径数组
 CLEANUP=false           # 默认不启用清理功能
 
 # 解析输入的参数
-while getopts "u:p:f:s:d:c" opt; do
+while getopts "u:p:f:s:d:e:c" opt; do
     case ${opt} in
-        u) USER=${OPTARG} ;;          # WebDAV用户名
-        p) PASSWORD=${OPTARG} ;;      # WebDAV密码
-        f) SOURCE_FOLDER=${OPTARG} ;;  # 待压缩文件夹路径
-        s) SERVER_ID=${OPTARG} ;;      # 服务器标识
-        d) DESTINATION_URL=${OPTARG} ;; # WebDAV服务器的URL
-        c) CLEANUP=true ;;             # 启用清理
-        \?) echo "用法: $0 [-u USER] [-p PASS] [-f FOLDER] [-s SERVER_ID] [-d URL] [-c]"
+        u) USER=${OPTARG} ;;                # WebDAV用户名
+        p) PASSWORD=${OPTARG} ;;            # WebDAV密码
+        f) SOURCE_FOLDERS+=("$OPTARG") ;;    # 待压缩文件夹路径
+        s) SERVER_ID=${OPTARG} ;;            # 服务器标识
+        d) DESTINATION_URL=${OPTARG} ;;       # WebDAV服务器的URL
+        e) EXCLUDE_PATHS+=("$OPTARG") ;;     # 要排除的文件夹
+        c) CLEANUP=true ;;                   # 启用清理
+        \?) echo "用法: $0 -u USER -p PASS -s SERVER_ID -d URL [-f FOLDER] [-e EXCLUDE] [-c]"
             exit 1 ;;
     esac
 done
@@ -46,8 +49,13 @@ done
 # 检查是否提供了 USER、PASSWORD、SERVER_ID 和 DESTINATION_URL
 if [ -z "$USER" ] || [ -z "$PASSWORD" ] || [ -z "$SERVER_ID" ] || [ -z "$DESTINATION_URL" ]; then
     echo "错误：用户名、密码、服务器标识和WebDAV服务器URL是必需的！"
-    echo "用法: $0 -u USER -p PASS -f FOLDER -s SERVER_ID -d URL [-c]"
+    echo "用法: $0 -u USER -p PASS -s SERVER_ID -d URL [-f FOLDER] [-e EXCLUDE] [-c]"
     exit 1
+fi
+
+# 如果没有通过 -f 提供文件夹，则使用默认值
+if [ ${#SOURCE_FOLDERS[@]} -eq 0 ]; then
+    SOURCE_FOLDERS=("/root")
 fi
 
 # 输出传入的参数，帮助调试
@@ -56,7 +64,8 @@ echo "用户名: $USER"
 echo "密码: [已隐藏]"
 echo "服务器标识: $SERVER_ID"
 echo "WebDAV URL: $DESTINATION_URL"
-echo "备份文件夹: $SOURCE_FOLDER"
+echo "备份文件夹: ${SOURCE_FOLDERS[@]}"
+echo "排除的文件夹: ${EXCLUDE_PATHS[@]}"
 echo "启用清理: $CLEANUP"
 echo "----------------"
 
@@ -170,32 +179,57 @@ cleanup_backups() {
 # 主流程
 # -----------------------------------
 
-echo "1. 生成备份文件名..."
-BACKUP_NAME="${SERVER_ID}_$(basename "$SOURCE_FOLDER")_backup_$(date +'%Y%m%d_%H%M%S').tar.gz"
-echo "备份文件名: $BACKUP_NAME"
-
-echo "2. 正在压缩文件夹: $SOURCE_FOLDER..."
-tar -czf "$BACKUP_NAME" -C "$(dirname "$SOURCE_FOLDER")" "$(basename "$SOURCE_FOLDER")"
-if [ $? -ne 0 ]; then echo "错误：压缩文件夹失败。"; rm -f "$BACKUP_NAME"; exit 1; fi
-echo "压缩完成。"
-
+# 检查 curl 是否安装
 if ! command -v curl &> /dev/null; then
     echo "curl未安装，尝试自动安装..."
     if [ -f /etc/debian_version ]; then sudo apt-get update && sudo apt-get install -y curl
     elif [ -f /etc/redhat-release ]; then sudo yum install -y curl
-    else echo "无法识别系统类型，请手动安装curl。"; rm -f "$BACKUP_NAME"; exit 1; fi
+    else echo "无法识别系统类型，请手动安装curl。"; exit 1; fi
 fi
 
-YEAR=$(date +'%Y')
-MONTH=$(date +'%m')
-UPLOAD_PATH_ENCODED="$(urlencode "$SERVER_ID")/$YEAR/$MONTH/$(urlencode "$BACKUP_NAME")"
-FULL_DEST_URL="$DESTINATION_URL/$UPLOAD_PATH_ENCODED"
+# 构建排除参数
+EXCLUDE_OPTS=()
+for path in "${EXCLUDE_PATHS[@]}"; do
+    EXCLUDE_OPTS+=(--exclude="$path")
+done
 
-echo "3. 正在上传文件到: $FULL_DEST_URL"
-curl -s -o /dev/null -w "上传状态: %{http_code}\n" -T "$BACKUP_NAME" "$FULL_DEST_URL" --user "$USER:$PASSWORD" --ftp-create-dirs
+# 遍历所有源文件夹进行备份
+for SOURCE_FOLDER in "${SOURCE_FOLDERS[@]}"; do
+    if [ ! -d "$SOURCE_FOLDER" ]; then
+        echo "警告: 文件夹 '$SOURCE_FOLDER' 不存在，跳过。"
+        continue
+    fi
+    
+    echo ""
+    echo "--- 开始处理文件夹: $SOURCE_FOLDER ---"
 
-echo "4. 删除本地临时文件: $BACKUP_NAME"
-rm -f "$BACKUP_NAME"
+    echo "1. 生成备份文件名..."
+    BACKUP_NAME="${SERVER_ID}_$(basename "$SOURCE_FOLDER")_backup_$(date +'%Y%m%d_%H%M%S').tar.gz"
+    echo "备份文件名: $BACKUP_NAME"
+
+    echo "2. 正在压缩文件夹: $SOURCE_FOLDER..."
+    # 使用数组来安全地传递 tar 参数，以防路径中包含空格
+    tar -czf "$BACKUP_NAME" "${EXCLUDE_OPTS[@]}" -C "$(dirname "$SOURCE_FOLDER")" "$(basename "$SOURCE_FOLDER")"
+    if [ $? -ne 0 ]; then
+        echo "错误：压缩文件夹 '$SOURCE_FOLDER' 失败。"
+        rm -f "$BACKUP_NAME"
+        continue # 继续处理下一个文件夹
+    fi
+    echo "压缩完成。"
+
+    YEAR=$(date +'%Y')
+    MONTH=$(date +'%m')
+    UPLOAD_PATH_ENCODED="$(urlencode "$SERVER_ID")/$YEAR/$MONTH/$(urlencode "$BACKUP_NAME")"
+    FULL_DEST_URL="$DESTINATION_URL/$UPLOAD_PATH_ENCODED"
+
+    echo "3. 正在上传文件到: $FULL_DEST_URL"
+    curl -s -o /dev/null -w "上传状态: %{http_code}\n" -T "$BACKUP_NAME" "$FULL_DEST_URL" --user "$USER:$PASSWORD" --ftp-create-dirs
+
+    echo "4. 删除本地临时文件: $BACKUP_NAME"
+    rm -f "$BACKUP_NAME"
+    
+    echo "--- 完成处理文件夹: $SOURCE_FOLDER ---"
+done
 
 if [ "$CLEANUP" = true ]; then
     echo "5. 开始执行备份清理..."
