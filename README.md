@@ -258,10 +258,77 @@
     配置文件路径：`/opt/XrayR/config/config.yml`
 
 ### 特定用途脚本
-21. **guomang_qb_move.sh** - 国漫 QB 移动脚本
-    ```bash
-    curl -s https://script.739999.xyz/shell/guomang_qb_move.sh | bash
-    ```
+21. **qb_move_guomang.sh** - 国漫整理与移动脚本
+
+    该脚本专门用于整理从 qBittorrent 下载的国漫视频文件，并将其移动到指定的媒体库目录（如 OneDrive）。
+
+    - **核心功能**:
+      - 扫描源目录中的视频文件（排除 `.!qB` 临时文件）。
+      - **智能解析文件名**: 从 `[GM-Team][国漫][电视剧名称][...][集号][...][分辨率].mp4` 格式的文件名中自动提取电视剧名称、集号和分辨率。
+      - **自动季号处理**: 如果剧集名称中包含 "第X季"，会自动提取季号。
+      - **标准化重命名**: 将文件重命名为 `电视剧名称 - SXXEXX - 分辨率.mp4` 的标准格式。
+      - **创建目录结构**: 在目标路径下，按 `电视剧名称/Season XX/` 的结构创建文件夹。
+      - 自动清理处理后留下的空文件夹。
+
+    - **默认目录**:
+      - 源目录: `/opt/1panel/apps/qbittorrent/qbittorrent/data`
+      - 目标目录: `/od_shipin/media/国漫`
+
+    - **基础用法** (使用默认目录):
+      ```bash
+      curl -s https://script.739999.xyz/shell/qb_move_guomang.sh | bash
+      ```
+
+    - **自定义目录用法**:
+      ```bash
+      curl -s https://script.739999.xyz/shell/qb_move_guomang.sh | bash -s "/path/to/source" "/path/to/target"
+      ```
+
+22. **qb_move_movies.sh** - 移动电影文件
+
+    该脚本用于将指定目录下的电影文件移动到目标目录。
+
+    - **功能**:
+      - 扫描源目录中的所有文件（排除 `.!qB` 临时文件）。
+      - 直接将文件移动到目标目录，不进行重命名。
+      - 删除处理后留下的空文件夹。
+
+    - **默认目录**:
+      - 源目录: `/qBittorrent/complete/电影`
+      - 目标目录: `/media/电影`
+
+    - **基础用法**:
+      ```bash
+      curl -s https://script.739999.xyz/shell/qb_move_movies.sh | bash
+      ```
+
+    - **自定义目录用法**:
+      ```bash
+      curl -s https://script.739999.xyz/shell/qb_move_movies.sh | bash -s "/path/to/source" "/path/to/target"
+      ```
+
+23. **qb_move_tv_shows.sh** - 移动电视剧文件
+
+    该脚本用于将指定目录下的电视剧文件移动到目标目录。
+
+    - **功能**:
+      - 扫描源目录中的所有文件（排除 `.!qB` 临时文件）。
+      - 直接将文件移动到目标目录，不进行重命名。
+      - 删除处理后留下的空文件夹。
+
+    - **默认目录**:
+      - 源目录: `/qBittorrent/complete/电视剧`
+      - 目标目录: `/media/电视剧`
+
+    - **基础用法**:
+      ```bash
+      curl -s https://script.739999.xyz/shell/qb_move_tv_shows.sh | bash
+      ```
+
+    - **自定义目录用法**:
+      ```bash
+      curl -s https://script.739999.xyz/shell/qb_move_tv_shows.sh | bash -s "/path/to/source" "/path/to/target"
+      ```
 
 ## Python 脚本
 
