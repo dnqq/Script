@@ -14,7 +14,7 @@
 # -f FOLDER_PATH 待压缩文件夹路径 (可多次使用, 默认: /root)
 # -s SERVER_ID   服务器标识，用于构建上传路径
 # -d DESTINATION_URL WebDAV服务器的URL
-# -e EXCLUDE_PATH 要排除的子文件夹 (可多次使用)
+# -e EXCLUDE_PATH 要排除的子文件夹 (可多次使用, 是相对于备份文件夹的相对路径模式, 如 'node_modules' 或 '*.log')
 # -c             启用备份清理功能
 #
 # 输出：
