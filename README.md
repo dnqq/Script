@@ -56,15 +56,34 @@
 ### 备份工具
 5. **upload_backup.sh** - 备份文件夹到 WebDAV
    
-   所有参数都是必需的：
-   - -u - WebDAV 用户名  
-   - -p - WebDAV 密码  
-   - -f - 待压缩文件夹路径  
-   - -s - 服务器标识，用于构建上传路径  
-   - -d - WebDAV 服务器的 URL  
+   功能强大的备份脚本，支持多文件夹备份、文件排除和自动清理远程旧备份。
+
+   **参数说明:**
+   - `-u` - WebDAV 用户名 (必需)
+   - `-p` - WebDAV 密码 (必需)
+   - `-s` - 服务器标识，用于构建上传路径 (必需)
+   - `-d` - WebDAV 服务器的 URL (必需)
+   - `-f` - 待压缩的文件夹路径 (可选, 可多次使用, 默认: /root)
+   - `-e` - 要排除的子文件夹或文件模式 (可选, 可多次使用, 相对路径)
+   - `-c` - 启用远程备份自动清理功能 (可选)
    
+   **基础用法:**
    ```bash
    curl -s https://script.739999.xyz/shell/upload_backup.sh | bash -s -- -u your_username -p your_password -s your_server_id -d https://dav.com/dav -f /path/to/folder
+   ```
+
+   **高级用法 (多文件夹备份并排除文件):**
+   ```bash
+   curl -s https://script.739999.xyz/shell/upload_backup.sh | bash -s -- \
+   -u your_username \
+   -p your_password \
+   -s your_server_id \
+   -d https://dav.com/dav \
+   -f /var/www/project1 \
+   -f /home/user/documents \
+   -e 'node_modules' \
+   -e '*.log' \
+   -c
    ```
 
 ### 网络工具
@@ -220,7 +239,7 @@
     
     方法1：交互式安装（推荐）
     ```bash
-    curl -s https://script.739999.xyz/shell/install_XrayR.sh | bash
+    curl -O https://script.739999.xyz/shell/install_XrayR.sh && chmod +x install_XrayR.sh && ./install_XrayR.sh
     ```
     
     方法2：带参数安装
