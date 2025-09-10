@@ -1,3 +1,4 @@
+.env
 # Ignore log files
 *.log
 *.json

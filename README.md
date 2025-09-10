@@ -344,6 +344,46 @@
    ```python
    python music_tag_processor.py
    ```
+   
+2. **navidrome.py** - Navidrome AI 音乐管理助手
+   
+   这是一个强大的 Navidrome 辅助工具，利用 AI（如 GPT、Gemini 等）来自动化音乐管理任务。
+
+   **核心功能**:
+   - **AI 批量评分**:
+     - 并发处理整个音乐库，为专辑和歌曲进行 1-5 星评级。
+     - AI 会根据歌曲的音乐性、歌词、情感和创新性等多个维度进行综合评价，并提供详细的评分理由。
+     - 支持跳过已有评分的歌曲或强制覆盖评分。
+     - 评分过程和理由会被记录到日志文件 `navidrome_ratings.log` 中。
+   - **AI 歌单扩展**:
+     - 分析现有歌单的风格、主题和情绪。
+     - 从整个曲库中智能推荐最匹配的歌曲来扩展歌单。
+     - 提供每首推荐歌曲的详细理由。
+   - **数据缓存与同步**:
+     - 对 Navidrome 的歌曲和专辑数据进行本地缓存（`navidrome_songs.json`, `navidrome_albums.json`），大幅提升后续操作的速度。
+     - 支持强制与服务器同步数据，刷新本地缓存。
+   - **统计功能**:
+     - 显示音乐库的歌曲、专辑、艺术家总数。
+     - 统计并展示已评分歌曲的星级分布。
+     - 将所有已评分歌曲的列表导出到文件 `all_song_ratings.txt`。
+
+   **如何使用**:
+   1. **安装依赖**:
+      ```bash
+      pip install requests python-dotenv
+      ```
+   2. **配置环境**:
+      - 复制 `.env.example` 文件为 `.env`。
+      - 编辑 `.env` 文件，填入你的 Navidrome 服务器地址、用户名、密码以及 AI 服务的 API URL、Key 和模型名称。
+   3. **运行脚本**:
+      - 脚本提供了交互式菜单来选择不同功能。
+      ```bash
+      python python/navidrome.py
+      ```
+   4. **命令行参数**:
+      - `--debug`: 使用调试模式，仅处理少量数据。
+      - `--no-cache`: 运行时强制从服务器获取最新数据，不使用本地缓存。
+      - `--clear-cache`: 启动时清空所有本地缓存文件。
 
 ## PowerShell 脚本
 
