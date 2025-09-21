@@ -113,13 +113,19 @@ setup_clash_config() {
          -e '/^log-level:/d' \
          -e '/^tun:/,$d' "$CONFIG_FILE" # 删除旧的TUN配置
 
+  # 根据用户选择设置 allow-lan
+  local allow_lan_value="false"
+  if [[ "$ALLOW_LAN" =~ ^[Yy]$ ]]; then
+    allow_lan_value="true"
+  fi
+
   # 追加新的标准配置
   cat <<EOF >> "$CONFIG_FILE"
 
 # --- Appended by install_clash.sh for server environment ---
 port: 7890
 socks-port: 7891
-allow-lan: false
+allow-lan: ${allow_lan_value}
 external-controller: '0.0.0.0:9090'
 log-level: info
 EOF
@@ -179,6 +185,64 @@ EOF
   echo "$compose_content" > "$COMPOSE_FILE"
 }
 
+# 更新订阅
+update_subscription() {
+    check_root
+    echo_info "正在检查 Clash 服务状态..."
+    if [ -z "$(docker ps -q -f name=clash)" ]; then
+        echo_error "Clash 容器未运行，无法更新订阅。"
+        return 1
+    fi
+
+    local sub_url_file="$INSTALL_DIR/.subscription_url"
+    if [ ! -f "$sub_url_file" ]; then
+        echo_error "未找到订阅链接文件。请先执行安装过程以保存订阅链接。"
+        return 1
+    fi
+
+    CLASH_SUB_URL=$(cat "$sub_url_file")
+    if [ -z "$CLASH_SUB_URL" ]; then
+        echo_error "订阅链接为空。请检查文件: $sub_url_file"
+        return 1
+    fi
+    
+    echo_info "正在使用已保存的链接更新订阅: $CLASH_SUB_URL"
+    
+    # 从现有配置中推断出 TUN 和 allow-lan 的设置
+    if [ -f "$COMPOSE_FILE" ] && grep -q "privileged: true" "$COMPOSE_FILE"; then
+        ENABLE_TUN='y'
+        echo_info "检测到已启用 TUN 模式。"
+    else
+        ENABLE_TUN='n'
+    fi
+
+    if [ -f "$CONFIG_FILE" ] && grep -q "allow-lan: true" "$CONFIG_FILE"; then
+        ALLOW_LAN='y'
+        echo_info "检测到已允许局域网连接。"
+    else
+        ALLOW_LAN='n'
+    fi
+
+    # 重新生成配置文件
+    setup_clash_config
+    
+    echo_info "正在重启 Clash 服务以应用新的配置..."
+    if command -v docker-compose &> /dev/null; then
+        (cd "$INSTALL_DIR" && docker-compose restart)
+    else
+        (cd "$INSTALL_DIR" && docker compose restart)
+    fi
+
+    sleep 3
+    if [ $? -eq 0 ] && [ "$(docker ps -q -f name=clash)" ]; then
+        echo_info "订阅更新成功，Clash 服务已重启。"
+        echo_info "正在进行自动代理测试..."
+        test_proxy
+    else
+        echo_error "Clash 服务重启失败。请使用 'cd ${INSTALL_DIR} && docker compose logs' 查看日志。"
+    fi
+}
+
 # 启动 Clash 服务
 start_clash_service() {
   echo_info "正在使用 Docker Compose 启动 Clash 服务..."
@@ -221,11 +285,23 @@ install_clash() {
 
   get_user_input
   
-  read -p "是否启用 TUN 模式 (y/N)？[需要内核支持]: " ENABLE_TUN
+  prepare_directory
+
+  # 保存订阅链接
+  echo "$CLASH_SUB_URL" > "$INSTALL_DIR/.subscription_url"
+  if [ $? -ne 0 ]; then
+    echo_error "保存订阅链接失败。"
+    exit 1
+  fi
+  echo_info "订阅链接已保存，用于后续更新。"
+
+  read -p "是否允许局域网(LAN)连接 (y/N)？ [默认: N]: " ALLOW_LAN
+  ALLOW_LAN=${ALLOW_LAN:-n}
+  
+  read -p "是否启用 TUN 模式 (y/N)？[需要内核支持，不懂是什么直接回车] [默认: N]: " ENABLE_TUN
   # 如果用户直接回车，则默认为 'n'
   ENABLE_TUN=${ENABLE_TUN:-n}
 
-  prepare_directory
   setup_clash_config
   create_compose_file
   start_clash_service
@@ -265,18 +341,32 @@ test_proxy() {
         echo -e "\033[31m获取失败\033[0m"
     fi
 
-    echo -n "正在通过代理获取公网 IP ... "
-    proxy_ip=$(curl -x "$PROXY_HTTP" --silent --max-time 10 ifconfig.me)
-    if [ -n "$proxy_ip" ]; then
-        echo -e "\033[32m${proxy_ip}\033[0m"
+    echo -n "正在通过 HTTP 代理 ($PROXY_HTTP) 获取公网 IP ... "
+    proxy_ip_http=$(curl -x "$PROXY_HTTP" --silent --max-time 10 ifconfig.me)
+    if [ -n "$proxy_ip_http" ]; then
+        echo -e "\033[32m${proxy_ip_http}\033[0m"
     else
         echo -e "\033[31m获取失败\033[0m"
     fi
 
-    if [ -n "$direct_ip" ] && [ -n "$proxy_ip" ] && [ "$direct_ip" != "$proxy_ip" ]; then
-        echo_info "IP 地址已变更，代理工作正常！"
+    echo -n "正在通过 SOCKS5 代理 ($PROXY_SOCKS5) 获取公网 IP ... "
+    proxy_ip_socks=$(curl -x "$PROXY_SOCKS5" --silent --max-time 10 ifconfig.me)
+    if [ -n "$proxy_ip_socks" ]; then
+        echo -e "\033[32m${proxy_ip_socks}\033[0m"
     else
-        echo_warn "IP 地址未变更或获取失败，代理可能未生效或网络异常。"
+        echo -e "\033[31m获取失败\033[0m"
+    fi
+
+    if [ -n "$direct_ip" ] && [ -n "$proxy_ip_http" ] && [ "$direct_ip" != "$proxy_ip_http" ]; then
+        echo_info "HTTP 代理工作正常！"
+    else
+        echo_warn "HTTP 代理可能未生效或网络异常。"
+    fi
+
+    if [ -n "$direct_ip" ] && [ -n "$proxy_ip_socks" ] && [ "$direct_ip" != "$proxy_ip_socks" ]; then
+        echo_info "SOCKS5 代理工作正常！"
+    else
+        echo_warn "SOCKS5 代理可能未生效或网络异常。"
     fi
     
     echo ""
@@ -287,10 +377,20 @@ test_proxy() {
         "https://www.google.com"
     )
 
+    echo_info "使用 HTTP 代理进行测试..."
     for site in "${test_sites[@]}"; do
-        echo -n "正在通过代理测试: $site ... "
-        # 使用 curl 测试，设置超时5秒，忽略输出，只关心返回码
+        echo -n "  - 正在测试: $site ... "
         if curl -x "$PROXY_HTTP" --head --silent --fail --max-time 5 "$site" > /dev/null; then
+            echo -e "\033[32m连接成功\033[0m"
+        else
+            echo -e "\033[31m连接失败\033[0m"
+        fi
+    done
+
+    echo_info "使用 SOCKS5 代理进行测试..."
+    for site in "${test_sites[@]}"; do
+        echo -n "  - 正在测试: $site ... "
+        if curl -x "$PROXY_SOCKS5" --head --silent --fail --max-time 5 "$site" > /dev/null; then
             echo -e "\033[32m连接成功\033[0m"
         else
             echo -e "\033[31m连接失败\033[0m"
@@ -481,15 +581,16 @@ show_menu() {
     echo "            Clash Docker 管理脚本"
     echo "================================================="
     echo " 1. 安装或重新安装 Clash"
-    echo " 2. 测试代理连通性"
-    echo " 3. 为 APT 设置代理"
-    echo " 4. 为 Docker 设置代理"
-    echo " 5. 为当前系统设置全局代理"
-    echo " 6. 清除代理配置"
+    echo " 2. 更新 Clash 订阅"
+    echo " 3. 测试代理连通性"
+    echo " 4. 为 APT 设置代理"
+    echo " 5. 为 Docker 设置代理"
+    echo " 6. 为当前系统设置全局代理"
+    echo " 7. 清除代理配置"
     echo "-------------------------------------------------"
     echo " 0. 退出脚本"
     echo "================================================="
-    read -p "请输入选项 [0-6]: " choice
+    read -p "请输入选项 [0-7]: " choice
     
     case $choice in
         1)
@@ -497,35 +598,39 @@ show_menu() {
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         2)
-            test_proxy
+            update_subscription
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         3)
+            test_proxy
+            read -p $'\n按任意键返回菜单...' -n 1 -r -s
+            ;;
+        4)
             if check_unnecessary_action; then
                 set_apt_proxy
             fi
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
-        4)
+        5)
             if check_unnecessary_action; then
                 set_docker_proxy
             fi
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
-        5)
+        6)
             if check_unnecessary_action; then
                 set_system_proxy
             fi
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
-        6)
+        7)
             clear_proxy_menu
             ;;
         0)
             exit 0
             ;;
         *)
-            echo_error "无效选项，请输入 0 到 6 之间的数字。"
+            echo_error "无效选项，请输入 0 到 7 之间的数字。"
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
     esac
