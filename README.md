@@ -269,14 +269,14 @@
       - **代理设置**: 一键为 APT, Docker, 和当前系统环境设置或清除 HTTP 代理。
       - **统一目录**: 所有相关文件（配置、Compose 文件）均存放在 `/opt/clash`。
 
-    - **基础用法 (显示功能菜单)**:
+    - **推荐用法 (显示菜单)**:
       ```bash
-      curl -s https://script.739999.xyz/shell/install_clash.sh | bash
+      curl -LO https://script.739999.xyz/shell/install_clash.sh && chmod +x install_clash.sh && sudo ./install_clash.sh
       ```
 
     - **一键安装用法**:
       ```bash
-      curl -s https://script.739999.xyz/shell/install_clash.sh | bash -s install "你的Clash订阅链接"
+      curl -LO https://script.739999.xyz/shell/install_clash.sh && chmod +x install_clash.sh && sudo ./install_clash.sh install "你的Clash订阅链接"
       ```
 
     - **功能菜单选项**:

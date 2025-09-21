@@ -337,43 +337,50 @@ clear_system_proxy() {
 
 # 清除代理子菜单
 clear_proxy_menu() {
-    clear
-    echo "================================================="
-    echo "                清除代理配置"
-    echo "================================================="
-    echo " 1. 清除 APT 代理"
-    echo " 2. 清除 Docker 代理"
-    echo " 3. 清除系统全局代理"
-    echo " 4. 清除以上所有代理"
-    echo "-------------------------------------------------"
-    echo " 0. 返回主菜单"
-    echo "================================================="
-    read -p "请输入选项 [0-4]: " choice
+    while true; do
+        clear
+        echo "================================================="
+        echo "                清除代理配置"
+        echo "================================================="
+        echo " 1. 清除 APT 代理"
+        echo " 2. 清除 Docker 代理"
+        echo " 3. 清除系统全局代理"
+        echo " 4. 清除以上所有代理"
+        echo "-------------------------------------------------"
+        echo " 0. 返回主菜单"
+        echo "================================================="
+        read -p "请输入选项 [0-4]: " choice
 
-    case $choice in
-        1)
-            clear_apt_proxy
-            ;;
-        2)
-            clear_docker_proxy
-            ;;
-        3)
-            clear_system_proxy
-            ;;
-        4)
-            echo_info "正在清除所有代理配置..."
-            clear_apt_proxy
-            clear_docker_proxy
-            clear_system_proxy
-            echo_info "所有代理配置清除完毕。"
-            ;;
-        0)
-            return
-            ;;
-        *)
-            echo_error "无效选项，请输入 0 到 4 之间的数字。"
-            ;;
-    esac
+        case $choice in
+            1)
+                clear_apt_proxy
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+            2)
+                clear_docker_proxy
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+            3)
+                clear_system_proxy
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+            4)
+                echo_info "正在清除所有代理配置..."
+                clear_apt_proxy
+                clear_docker_proxy
+                clear_system_proxy
+                echo_info "所有代理配置清除完毕。"
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo_error "无效选项，请输入 0 到 4 之间的数字。"
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+        esac
+    done
 }
 
 # 显示菜单
@@ -396,18 +403,23 @@ show_menu() {
     case $choice in
         1)
             install_clash
+            read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         2)
             test_proxy
+            read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         3)
             set_apt_proxy
+            read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         4)
             set_docker_proxy
+            read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         5)
             set_system_proxy
+            read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         6)
             clear_proxy_menu
@@ -417,6 +429,7 @@ show_menu() {
             ;;
         *)
             echo_error "无效选项，请输入 0 到 6 之间的数字。"
+            read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
     esac
 }
@@ -433,9 +446,6 @@ main() {
     # 如果没有参数，则显示菜单
     while true; do
         show_menu
-        echo ""
-        read -p "按任意键返回菜单..." -n 1 -r -s
-        echo ""
     done
 }
 
