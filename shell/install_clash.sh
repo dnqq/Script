@@ -99,7 +99,7 @@ prepare_directory() {
 # 下载并修改 Clash 配置
 setup_clash_config() {
   echo_info "正在从订阅链接下载配置文件..."
-  if ! curl -L -o "$CONFIG_FILE" "$CLASH_SUB_URL"; then
+  if ! curl -L -A "clash" -o "$CONFIG_FILE" "$CLASH_SUB_URL"; then
     echo_error "下载订阅文件失败！请检查链接是否正确以及网络是否通畅。"
     exit 1
   fi
