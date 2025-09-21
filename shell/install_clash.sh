@@ -37,6 +37,7 @@ CLASH_IMAGE="dreamacro/clash-premium:latest"
 # 代理地址
 PROXY_HTTP="http://127.0.0.1:7890"
 PROXY_SOCKS5="socks5://127.0.0.1:7891"
+IMAGE_PROXY_PREFIX=""
 
 # --- 函数定义 ---
 
@@ -84,6 +85,30 @@ get_user_input() {
       exit 1
     fi
   fi
+}
+
+# 选择镜像代理
+select_image_proxy() {
+  echo_info "请选择 Docker 镜像拉取方式:"
+  echo " 1. 直接拉取 (默认)"
+  echo " 2. 使用 hubproxy.739999.xyz 加速"
+  echo " 3. 使用 demo.52013120.xyz 加速"
+  read -p "请输入选项 [1-3, 默认 1]: " proxy_choice
+  
+  case $proxy_choice in
+    2)
+      IMAGE_PROXY_PREFIX="hubproxy.739999.xyz/"
+      echo_info "已选择使用 hubproxy.739999.xyz 加速。"
+      ;;
+    3)
+      IMAGE_PROXY_PREFIX="demo.52013120.xyz/"
+      echo_info "已选择使用 demo.52013120.xyz 加速。"
+      ;;
+    *)
+      IMAGE_PROXY_PREFIX=""
+      echo_info "已选择直接拉取镜像。"
+      ;;
+  esac
 }
 
 # 创建并准备目录
@@ -155,7 +180,7 @@ create_compose_file() {
 version: '3.8'
 services:
   clash:
-    image: ${CLASH_IMAGE}
+    image: ${IMAGE_PROXY_PREFIX}${CLASH_IMAGE}
     container_name: clash
     restart: always
     privileged: true
@@ -173,7 +198,7 @@ EOF
 version: '3.8'
 services:
   clash:
-    image: ${CLASH_IMAGE}
+    image: ${IMAGE_PROXY_PREFIX}${CLASH_IMAGE}
     container_name: clash
     restart: always
     network_mode: "host"
@@ -284,6 +309,7 @@ install_clash() {
   fi
 
   get_user_input
+  select_image_proxy
   
   prepare_directory
 
