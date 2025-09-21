@@ -110,7 +110,8 @@ setup_clash_config() {
          -e '/^socks-port:/d' \
          -e '/^allow-lan:/d' \
          -e '/^external-controller:/d' \
-         -e '/^log-level:/d' "$CONFIG_FILE"
+         -e '/^log-level:/d' \
+         -e '/^tun:/,$d' "$CONFIG_FILE" # 删除旧的TUN配置
 
   # 追加新的标准配置
   cat <<EOF >> "$CONFIG_FILE"
@@ -122,13 +123,47 @@ allow-lan: false
 external-controller: '0.0.0.0:9090'
 log-level: info
 EOF
+
+  # 如果启用了TUN模式，则追加TUN配置
+  if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]]; then
+    echo_info "正在为配置文件添加 TUN 模式支持..."
+    cat <<EOF >> "$CONFIG_FILE"
+tun:
+  enable: true
+  stack: system
+  dns-hijack:
+    - any:53
+EOF
+  fi
   echo_info "配置文件优化完成。"
 }
 
 # 创建 Docker Compose 文件
 create_compose_file() {
   echo_info "正在创建 Docker Compose 文件: $COMPOSE_FILE"
-  cat <<EOF > "$COMPOSE_FILE"
+  
+  local compose_content
+  if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]]; then
+    echo_info "正在为 Docker Compose 文件添加 TUN 模式支持..."
+    compose_content=$(cat <<EOF
+version: '3.8'
+services:
+  clash:
+    image: ${CLASH_IMAGE}
+    container_name: clash
+    restart: always
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    network_mode: "host"
+    volumes:
+      - ${CONFIG_FILE}:/root/.config/clash/config.yaml
+EOF
+)
+  else
+    compose_content=$(cat <<EOF
 version: '3.8'
 services:
   clash:
@@ -139,6 +174,9 @@ services:
     volumes:
       - ${CONFIG_FILE}:/root/.config/clash/config.yaml
 EOF
+)
+  fi
+  echo "$compose_content" > "$COMPOSE_FILE"
 }
 
 # 启动 Clash 服务
@@ -182,6 +220,11 @@ install_clash() {
   fi
 
   get_user_input
+  
+  read -p "是否启用 TUN 模式 (y/N)？[需要内核支持]: " ENABLE_TUN
+  # 如果用户直接回车，则默认为 'n'
+  ENABLE_TUN=${ENABLE_TUN:-n}
+
   prepare_directory
   setup_clash_config
   create_compose_file
@@ -206,20 +249,46 @@ install_clash() {
 
 # 代理测试
 test_proxy() {
-    echo_info "开始测试代理连通性..."
-    local test_sites=(
-        "https://www.github.com"
-        "https://hub.docker.com"
-        "https://www.google.com"
-    )
+    echo_info "开始进行代理可用性测试..."
     
     if [ -z "$(docker ps -q -f name=clash)" ]; then
         echo_error "Clash 容器未运行，无法进行测试。"
         return 1
     fi
 
+    echo_info "第一部分: IP 地址变更测试"
+    echo -n "正在获取本机公网 IP ... "
+    direct_ip=$(curl --silent --max-time 5 ifconfig.me)
+    if [ -n "$direct_ip" ]; then
+        echo -e "\033[33m${direct_ip}\033[0m"
+    else
+        echo -e "\033[31m获取失败\033[0m"
+    fi
+
+    echo -n "正在通过代理获取公网 IP ... "
+    proxy_ip=$(curl -x "$PROXY_HTTP" --silent --max-time 10 ifconfig.me)
+    if [ -n "$proxy_ip" ]; then
+        echo -e "\033[32m${proxy_ip}\033[0m"
+    else
+        echo -e "\033[31m获取失败\033[0m"
+    fi
+
+    if [ -n "$direct_ip" ] && [ -n "$proxy_ip" ] && [ "$direct_ip" != "$proxy_ip" ]; then
+        echo_info "IP 地址已变更，代理工作正常！"
+    else
+        echo_warn "IP 地址未变更或获取失败，代理可能未生效或网络异常。"
+    fi
+    
+    echo ""
+    echo_info "第二部分: 关键服务连通性测试"
+    local test_sites=(
+        "https://www.github.com"
+        "https://hub.docker.com"
+        "https://www.google.com"
+    )
+
     for site in "${test_sites[@]}"; do
-        echo -n "正在测试: $site ... "
+        echo -n "正在通过代理测试: $site ... "
         # 使用 curl 测试，设置超时5秒，忽略输出，只关心返回码
         if curl -x "$PROXY_HTTP" --head --silent --fail --max-time 5 "$site" > /dev/null; then
             echo -e "\033[32m连接成功\033[0m"
@@ -383,6 +452,28 @@ clear_proxy_menu() {
     done
 }
 
+# 检查TUN模式是否已启用
+is_tun_enabled() {
+    if [ -f "$COMPOSE_FILE" ] && grep -q "privileged: true" "$COMPOSE_FILE"; then
+        return 0 # 0表示true (成功)
+    else
+        return 1 # 1表示false (失败)
+    fi
+}
+
+# 检查并警告不必要的操作
+check_unnecessary_action() {
+    if is_tun_enabled; then
+        echo_warn "TUN 模式已开启，此操作可能是不必要的，因为 TUN 会接管全局流量。"
+        read -p "是否仍要继续？(y/N): " confirm
+        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+            echo_info "操作已取消。"
+            return 1
+        fi
+    fi
+    return 0
+}
+
 # 显示菜单
 show_menu() {
     clear
@@ -410,15 +501,21 @@ show_menu() {
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         3)
-            set_apt_proxy
+            if check_unnecessary_action; then
+                set_apt_proxy
+            fi
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         4)
-            set_docker_proxy
+            if check_unnecessary_action; then
+                set_docker_proxy
+            fi
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         5)
-            set_system_proxy
+            if check_unnecessary_action; then
+                set_system_proxy
+            fi
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         6)
