@@ -576,6 +576,77 @@ clear_proxy_menu() {
     done
 }
 
+# 测试 APT 代理是否生效
+test_apt_proxy() {
+    check_root
+    local apt_proxy_file="/etc/apt/apt.conf.d/99proxy.conf"
+    if [ ! -f "$apt_proxy_file" ]; then
+        echo_error "未找到 APT 代理配置文件。请先在菜单中设置。"
+        return
+    fi
+    echo_info "正在测试 APT 代理..."
+    echo_info "将运行 'apt-get update' 并检查其是否连接到代理。"
+    echo_info "请注意：这会刷新您的包列表。"
+    # 通过 grep 查找连接到代理的日志，-q 表示静默模式
+    if apt-get -o Debug::Acquire::http=true update 2>&1 | grep -q "Connecting to 127.0.0.1"; then
+        echo_info "测试成功：APT 正在通过 Clash 代理 (${PROXY_HTTP}) 进行连接。"
+    else
+        echo_error "测试失败：APT 未能通过代理连接。请检查 Clash 服务是否运行正常以及代理配置是否正确。"
+    fi
+}
+
+# 测试 Docker 代理是否生效
+test_docker_proxy() {
+    check_root
+    local docker_proxy_file="/etc/systemd/system/docker.service.d/http-proxy.conf"
+    if [ ! -f "$docker_proxy_file" ]; then
+        echo_error "未找到 Docker 代理配置文件。请先在菜单中设置。"
+        return
+    fi
+    echo_info "正在检查 Docker 服务的环境变量..."
+    if systemctl show --property=Environment docker | grep -q "HTTP_PROXY=${PROXY_HTTP}"; then
+        echo_info "检查通过：Docker 服务的代理环境变量已正确设置。"
+        echo_info "你可以尝试拉取一个镜像来进一步验证，例如: docker pull hello-world"
+    else
+        echo_error "检查失败：Docker 服务的代理环境变量未设置或不正确。"
+        echo_warn "请确保你已在菜单中设置了 Docker 代理并重启了 Docker 服务。"
+    fi
+}
+
+# 测试工具代理子菜单
+test_tools_proxy_menu() {
+    while true; do
+        clear
+        echo "================================================="
+        echo "                测试工具代理"
+        echo "================================================="
+        echo " 1. 测试 APT 代理"
+        echo " 2. 测试 Docker 代理"
+        echo "-------------------------------------------------"
+        echo " 0. 返回主菜单"
+        echo "================================================="
+        read -p "请输入选项 [0-2]: " choice
+
+        case $choice in
+            1)
+                test_apt_proxy
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+            2)
+                test_docker_proxy
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo_error "无效选项，请输入 0 到 2 之间的数字。"
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+        esac
+    done
+}
+
 # 检查TUN模式是否已启用
 is_tun_enabled() {
     if [ -f "$COMPOSE_FILE" ] && grep -q "privileged: true" "$COMPOSE_FILE"; then
@@ -611,10 +682,11 @@ show_menu() {
     echo " 5. 为 Docker 设置代理"
     echo " 6. 为当前系统设置全局代理"
     echo " 7. 清除代理配置"
+    echo " 8. 测试工具代理 (APT/Docker)"
     echo "-------------------------------------------------"
     echo " 0. 退出脚本"
     echo "================================================="
-    read -p "请输入选项 [0-7]: " choice
+    read -p "请输入选项 [0-8]: " choice
     
     case $choice in
         1)
@@ -650,11 +722,14 @@ show_menu() {
         7)
             clear_proxy_menu
             ;;
+        8)
+            test_tools_proxy_menu
+            ;;
         0)
             exit 0
             ;;
         *)
-            echo_error "无效选项，请输入 0 到 7 之间的数字。"
+            echo_error "无效选项，请输入 0 到 8 之间的数字。"
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
     esac
