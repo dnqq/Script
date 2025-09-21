@@ -177,7 +177,6 @@ create_compose_file() {
   if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]]; then
     echo_info "正在为 Docker Compose 文件添加 TUN 模式支持..."
     compose_content=$(cat <<EOF
-version: '3.8'
 services:
   clash:
     image: ${IMAGE_PROXY_PREFIX}${CLASH_IMAGE}
@@ -195,7 +194,6 @@ EOF
 )
   else
     compose_content=$(cat <<EOF
-version: '3.8'
 services:
   clash:
     image: ${IMAGE_PROXY_PREFIX}${CLASH_IMAGE}
@@ -668,7 +666,7 @@ main() {
     if [[ "$1" == "install" ]] && [ -n "$2" ]; then
         CLASH_SUB_URL="$2"
         install_clash
-        exit 0
+        # exit 0 # 不再退出，直接进入菜单
     fi
 
     # 如果没有参数，则显示菜单
