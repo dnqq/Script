@@ -256,7 +256,7 @@ setup_config() {
     echo_info "订阅链接已保存，用于后续更新。"
 
     echo_info "正在从订阅链接下载配置文件..."
-    if ! curl -L -A "mihomo" -o "$CONFIG_FILE" "$SUB_URL"; then
+    if ! curl -L -A "clash" -o "$CONFIG_FILE" "$SUB_URL"; then
       echo_error "下载订阅文件失败！请检查链接是否正确以及网络是否通畅。"
       exit 1
     fi
