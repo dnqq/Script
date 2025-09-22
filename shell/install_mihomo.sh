@@ -300,7 +300,7 @@ services:
       - /dev/net/tun:/dev/net/tun
     network_mode: "host"
     volumes:
-      - ${INSTALL_DIR}:/data
+      - ${INSTALL_DIR}/data:/data
 EOF
 )
   else
@@ -312,7 +312,7 @@ services:
     restart: always
     network_mode: "host"
     volumes:
-      - ${INSTALL_DIR}:/data
+      - ${INSTALL_DIR}/data:/data
 EOF
 )
   fi
@@ -1309,6 +1309,11 @@ setup_standard_gateway() {
     fi
     
     # 3. 配置 iptables 规则
+    configure_gateway_rules
+}
+
+# 配置网关的iptables规则和其他设置
+configure_gateway_rules() {
     echo_info "正在配置 iptables 规则 (使用 MIHOMO 自定义链)..."
     # 自动获取 LAN 和 WAN 接口
     local lan_ip_range
@@ -1390,7 +1395,7 @@ setup_standard_gateway() {
 
     echo_info "iptables 规则配置完成。正在持久化规则..."
     
-    # 4. 持久化 iptables 规则
+    # 持久化 iptables 规则
     local os_name
     os_name=$(detect_os)
     case "$os_name" in

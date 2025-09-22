@@ -257,35 +257,31 @@
     
     配置文件路径：`/opt/XrayR/config/config.yml`
 
-21. **install_clash.sh** - 一键部署 Clash 代理服务
+21. **install_mihomo.sh** - 一键部署 Mihomo 代理服务
 
-    功能全面的 Clash 管理脚本，使用 Docker 部署，提供菜单式交互和一键式命令，极大简化在服务器上配置和使用代理的过程。
+    功能全面的 Mihomo 管理脚本，支持 Docker 或二进制文件部署，提供菜单式交互，极大简化在服务器上配置和使用代理的过程。
 
     - **核心功能**:
-      - **Docker 部署**: 自动化安装和管理 Clash Premium 容器。
-      - **菜单驱动**: 提供清晰的菜单，用于安装、测试、设置和清除代理。
-      - **一键安装**: 支持通过命令行参数直接提供订阅链接，实现全自动部署。
-      - **代理测试**: 内置连通性测试，可快速检查对 GitHub, Docker Hub, Google 的访问情况。
-      - **代理设置**: 一键为 APT, Docker, 和当前系统环境设置或清除 HTTP 代理。
-      - **统一目录**: 所有相关文件（配置、Compose 文件）均存放在 `/opt/clash`。
+      - **多种部署方式**: 支持 Docker 和 二进制文件 两种安装方式。
+      - **多种代理模式**: 支持标准代理、本机透明代理 (TUN)、局域网透明网关。
+      - **菜单驱动**: 提供清晰的菜单，用于安装、更新订阅、查看状态、测试、设置和清除代理、卸载等。
+      - **代理测试**: 内置连通性测试，可快速检查代理可用性。
+      - **系统代理设置**: 一键为 APT, Docker, 和当前系统环境设置或清除 HTTP 代理。
+      - **统一目录**: 所有相关文件（配置、Compose 文件）均存放在 `/opt/mihomo`。
 
     - **推荐用法 (显示菜单)**:
       ```bash
-      curl -LO https://script.739999.xyz/shell/install_clash.sh && chmod +x install_clash.sh && sudo ./install_clash.sh
-      ```
-
-    - **一键安装用法**:
-      ```bash
-      curl -LO https://script.739999.xyz/shell/install_clash.sh && chmod +x install_clash.sh && sudo ./install_clash.sh install "你的Clash订阅链接"
+      curl -LO https://script.739999.xyz/shell/install_mihomo.sh && chmod +x install_mihomo.sh && sudo ./install_mihomo.sh
       ```
 
     - **功能菜单选项**:
-      1.  安装或重新安装 Clash
-      2.  测试代理连通性
-      3.  为 APT 设置代理
-      4.  为 Docker 设置代理
-      5.  为当前系统设置全局代理
-      6.  清除代理配置 (子菜单)
+      1.  安装 Mihomo
+      2.  更新订阅
+      3.  查看当前 Mihomo 运行状态
+      4.  运行所有连接测试
+      5.  为软件/系统设置代理
+      6.  清除代理配置
+      7.  卸载 Mihomo
       0.  退出脚本
 
 ### 特定用途脚本
