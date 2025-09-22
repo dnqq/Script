@@ -450,7 +450,7 @@ show_mihomo_status() {
     
     # 4. Gateway Status
     echo -n "  - 透明网关 (iptables): "
-    if command -v iptables-save &> /dev/null && iptables-save | grep -q -- '-j CLASH'; then
+    if command -v iptables-save &> /dev/null && iptables-save | grep -q -- '-j MIHOMO'; then
          print_status "规则已设置" 0
     else
          print_status "规则未设置" 2
@@ -880,7 +880,7 @@ test_proxy() {
 
     echo_info "第一部分: IP 地址变更测试"
     echo -n "正在获取本机公网 IP ... "
-    direct_ip=$(curl --silent --max-time 5 ip.sb)
+    direct_ip=$(curl -4 --silent --max-time 5 ip.sb)
     if [ -n "$direct_ip" ]; then
         echo -e "\033[33m${direct_ip}\033[0m"
     else
@@ -888,7 +888,7 @@ test_proxy() {
     fi
 
     echo -n "正在通过 HTTP 代理 ($PROXY_HTTP) 获取公网 IP ... "
-    proxy_ip_http=$(curl -x "$PROXY_HTTP" --silent --max-time 10 ip.sb)
+    proxy_ip_http=$(curl -4 -x "$PROXY_HTTP" --silent --max-time 10 ip.sb)
     if [ -n "$proxy_ip_http" ]; then
         echo -e "\033[32m${proxy_ip_http}\033[0m"
     else
@@ -896,7 +896,7 @@ test_proxy() {
     fi
 
     echo -n "正在通过 SOCKS5 代理 ($PROXY_SOCKS5) 获取公网 IP ... "
-    proxy_ip_socks=$(curl -x "$PROXY_SOCKS5" --silent --max-time 10 ip.sb)
+    proxy_ip_socks=$(curl -4 -x "$PROXY_SOCKS5" --silent --max-time 10 ip.sb)
     if [ -n "$proxy_ip_socks" ]; then
         echo -e "\033[32m${proxy_ip_socks}\033[0m"
     else
@@ -926,7 +926,7 @@ test_proxy() {
     echo_info "使用 HTTP 代理进行测试..."
     for site in "${test_sites[@]}"; do
         echo -n "  - 正在测试: $site ... "
-        if curl -x "$PROXY_HTTP" --head --silent --fail --max-time 5 "$site" > /dev/null; then
+        if curl -4 -x "$PROXY_HTTP" --head --silent --fail --max-time 5 "$site" > /dev/null; then
             echo -e "\033[32m连接成功\033[0m"
         else
             echo -e "\033[31m连接失败\033[0m"
@@ -936,7 +936,7 @@ test_proxy() {
     echo_info "使用 SOCKS5 代理进行测试..."
     for site in "${test_sites[@]}"; do
         echo -n "  - 正在测试: $site ... "
-        if curl -x "$PROXY_SOCKS5" --head --silent --fail --max-time 5 "$site" > /dev/null; then
+        if curl -4 -x "$PROXY_SOCKS5" --head --silent --fail --max-time 5 "$site" > /dev/null; then
             echo -e "\033[32m连接成功\033[0m"
         else
             echo -e "\033[31m连接失败\033[0m"
@@ -1424,20 +1424,56 @@ setup_standard_gateway() {
 clear_gateway() {
     check_root
     echo_info "正在禁用内核 IP 转发..."
-    sysctl -w net.ipv4.ip_forward=0
-    sed -i '/^net.ipv4.ip_forward=1/d' /etc/sysctl.conf
+    sysctl -w net.ipv4.ip_forward=0 >/dev/null 2>&1
+    if [ -f /etc/sysctl.conf ]; then
+        sed -i '/^net.ipv4.ip_forward=1/d' /etc/sysctl.conf
+    fi
 
     if command -v iptables &> /dev/null; then
         echo_info "正在清除 iptables 网关规则..."
-        # 清除 PREROUTING 和 POSTROUTING 中的规则
-        iptables -t nat -D PREROUTING -p tcp -j CLASH &>/dev/null
-        iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-port 1053 &>/dev/null
-        iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE &>/dev/null
-        
-        # 清空并删除 CLASH 链
-        iptables -t nat -F CLASH &>/dev/null
-        iptables -t nat -X CLASH &>/dev/null
-        
+
+        # 清理策略路由和相关路由表
+        ip rule del fwmark 1 &>/dev/null
+        ip route del local default dev lo table 100 &>/dev/null
+
+        # 动态获取接口和端口信息，以确保能删除正确的规则
+        local lan_if
+        lan_if=$(ip -o -f inet addr show | awk '/scope global/ {print $2}' | head -n 1)
+        local wan_if
+        wan_if=$(ip route | grep default | awk '{print $5}' | head -n 1)
+        local mihomo_redir_port=${MIHOMO_REDIR_PORT:-7892}
+        local mihomo_tproxy_port=${MIHOMO_TPROXY_PORT:-7893}
+        local mihomo_dns_port=${MIHOMO_DNS_PORT:-1053}
+
+        # 从 PREROUTING 链中删除规则 (nat 表)
+        if [ -n "$lan_if" ]; then
+            iptables -t nat -D PREROUTING -i "$lan_if" -p tcp -j MIHOMO &>/dev/null
+            iptables -t nat -D PREROUTING -i "$lan_if" -p udp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port" &>/dev/null
+            iptables -t nat -D PREROUTING -i "$lan_if" -p tcp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port" &>/dev/null
+        fi
+
+        # 从 PREROUTING 链中删除规则 (mangle 表)
+        if [ -n "$lan_if" ]; then
+            iptables -t mangle -D PREROUTING -i "$lan_if" -p udp -j MIHOMO_MARK &>/dev/null
+            iptables -t mangle -D PREROUTING -i "$lan_if" -p udp -m mark --mark 1 -j TPROXY --on-port "$mihomo_tproxy_port" --tproxy-mark 0x1/0x1 &>/dev/null
+        fi
+
+        # 从 POSTROUTING 链中删除 MASQUERADE 规则
+        if [ -n "$wan_if" ]; then
+            iptables -t nat -D POSTROUTING -o "$wan_if" -j MASQUERADE &>/dev/null
+        fi
+
+        # 清空并删除自定义链
+        iptables -t nat -F MIHOMO &>/dev/null
+        iptables -t nat -X MIHOMO &>/dev/null
+        iptables -t mangle -F MIHOMO_MARK &>/dev/null
+        iptables -t mangle -X MIHOMO_MARK &>/dev/null
+
+        # 清理 IPv6 规则
+        if command -v ip6tables &> /dev/null && [ -n "$lan_if" ]; then
+            ip6tables -D FORWARD -i "$lan_if" -j DROP &>/dev/null
+        fi
+
         # 尝试保存规则
         local os_name
         os_name=$(detect_os)
@@ -1445,13 +1481,13 @@ clear_gateway() {
             *Ubuntu*|*Debian*)
                 if command -v netfilter-persistent &> /dev/null; then
                     echo_info "正在保存已清除的 iptables 规则..."
-                    netfilter-persistent save
+                    netfilter-persistent save >/dev/null 2>&1
                 fi
                 ;;
             *CentOS*|*Red*Hat*)
-                if command -v service &> /dev/null; then
+                if command -v service &> /dev/null && systemctl list-unit-files | grep -q iptables.service; then
                     echo_info "正在保存已清除的 iptables 规则..."
-                    service iptables save
+                    service iptables save >/dev/null 2>&1
                 fi
                 ;;
         esac
