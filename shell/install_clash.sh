@@ -370,10 +370,10 @@ install_clash_docker() {
   fi
   echo_info "订阅链接已保存，用于后续更新。"
 
-  read -p "是否允许局域网(LAN)连接 (y/N)？ [默认: N]: " ALLOW_LAN
+  read -p "是否允许局域网(LAN)连接 (y/N)？ [要做网关必须选 y] [默认: N]: " ALLOW_LAN
   ALLOW_LAN=${ALLOW_LAN:-n}
   
-  read -p "是否启用 TUN 模式 (y/N)？[需要内核支持，不懂是什么直接回车] [默认: N]: " ENABLE_TUN
+  read -p "是否启用 TUN 模式 (y/N)？[可作为更强大的网关，不懂可回车] [默认: N]: " ENABLE_TUN
   # 如果用户直接回车，则默认为 'n'
   ENABLE_TUN=${ENABLE_TUN:-n}
 
@@ -460,10 +460,10 @@ install_clash_binary() {
     fi
     echo_info "订阅链接已保存，用于后续更新。"
 
-    read -p "是否允许局域网(LAN)连接 (y/N)？ [默认: N]: " ALLOW_LAN
+    read -p "是否允许局域网(LAN)连接 (y/N)？ [要做网关必须选 y] [默认: N]: " ALLOW_LAN
     ALLOW_LAN=${ALLOW_LAN:-n}
     
-    read -p "是否启用 TUN 模式 (y/N)？[需要 iproute2 包支持] [默认: N]: " ENABLE_TUN
+    read -p "是否启用 TUN 模式 (y/N)？[需要 iproute2 包支持，可作为更强大的网关] [默认: N]: " ENABLE_TUN
     ENABLE_TUN=${ENABLE_TUN:-n}
 
     if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]] && ! command -v ip &> /dev/null; then
@@ -1094,7 +1094,9 @@ show_menu() {
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         7)
-            setup_gateway
+            if check_unnecessary_action; then
+                setup_gateway
+            fi
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         8)
