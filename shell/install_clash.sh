@@ -172,9 +172,19 @@ dns:
     - https://1.1.1.1/dns-query
 EOF
     else
-      echo_warn "检测到您的订阅配置中已包含 DNS 设置。为确保网关模式正常工作，脚本不会覆盖它。"
-      echo_warn "请您手动检查并确保您的 DNS 配置包含 'enable: true' 和 'listen: 0.0.0.0:1053'。"
-      echo_warn "如果缺失或不正确，DNS 透明代理可能无法生效。"
+      echo_info "检测到 DNS 配置，为网关模式强制更新 DNS 设置..."
+      # 如果存在 'enable:'，则修改它，否则在 'dns:' 后添加
+      if grep -q -E "^\s*enable:" "$CONFIG_FILE"; then
+          sed -i -e 's/^\s*enable:.*/  enable: true/' "$CONFIG_FILE"
+      else
+          sed -i -e '/^\s*dns:/a \  enable: true' "$CONFIG_FILE"
+      fi
+      # 如果存在 'listen:'，则修改它，否则在 'dns:' 后添加
+      if grep -q -E "^\s*listen:" "$CONFIG_FILE"; then
+          sed -i -e 's/^\s*listen:.*/  listen: 0.0.0.0:1053/' "$CONFIG_FILE"
+      else
+          sed -i -e '/^\s*dns:/a \  listen: 0.0.0.0:1053' "$CONFIG_FILE"
+      fi
     fi
   fi
 
@@ -393,6 +403,32 @@ show_clash_status() {
         print_status "已设置" 0
     else
         print_status "未设置" 2
+    fi
+    echo "-------------------------------------------------"
+    echo "代理地址信息:"
+    local server_ip
+    # 尝试获取主网卡的 IP 地址
+    server_ip=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1 | cut -d'/' -f1)
+
+    # 从配置文件读取端口，如果失败则使用默认值
+    local http_port
+    local socks_port
+    http_port=$(grep -E "^port:" "$CONFIG_FILE" | sed 's/port: *//' | tr -d '\r')
+    socks_port=$(grep -E "^socks-port:" "$CONFIG_FILE" | sed 's/socks-port: *//' | tr -d '\r')
+    
+    http_port=${http_port:-7890}
+    socks_port=${socks_port:-7891}
+
+    echo "  - 本机 HTTP 代理: http://127.0.0.1:${http_port}"
+    echo "  - 本机 SOCKS5 代理: socks5://127.0.0.1:${socks_port}"
+
+    if grep -q "allow-lan: true" "$CONFIG_FILE"; then
+        if [ -n "$server_ip" ]; then
+            echo "  - 局域网 HTTP 代理: http://${server_ip}:${http_port}"
+            echo "  - 局域网 SOCKS5 代理: socks5://${server_ip}:${socks_port}"
+        else
+            echo "  - 局域网代理: (无法自动检测局域网 IP)"
+        fi
     fi
     echo "================================================="
 }
