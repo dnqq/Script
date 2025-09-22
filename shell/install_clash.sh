@@ -224,80 +224,121 @@ is_clash_running() {
     return 1 # false
 }
 
-# 更新订阅
-update_subscription() {
-    check_root
-    echo_info "正在检查 Clash 服务状态..."
-    if ! is_clash_running; then
-        echo_error "Clash 服务未运行，无法更新订阅。"
-        return 1
-    fi
-
-    local sub_url_file="$INSTALL_DIR/.subscription_url"
-    if [ ! -f "$sub_url_file" ]; then
-        echo_error "未找到订阅链接文件。请先执行安装过程以保存订阅链接。"
-        return 1
-    fi
-
-    CLASH_SUB_URL=$(cat "$sub_url_file")
-    if [ -z "$CLASH_SUB_URL" ]; then
-        echo_error "订阅链接为空。请检查文件: $sub_url_file"
-        return 1
-    fi
-    
-    echo_info "正在使用已保存的链接更新订阅: $CLASH_SUB_URL"
-    
-    # 从现有配置中推断出 TUN 和 allow-lan 的设置
-    if [ -f "$COMPOSE_FILE" ] && grep -q "privileged: true" "$COMPOSE_FILE"; then
-        ENABLE_TUN='y'
-        echo_info "检测到已启用 TUN 模式。"
+# 智能重启 Docker 服务
+restart_docker_service() {
+    if systemctl list-units --type=service --all | grep -q -w 'docker.service'; then
+        echo_info "正在重启 docker.service..."
+        systemctl restart docker.service
+        return $?
+    elif systemctl list-units --type=service --all | grep -q -w 'dockerd.service'; then
+        echo_info "正在重启 dockerd.service..."
+        systemctl restart dockerd.service
+        return $?
     else
-        ENABLE_TUN='n'
-    fi
-
-    if [ -f "$CONFIG_FILE" ] && grep -q "allow-lan: true" "$CONFIG_FILE"; then
-        ALLOW_LAN='y'
-        echo_info "检测到已允许局域网连接。"
-    else
-        ALLOW_LAN='n'
-    fi
-
-    # 重新生成配置文件
-    setup_clash_config
-    
-    echo_info "正在重启 Clash 服务以应用新的配置..."
-    # 判断是重启 docker 还是二进制服务
-    if [ -f "$COMPOSE_FILE" ] && [ -n "$(docker ps -q -f name=clash)" ]; then
-        echo_info "检测到 Docker 安装，正在重启容器..."
-        if command -v docker-compose &> /dev/null; then
-            (cd "$INSTALL_DIR" && docker-compose restart)
-        else
-            (cd "$INSTALL_DIR" && docker compose restart)
-        fi
-
-        sleep 3
-        if [ $? -eq 0 ] && [ -n "$(docker ps -q -f name=clash)" ]; then
-            echo_info "订阅更新成功，Clash 服务已重启。"
-            echo_info "正在进行自动代理测试..."
-            test_proxy
-        else
-            echo_error "Clash 服务重启失败。请使用 'cd ${INSTALL_DIR} && docker compose logs' 查看日志。"
-        fi
-    elif systemctl is-active --quiet clash; then
-        echo_info "检测到二进制安装，正在重启服务..."
-        systemctl restart clash
-        sleep 3
-        if systemctl is-active --quiet clash; then
-            echo_info "订阅更新成功，Clash 服务已重启。"
-            echo_info "正在进行自动代理测试..."
-            test_proxy
-        else
-            echo_error "Clash 服务重启失败。请使用 'journalctl -u clash' 查看日志。"
-        fi
-    else
-        echo_error "未知的 Clash 安装类型或服务未运行。"
+        echo_error "未找到 docker.service 或 dockerd.service。无法自动重启 Docker。"
+        echo_warn "请手动重启 Docker 服务以应用代理设置。"
+        return 1
     fi
 }
+
+# 打印状态的辅助函数
+print_status() {
+    local status_text=$1
+    local status_color=$2 # 0 for green (enabled), 1 for red (disabled), 2 for yellow (not set)
+    
+    if [ "$status_color" -eq 0 ]; then
+        echo -e "\033[32m${status_text}\033[0m"
+    elif [ "$status_color" -eq 1 ]; then
+        echo -e "\033[31m${status_text}\033[0m"
+    else
+        echo -e "\033[33m${status_text}\033[0m"
+    fi
+}
+
+# 查看 Clash 运行状态
+show_clash_status() {
+    check_root
+    clear
+    echo "================================================="
+    echo "            Clash 运行状态检查"
+    echo "================================================="
+
+    # 1. Clash Core Status
+    echo -n "Clash 核心状态: "
+    local install_type="未知"
+    if is_clash_running; then
+        if [ -n "$(docker ps -q -f name=clash)" ]; then
+            install_type="Docker"
+        elif systemctl is-active --quiet clash; then
+            install_type="二进制"
+        fi
+        print_status "运行中" 0
+        echo "  - 安装方式: $install_type"
+    else
+        print_status "未运行" 1
+    fi
+
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo_warn "未找到 Clash 配置文件，无法获取详细配置信息。"
+        echo "================================================="
+        return
+    fi
+
+    echo "-------------------------------------------------"
+    echo "Clash 配置详情:"
+    # 2. LAN Connection
+    echo -n "  - 局域网连接 (allow-lan): "
+    if grep -q "allow-lan: true" "$CONFIG_FILE"; then
+        print_status "已开启" 0
+    else
+        print_status "已关闭" 1
+    fi
+
+    # 3. TUN Mode
+    echo -n "  - TUN 模式: "
+    if is_tun_enabled; then
+        print_status "已开启" 0
+    else
+        print_status "已关闭" 1
+    fi
+    
+    # 4. Gateway Status
+    echo -n "  - 透明网关 (iptables): "
+    if iptables-save | grep -q -- '-j REDIRECT --to-ports 7892'; then
+         print_status "规则已设置" 0
+    else
+         print_status "规则未设置" 2
+    fi
+
+
+    echo "-------------------------------------------------"
+    echo "系统代理状态:"
+    # 5. APT Proxy
+    echo -n "  - APT 代理: "
+    if [ -f "/etc/apt/apt.conf.d/99proxy.conf" ]; then
+        print_status "已设置" 0
+    else
+        print_status "未设置" 2
+    fi
+
+    # 6. Docker Proxy
+    echo -n "  - Docker 代理: "
+    if [ -f "/etc/systemd/system/docker.service.d/http-proxy.conf" ]; then
+        print_status "已设置" 0
+    else
+        print_status "未设置" 2
+    fi
+
+    # 7. System Global Proxy
+    echo -n "  - 全局环境变量代理: "
+    if [ -f "/etc/environment" ] && grep -q -E "http_proxy|https_proxy" "/etc/environment"; then
+        print_status "已设置" 0
+    else
+        print_status "未设置" 2
+    fi
+    echo "================================================="
+}
+
 
 # 启动 Clash 服务
 start_clash_service() {
@@ -370,11 +411,8 @@ install_clash_docker() {
   fi
   echo_info "订阅链接已保存，用于后续更新。"
 
-  read -p "是否允许局域网(LAN)连接 (y/N)？ [要做网关必须选 y] [默认: N]: " ALLOW_LAN
+  # Prompts are removed, variables are now set by install_clash()
   ALLOW_LAN=${ALLOW_LAN:-n}
-  
-  read -p "是否启用 TUN 模式 (y/N)？[可作为更强大的网关，不懂可回车] [默认: N]: " ENABLE_TUN
-  # 如果用户直接回车，则默认为 'n'
   ENABLE_TUN=${ENABLE_TUN:-n}
 
   setup_clash_config
@@ -460,10 +498,8 @@ install_clash_binary() {
     fi
     echo_info "订阅链接已保存，用于后续更新。"
 
-    read -p "是否允许局域网(LAN)连接 (y/N)？ [要做网关必须选 y] [默认: N]: " ALLOW_LAN
+    # Prompts are removed, variables are now set by install_clash()
     ALLOW_LAN=${ALLOW_LAN:-n}
-    
-    read -p "是否启用 TUN 模式 (y/N)？[需要 iproute2 包支持，可作为更强大的网关] [默认: N]: " ENABLE_TUN
     ENABLE_TUN=${ENABLE_TUN:-n}
 
     if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]] && ! command -v ip &> /dev/null; then
@@ -581,22 +617,69 @@ install_clash_manual() {
 # 安装 Clash (主入口)
 install_clash() {
     check_root
-    echo_info "请选择安装方式:"
-    echo " 1. 使用 Docker 安装 (推荐)"
-    echo " 2. 使用二进制文件安装"
-    echo " 3. 手动安装"
+    clear
+    echo "================================================="
+    echo "                Clash 安装向导"
+    echo "================================================="
+    echo "--- 场景 1: 仅本机使用 (作为标准代理) ---"
+    echo " 1. Docker 安装:   仅本机使用，手动为软件设置代理 (allow-lan: no, tun: no)"
+    echo " 2. 二进制 安装:   仅本机使用，手动为软件设置代理 (allow-lan: no, tun: no)"
+    echo " 3. 二进制 安装:   本机透明代理 (接管本机所有流量) (allow-lan: no, tun: yes)"
+    echo ""
+    echo "--- 场景 2: 作为局域网网关 (为其他设备服务) ---"
+    echo " 4. Docker 安装:   TUN 网关 (推荐，接管 TCP+UDP 流量)"
+    echo " 5. Docker 安装:   透明代理网关 (仅 TCP 流量，通过 iptables)"
+    echo " 6. 二进制 安装:   TUN 网关 (接管 TCP+UDP 流量)"
+    echo " 7. 二进制 安装:   透明代理网关 (仅 TCP 流量，通过 iptables)"
+    echo "-------------------------------------------------"
     echo " 0. 返回主菜单"
-    read -p "请输入选项 [0-3]: " install_choice
+    echo "================================================="
+    read -p "请输入选项 [0-7]: " install_choice
 
     case $install_choice in
         1)
+            echo_info "模式: Docker, 仅本机使用 (标准代理)"
+            ALLOW_LAN='n'
+            ENABLE_TUN='n'
             install_clash_docker
             ;;
         2)
+            echo_info "模式: 二进制, 仅本机使用 (标准代理)"
+            ALLOW_LAN='n'
+            ENABLE_TUN='n'
             install_clash_binary
             ;;
         3)
-            install_clash_manual
+            echo_info "模式: 二进制, 本机透明代理 (TUN)"
+            ALLOW_LAN='n'
+            ENABLE_TUN='y'
+            install_clash_binary
+            ;;
+        4)
+            echo_info "模式: Docker, TUN 网关"
+            ALLOW_LAN='y'
+            ENABLE_TUN='y'
+            install_clash_docker
+            ;;
+        5)
+            echo_info "模式: Docker, 透明代理网关 (iptables)"
+            ALLOW_LAN='y'
+            ENABLE_TUN='n'
+            install_clash_docker
+            echo_warn "基础安装完成。请稍后从主菜单选择 '7. 设置局域网网关' 来完成透明代理的配置。"
+            ;;
+        6)
+            echo_info "模式: 二进制, TUN 网关"
+            ALLOW_LAN='y'
+            ENABLE_TUN='y'
+            install_clash_binary
+            ;;
+        7)
+            echo_info "模式: 二进制, 透明代理网关 (iptables)"
+            ALLOW_LAN='y'
+            ENABLE_TUN='n'
+            install_clash_binary
+            echo_warn "基础安装完成。请稍后从主菜单选择 '7. 设置局域网网关' 来完成透明代理的配置。"
             ;;
         0)
             return
@@ -711,7 +794,7 @@ EOF
 
     echo_info "正在重新加载 systemd 并重启 Docker 服务..."
     systemctl daemon-reload
-    systemctl restart docker
+    restart_docker_service
     
     if [ $? -eq 0 ]; then
         echo_info "Docker 代理设置完成。"
@@ -761,7 +844,7 @@ clear_docker_proxy() {
         rm -f "$docker_proxy_file"
         echo_info "正在重新加载 systemd 并重启 Docker 服务..."
         systemctl daemon-reload
-        systemctl restart docker
+        restart_docker_service
         if [ $? -eq 0 ]; then
             echo_info "Docker 代理配置已清除。"
         else
@@ -909,11 +992,18 @@ test_tools_proxy_menu() {
 
 # 检查TUN模式是否已启用
 is_tun_enabled() {
+    # 检查 Docker 安装的 TUN 模式
     if [ -f "$COMPOSE_FILE" ] && grep -q "privileged: true" "$COMPOSE_FILE"; then
-        return 0 # 0表示true (成功)
-    else
-        return 1 # 1表示false (失败)
+        return 0 # Docker TUN is enabled
     fi
+
+    # 检查二进制安装的 TUN 模式
+    local service_file="/etc/systemd/system/clash.service"
+    if [ -f "$service_file" ] && grep -q "CAP_NET_ADMIN" "$service_file"; then
+        return 0 # Binary TUN is enabled
+    fi
+
+    return 1 # TUN not enabled or not detectable
 }
 
 # 检查并警告不必要的操作
@@ -1048,7 +1138,7 @@ show_menu() {
     echo "            Clash 管理脚本"
     echo "================================================="
     echo " 1. 安装或重新安装 Clash"
-    echo " 2. 更新 Clash 订阅"
+    echo " 2. 查看当前 Clash 运行状态"
     echo " 3. 测试代理连通性"
     echo " 4. 为 APT 设置代理"
     echo " 5. 为 Docker 设置代理"
@@ -1068,7 +1158,7 @@ show_menu() {
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         2)
-            update_subscription
+            show_clash_status
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         3)
