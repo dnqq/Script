@@ -34,9 +34,9 @@ COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 # Mihomo 镜像
 MIHOMO_IMAGE="metacubexd/mihomo:latest"
 # Mihomo 二进制文件下载链接
-MIHOMO_BINARY_URL_1="https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1.19.13.gz"
-MIHOMO_BINARY_URL_2="https://hubproxy.739999.xyz/https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1.19.13.gz"
-MIHOMO_BINARY_URL_3="https://demo.52013120.xyz/https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1.19.13.gz"
+MIHOMO_BINARY_URL_1="https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
+MIHOMO_BINARY_URL_2="https://hubproxy.739999.xyz/https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
+MIHOMO_BINARY_URL_3="https://demo.52013120.xyz/https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
 MIHOMO_BINARY_URL="$MIHOMO_BINARY_URL_2" # 默认使用第二个 (hubproxy 加速)
 # 代理地址
 PROXY_HTTP="http://127.0.0.1:7890"
