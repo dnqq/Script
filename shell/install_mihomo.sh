@@ -183,7 +183,32 @@ EOF
   # 如果是网关模式，智能处理 DNS 配置
   if [[ "$SETUP_GATEWAY" =~ ^[Yy]$ ]]; then
     # 检查配置文件中是否已存在 dns: 配置
-    if ! grep -q -E "^\s*dns:" "$CONFIG_FILE"; then
+    if grep -q -E "^\s*dns:" "$CONFIG_FILE"; then
+      echo_info "检测到现有 DNS 配置，正在为网关模式调整关键设置..."
+      # 智能地修改或添加 'enable', 'listen', 和 'enhanced-mode'，最大限度保留用户原有配置
+      
+      # 1. 确保 enable: true
+      if sed -n '/^\s*dns:/,/^[^[:space:]]/p' "$CONFIG_FILE" | grep -q '^\s*enable:'; then
+        sed -i -E '/^\s*dns:/,/^[^[:space:]]/s/^(\s*enable:).*/\1 true/' "$CONFIG_FILE"
+      else
+        sed -i '/^\s*dns:/a \  enable: true' "$CONFIG_FILE"
+      fi
+      
+      # 2. 确保 listen: 0.0.0.0:1053
+      if sed -n '/^\s*dns:/,/^[^[:space:]]/p' "$CONFIG_FILE" | grep -q '^\s*listen:'; then
+        sed -i -E '/^\s*dns:/,/^[^[:space:]]/s/^(\s*listen:).*/\1 0.0.0.0:1053/' "$CONFIG_FILE"
+      else
+        sed -i '/^\s*dns:/a \  listen: 0.0.0.0:1053' "$CONFIG_FILE"
+      fi
+      
+      # 3. 确保 enhanced-mode: redir-host (网关模式所需)
+      if sed -n '/^\s*dns:/,/^[^[:space:]]/p' "$CONFIG_FILE" | grep -q '^\s*enhanced-mode:'; then
+        sed -i -E '/^\s*dns:/,/^[^[:space:]]/s/^(\s*enhanced-mode:).*/\1 redir-host/' "$CONFIG_FILE"
+      else
+        sed -i '/^\s*dns:/a \  enhanced-mode: redir-host' "$CONFIG_FILE"
+      fi
+      echo_info "DNS 配置已调整，保留了大部分原有设置。"
+    else
       echo_info "未检测到 DNS 配置，正在为网关模式添加默认 DNS 设置..."
       cat <<EOF >> "$CONFIG_FILE"
 dns:
@@ -197,20 +222,6 @@ dns:
     - https://dns.google/dns-query
     - https://1.1.1.1/dns-query
 EOF
-    else
-      echo_info "检测到 DNS 配置，为网关模式强制更新 DNS 设置..."
-      # 如果存在 'enable:'，则修改它，否则在 'dns:' 后添加
-      if grep -q -E "^\s*enable:" "$CONFIG_FILE"; then
-          sed -i -e 's/^\s*enable:.*/  enable: true/' "$CONFIG_FILE"
-      else
-          sed -i -e '/^\s*dns:/a \  enable: true' "$CONFIG_FILE"
-      fi
-      # 如果存在 'listen:'，则修改它，否则在 'dns:' 后添加
-      if grep -q -E "^\s*listen:" "$CONFIG_FILE"; then
-          sed -i -e 's/^\s*listen:.*/  listen: 0.0.0.0:1053/' "$CONFIG_FILE"
-      else
-          sed -i -e '/^\s*dns:/a \  listen: 0.0.0.0:1053' "$CONFIG_FILE"
-      fi
     fi
   fi
 
