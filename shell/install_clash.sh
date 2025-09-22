@@ -1011,6 +1011,10 @@ clear_proxy_menu() {
 # 测试 APT 代理是否生效
 test_apt_proxy() {
     check_root
+    if is_tun_enabled; then
+        echo_info "TUN 模式已开启，APT 流量将自动通过代理。跳过配置文件检查。"
+        return
+    fi
     local apt_proxy_file="/etc/apt/apt.conf.d/99proxy.conf"
     if [ ! -f "$apt_proxy_file" ]; then
         echo_warn "未找到 APT 代理配置文件，跳过测试。"
@@ -1030,6 +1034,10 @@ test_apt_proxy() {
 # 测试 Docker 代理是否生效
 test_docker_proxy() {
     check_root
+    if is_tun_enabled; then
+        echo_info "TUN 模式已开启，Docker 流量将自动通过代理。跳过配置文件检查。"
+        return
+    fi
     local docker_proxy_file="/etc/systemd/system/docker.service.d/http-proxy.conf"
     if [ ! -f "$docker_proxy_file" ]; then
         echo_warn "未找到 Docker 代理配置文件，跳过测试。"
