@@ -523,6 +523,11 @@ install_clash_docker() {
   if [ $? -eq 0 ] && [ -n "$(docker ps -q -f name=clash)" ]; then
     echo_info "============================================================"
     echo_info "Clash 服务已成功启动！"
+    
+    if [[ "$SETUP_GATEWAY" =~ ^[Yy]$ ]]; then
+        setup_standard_gateway
+    fi
+
     echo_info ""
     echo_info "代理地址如下:"
     echo_info "  - HTTP 代理: $PROXY_HTTP"
@@ -646,6 +651,11 @@ install_clash_binary() {
     if systemctl is-active --quiet clash; then
         echo_info "============================================================"
         echo_info "Clash 服务已成功启动！"
+
+        if [[ "$SETUP_GATEWAY" =~ ^[Yy]$ ]]; then
+            setup_standard_gateway
+        fi
+
         echo_info ""
         echo_info "代理地址如下:"
         echo_info "  - HTTP 代理: $PROXY_HTTP"
@@ -662,6 +672,9 @@ install_clash_binary() {
 install_clash() {
     check_root
     clear
+    # 重置网关设置标志
+    SETUP_GATEWAY='n'
+
     echo "================================================="
     echo "                Clash 安装向导"
     echo "================================================="
@@ -712,30 +725,28 @@ install_clash() {
             echo_info "模式: Docker, 标准代理服务网关"
             ALLOW_LAN='y'
             ENABLE_TUN='n'
-            setup_standard_gateway
+            SETUP_GATEWAY='y'
             install_clash_docker
             ;;
         6)
             echo_info "模式: Docker, TUN 网关"
             ALLOW_LAN='y'
             ENABLE_TUN='y'
-            # TUN 网关也需要 MASQUERADE
-            setup_standard_gateway
+            SETUP_GATEWAY='y'
             install_clash_docker
             ;;
         7)
             echo_info "模式: 二进制, 标准代理服务网关"
             ALLOW_LAN='y'
             ENABLE_TUN='n'
-            setup_standard_gateway
+            SETUP_GATEWAY='y'
             install_clash_binary
             ;;
         8)
             echo_info "模式: 二进制, TUN 网关"
             ALLOW_LAN='y'
             ENABLE_TUN='y'
-            # TUN 网关也需要 MASQUERADE
-            setup_standard_gateway
+            SETUP_GATEWAY='y'
             install_clash_binary
             ;;
         0)
@@ -1144,14 +1155,19 @@ install_package() {
     os_name=$(detect_os)
 
     echo_info "正在为 $os_name 安装 '$package_name'..."
-    if [[ "$os_name" == "Ubuntu" || "$os_name" == "Debian" ]]; then
-        DEBIAN_FRONTEND=noninteractive apt-get install -y "$package_name"
-    elif [[ "$os_name" == "CentOS" || "$os_name" == "Red Hat Enterprise Linux" ]]; then
-        yum install -y "$package_name"
-    else
-        echo_error "不支持的操作系统: $os_name。请手动安装 '$package_name'。"
-        return 1
-    fi
+    # 使用 case 和通配符进行更灵活的匹配
+    case "$os_name" in
+        *Ubuntu*|*Debian*)
+            DEBIAN_FRONTEND=noninteractive apt-get install -y "$package_name"
+            ;;
+        *CentOS*|*Red*Hat*)
+            yum install -y "$package_name"
+            ;;
+        *)
+            echo_error "不支持的操作系统: $os_name。请手动安装 '$package_name'。"
+            return 1
+            ;;
+    esac
 }
 
 # 设置透明网关 (标准和TUN模式共用)
@@ -1226,24 +1242,28 @@ setup_standard_gateway() {
     # 4. 持久化 iptables 规则
     local os_name
     os_name=$(detect_os)
-    if [[ "$os_name" == "Ubuntu" || "$os_name" == "Debian" ]]; then
-        if ! command -v netfilter-persistent &> /dev/null; then
-            install_package "iptables-persistent"
-        fi
-        # 预设答案，避免交互
-        echo "iptables-persistent iptables-persistent/autosave_v4 boolean true" | debconf-set-selections
-        echo "iptables-persistent iptables-persistent/autosave_v6 boolean true" | debconf-set-selections
-        DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
-        netfilter-persistent save
-    elif [[ "$os_name" == "CentOS" || "$os_name" == "Red Hat Enterprise Linux" ]]; then
-        if ! command -v service &> /dev/null || ! systemctl list-unit-files | grep -q iptables.service; then
-            install_package "iptables-services"
-        fi
-        service iptables save
-        systemctl enable iptables
-    else
-        echo_warn "无法为 $os_name 自动持久化 iptables 规则。请手动操作。"
-    fi
+    case "$os_name" in
+        *Ubuntu*|*Debian*)
+            if ! command -v netfilter-persistent &> /dev/null; then
+                install_package "iptables-persistent"
+            fi
+            # 预设答案，避免交互
+            echo "iptables-persistent iptables-persistent/autosave_v4 boolean true" | debconf-set-selections
+            echo "iptables-persistent iptables-persistent/autosave_v6 boolean true" | debconf-set-selections
+            DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
+            netfilter-persistent save
+            ;;
+        *CentOS*|*Red*Hat*)
+            if ! command -v service &> /dev/null || ! systemctl list-unit-files | grep -q iptables.service; then
+                install_package "iptables-services"
+            fi
+            service iptables save
+            systemctl enable iptables
+            ;;
+        *)
+            echo_warn "无法为 $os_name 自动持久化 iptables 规则。请手动操作。"
+            ;;
+    esac
     
     echo_info "透明网关配置完成。"
 }
@@ -1270,13 +1290,20 @@ clear_gateway() {
         # 尝试保存规则
         local os_name
         os_name=$(detect_os)
-        if [[ "$os_name" == "Ubuntu" || "$os_name" == "Debian" ]] && command -v netfilter-persistent &> /dev/null; then
-            echo_info "正在保存已清除的 iptables 规则..."
-            netfilter-persistent save
-        elif [[ "$os_name" == "CentOS" || "$os_name" == "Red Hat Enterprise Linux" ]] && command -v service &> /dev/null; then
-             echo_info "正在保存已清除的 iptables 规则..."
-             service iptables save
-        fi
+        case "$os_name" in
+            *Ubuntu*|*Debian*)
+                if command -v netfilter-persistent &> /dev/null; then
+                    echo_info "正在保存已清除的 iptables 规则..."
+                    netfilter-persistent save
+                fi
+                ;;
+            *CentOS*|*Red*Hat*)
+                if command -v service &> /dev/null; then
+                    echo_info "正在保存已清除的 iptables 规则..."
+                    service iptables save
+                fi
+                ;;
+        esac
     fi
     echo_info "网关设置已清除。"
 }
