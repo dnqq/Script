@@ -123,14 +123,8 @@ prepare_directory() {
   fi
 }
 
-# 下载并修改 Clash 配置
-setup_clash_config() {
-  echo_info "正在从订阅链接下载配置文件..."
-  if ! curl -L -A "clash" -o "$CONFIG_FILE" "$CLASH_SUB_URL"; then
-    echo_error "下载订阅文件失败！请检查链接是否正确以及网络是否通畅。"
-    exit 1
-  fi
-
+# 应用服务器特定的配置修改
+apply_server_mods_to_config() {
   echo_info "正在为服务器环境优化配置文件..."
   # 使用 sed 删除可能存在的旧配置，避免冲突
   sed -i -e '/^port:/d' \
@@ -170,6 +164,28 @@ tun:
 EOF
   fi
   echo_info "配置文件优化完成。"
+}
+
+# 下载并修改 Clash 配置
+setup_clash_config() {
+  local should_download=true
+  if [ -f "$CONFIG_FILE" ]; then
+    read -p "检测到已存在的配置文件 (config.yaml)，是否要下载并覆盖它？(y/N): " choice
+    if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+      echo_info "已跳过下载配置文件。"
+      should_download=false
+    fi
+  fi
+
+  if [ "$should_download" = true ]; then
+    echo_info "正在从订阅链接下载配置文件..."
+    if ! curl -L -A "clash" -o "$CONFIG_FILE" "$CLASH_SUB_URL"; then
+      echo_error "下载订阅文件失败！请检查链接是否正确以及网络是否通畅。"
+      exit 1
+    fi
+  fi
+  
+  apply_server_mods_to_config
 }
 
 # 创建 Docker Compose 文件
@@ -339,6 +355,82 @@ show_clash_status() {
     echo "================================================="
 }
 
+
+# 更新订阅
+update_subscription() {
+    check_root
+    echo_info "正在检查 Clash 服务状态..."
+    if ! is_clash_running; then
+        echo_error "Clash 服务未运行，无法更新订阅。"
+        return 1
+    fi
+
+    local sub_url_file="$INSTALL_DIR/.subscription_url"
+    if [ ! -f "$sub_url_file" ]; then
+        echo_error "未找到订阅链接文件。请先执行安装过程以保存订阅链接。"
+        return 1
+    fi
+
+    CLASH_SUB_URL=$(cat "$sub_url_file")
+    if [ -z "$CLASH_SUB_URL" ]; then
+        echo_error "订阅链接为空。请检查文件: $sub_url_file"
+        return 1
+    fi
+    
+    echo_info "正在使用已保存的链接更新订阅: $CLASH_SUB_URL"
+    
+    # 从现有配置中推断出 TUN 和 allow-lan 的设置
+    if is_tun_enabled; then
+        ENABLE_TUN='y'
+    else
+        ENABLE_TUN='n'
+    fi
+
+    if [ -f "$CONFIG_FILE" ] && grep -q "allow-lan: true" "$CONFIG_FILE"; then
+        ALLOW_LAN='y'
+    else
+        ALLOW_LAN='n'
+    fi
+
+    # 强制覆盖现有配置文件
+    echo_info "正在从订阅链接下载新配置文件..."
+    if ! curl -L -A "clash" -o "$CONFIG_FILE" "$CLASH_SUB_URL"; then
+        echo_error "下载新订阅文件失败！"
+        return 1
+    fi
+    
+    # 重新应用服务器配置
+    apply_server_mods_to_config
+    
+    echo_info "正在重启 Clash 服务以应用新的配置..."
+    # 判断是重启 docker 还是二进制服务
+    if [ -f "$COMPOSE_FILE" ] && [ -n "$(docker ps -q -f name=clash)" ]; then
+        echo_info "检测到 Docker 安装，正在重启容器..."
+        if command -v docker-compose &> /dev/null; then
+            (cd "$INSTALL_DIR" && docker-compose restart)
+        else
+            (cd "$INSTALL_DIR" && docker compose restart)
+        fi
+
+        sleep 3
+        if [ $? -eq 0 ] && [ -n "$(docker ps -q -f name=clash)" ]; then
+            echo_info "订阅更新成功，Clash 服务已重启。"
+        else
+            echo_error "Clash 服务重启失败。请使用 'cd ${INSTALL_DIR} && docker compose logs' 查看日志。"
+        fi
+    elif systemctl is-active --quiet clash; then
+        echo_info "检测到二进制安装，正在重启服务..."
+        systemctl restart clash
+        sleep 3
+        if systemctl is-active --quiet clash; then
+            echo_info "订阅更新成功，Clash 服务已重启。"
+        else
+            echo_error "Clash 服务重启失败。请使用 'journalctl -u clash' 查看日志。"
+        fi
+    else
+        echo_error "未知的 Clash 安装类型或服务未运行。"
+    fi
+}
 
 # 启动 Clash 服务
 start_clash_service() {
@@ -510,24 +602,30 @@ install_clash_binary() {
 
     setup_clash_config
 
-    echo_info "正在下载 Clash 二进制文件: $CLASH_BINARY_URL"
-    # 从文件名中提取预期的二进制文件名
-    local binary_gz_filename=$(basename "$CLASH_BINARY_URL")
-    local binary_filename="${binary_gz_filename%.gz}" # 移除 .gz 后缀
-    
-    if ! curl -L -o "$INSTALL_DIR/clash.gz" "$CLASH_BINARY_URL"; then
-        echo_error "下载 Clash 二进制文件失败！"
-        exit 1
+    local should_download_binary=true
+    if [ -f "$INSTALL_DIR/clash" ]; then
+        read -p "检测到已存在的 Clash 二进制文件，是否要重新下载并覆盖它？(y/N): " choice
+        if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+            echo_info "已跳过下载二进制文件。"
+            should_download_binary=false
+        fi
     fi
 
-    echo_info "正在解压二进制文件..."
-    # 解压并将输出重命名为 'clash'
-    if ! gunzip -c "$INSTALL_DIR/clash.gz" > "$INSTALL_DIR/clash"; then
-        echo_error "解压失败！"
+    if [ "$should_download_binary" = true ]; then
+        echo_info "正在下载 Clash 二进制文件: $CLASH_BINARY_URL"
+        if ! curl -L -o "$INSTALL_DIR/clash.gz" "$CLASH_BINARY_URL"; then
+            echo_error "下载 Clash 二进制文件失败！"
+            exit 1
+        fi
+
+        echo_info "正在解压二进制文件..."
+        if ! gunzip -c "$INSTALL_DIR/clash.gz" > "$INSTALL_DIR/clash"; then
+            echo_error "解压失败！"
+            rm -f "$INSTALL_DIR/clash.gz"
+            exit 1
+        fi
         rm -f "$INSTALL_DIR/clash.gz"
-        exit 1
     fi
-    rm -f "$INSTALL_DIR/clash.gz"
     
     chmod +x "$INSTALL_DIR/clash"
 
@@ -553,67 +651,6 @@ install_clash_binary() {
     fi
 }
 
-# 手动安装
-install_clash_manual() {
-    check_root
-
-    # 检查并停止现有服务
-    if is_clash_running; then
-        read -p "检测到 Clash 已在运行。是否要停止现有服务并进行手动安装？(y/N): " choice
-        if [[ ! "$choice" =~ ^[Yy]$ ]]; then
-            echo_info "操作已取消。"
-            return
-        fi
-        stop_clash_service
-        stop_binary_service
-    fi
-
-    prepare_directory
-
-    echo_info "--- 手动安装说明 ---"
-    echo_warn "请将您的 Clash 核心文件和配置文件上传到以下位置:"
-    echo "1. Clash 二进制文件: $INSTALL_DIR/clash"
-    echo "   (请确保它已解压并具有执行权限: chmod +x $INSTALL_DIR/clash)"
-    echo "2. Clash 配置文件: $CONFIG_FILE"
-    echo "------------------------"
-    read -p "完成上传后，请按任意键继续安装..." -n 1 -r -s
-
-    # 验证文件是否存在
-    if [ ! -f "$INSTALL_DIR/clash" ]; then
-        echo_error "未找到 Clash 二进制文件: $INSTALL_DIR/clash"
-        return 1
-    fi
-    if [ ! -f "$CONFIG_FILE" ]; then
-        echo_error "未找到 Clash 配置文件: $CONFIG_FILE"
-        return 1
-    fi
-
-    # 确保二进制文件有执行权限
-    chmod +x "$INSTALL_DIR/clash"
-
-    create_systemd_service
-
-    echo_info "正在启动 Clash 服务..."
-    systemctl start clash
-    systemctl enable clash
-
-    sleep 3
-    if systemctl is-active --quiet clash; then
-        echo_info "============================================================"
-        echo_info "Clash 服务已通过手动提供的文件成功启动！"
-        echo_info ""
-        echo_info "代理地址如下 (请确保与您的配置文件一致):"
-        echo_info "  - HTTP 代理: $PROXY_HTTP"
-        echo_info "  - SOCKS5 代理: $PROXY_SOCKS5"
-        echo_info "============================================================"
-        echo_info "正在进行自动代理测试..."
-        test_proxy
-    else
-        echo_error "Clash 服务启动失败。请运行 'journalctl -u clash' 查看日志。"
-        echo_warn "请检查您的配置文件 $CONFIG_FILE 是否正确。"
-    fi
-}
-
 # 安装 Clash (主入口)
 install_clash() {
     check_root
@@ -631,13 +668,11 @@ install_clash() {
     echo ""
     echo "--- 场景 3: 局域网网关 (客户端自动全局代理) ---"
     echo " 5. Docker 安装:   TUN 网关 (推荐, 接管 TCP+UDP)"
-    echo " 6. Docker 安装:   透明代理网关 (仅 TCP, 需额外设置 iptables)"
-    echo " 7. 二进制 安装:   TUN 网关 (接管 TCP+UDP)"
-    echo " 8. 二进制 安装:   透明代理网关 (仅 TCP, 需额外设置 iptables)"
+    echo " 6. 二进制 安装:   TUN 网关 (接管 TCP+UDP)"
     echo "-------------------------------------------------"
     echo " 0. 返回主菜单"
     echo "================================================="
-    read -p "请输入选项 [0-8]: " install_choice
+    read -p "请输入选项 [0-6]: " install_choice
 
     case $install_choice in
         1)
@@ -671,24 +706,10 @@ install_clash() {
             install_clash_docker
             ;;
         6)
-            echo_info "模式: Docker, 透明代理网关 (iptables)"
-            ALLOW_LAN='y'
-            ENABLE_TUN='n'
-            install_clash_docker
-            echo_warn "基础安装完成。请稍后从主菜单选择 '7. 设置局域网网关' 来完成透明代理的配置。"
-            ;;
-        7)
             echo_info "模式: 二进制, TUN 网关"
             ALLOW_LAN='y'
             ENABLE_TUN='y'
             install_clash_binary
-            ;;
-        8)
-            echo_info "模式: 二进制, 透明代理网关 (iptables)"
-            ALLOW_LAN='y'
-            ENABLE_TUN='n'
-            install_clash_binary
-            echo_warn "基础安装完成。请稍后从主菜单选择 '7. 设置局域网网关' 来完成透明代理的配置。"
             ;;
         0)
             return
@@ -774,6 +795,17 @@ test_proxy() {
     done
 }
 
+# 运行所有连接测试
+run_all_tests() {
+    echo_info "--- 开始综合连接测试 ---"
+    test_proxy
+    echo ""
+    echo_info "--- 开始测试工具代理 ---"
+    test_apt_proxy
+    test_docker_proxy
+    echo_info "--- 所有测试已完成 ---"
+}
+
 # 为 APT 设置代理
 set_apt_proxy() {
     check_root
@@ -831,6 +863,53 @@ EOF
     echo_info "系统代理设置完成。"
     echo_warn "此设置为全局生效，但需要重新登录或重启系统才能完全应用。"
     echo_warn "要移除代理，请编辑 /etc/environment 文件并删除相关行。"
+}
+
+# 为软件/系统设置代理子菜单
+set_proxy_menu() {
+    while true; do
+        clear
+        echo "================================================="
+        echo "              为软件/系统设置代理"
+        echo "================================================="
+        echo "此菜单为特定程序设置 HTTP 代理，在 TUN 模式下通常非必需。"
+        echo ""
+        echo " 1. 为 APT 设置代理"
+        echo " 2. 为 Docker 设置代理"
+        echo " 3. 为当前系统设置全局代理 (环境变量)"
+        echo "-------------------------------------------------"
+        echo " 0. 返回主菜单"
+        echo "================================================="
+        read -p "请输入选项 [0-3]: " choice
+
+        case $choice in
+            1)
+                if check_unnecessary_action; then
+                    set_apt_proxy
+                fi
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+            2)
+                if check_unnecessary_action; then
+                    set_docker_proxy
+                fi
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+            3)
+                if check_unnecessary_action; then
+                    set_system_proxy
+                fi
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo_error "无效选项，请输入 0 到 3 之间的数字。"
+                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
+                ;;
+        esac
+    done
 }
 
 # 清除 APT 代理
@@ -933,7 +1012,7 @@ test_apt_proxy() {
     check_root
     local apt_proxy_file="/etc/apt/apt.conf.d/99proxy.conf"
     if [ ! -f "$apt_proxy_file" ]; then
-        echo_error "未找到 APT 代理配置文件。请先在菜单中设置。"
+        echo_warn "未找到 APT 代理配置文件，跳过测试。"
         return
     fi
     echo_info "正在测试 APT 代理..."
@@ -952,7 +1031,7 @@ test_docker_proxy() {
     check_root
     local docker_proxy_file="/etc/systemd/system/docker.service.d/http-proxy.conf"
     if [ ! -f "$docker_proxy_file" ]; then
-        echo_error "未找到 Docker 代理配置文件。请先在菜单中设置。"
+        echo_warn "未找到 Docker 代理配置文件，跳过测试。"
         return
     fi
     echo_info "正在检查 Docker 服务的环境变量..."
@@ -963,40 +1042,6 @@ test_docker_proxy() {
         echo_error "检查失败：Docker 服务的代理环境变量未设置或不正确。"
         echo_warn "请确保你已在菜单中设置了 Docker 代理并重启了 Docker 服务。"
     fi
-}
-
-# 测试工具代理子菜单
-test_tools_proxy_menu() {
-    while true; do
-        clear
-        echo "================================================="
-        echo "                测试工具代理"
-        echo "================================================="
-        echo " 1. 测试 APT 代理"
-        echo " 2. 测试 Docker 代理"
-        echo "-------------------------------------------------"
-        echo " 0. 返回主菜单"
-        echo "================================================="
-        read -p "请输入选项 [0-2]: " choice
-
-        case $choice in
-            1)
-                test_apt_proxy
-                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
-                ;;
-            2)
-                test_docker_proxy
-                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
-                ;;
-            0)
-                return
-                ;;
-            *)
-                echo_error "无效选项，请输入 0 到 2 之间的数字。"
-                read -p $'\n按任意键返回子菜单...' -n 1 -r -s
-                ;;
-        esac
-    done
 }
 
 # 检查TUN模式是否已启用
@@ -1026,63 +1071,6 @@ check_unnecessary_action() {
         fi
     fi
     return 0
-}
-
-# 设置局域网网关
-setup_gateway() {
-    check_root
-    if ! is_clash_running; then
-        echo_error "Clash 服务未运行，无法设置网关。"
-        return 1
-    fi
-    if ! grep -q "allow-lan: true" "$CONFIG_FILE"; then
-        echo_error "Clash 未配置为允许局域网连接。"
-        echo_warn "请在安装或更新时选择 'y' 允许局域网连接。"
-        return 1
-    fi
-    if ! command -v iptables &> /dev/null; then
-        echo_error "未找到 iptables 命令，无法设置网关。"
-        return 1
-    fi
-
-    echo_info "正在启用内核 IP 转发..."
-    sysctl -w net.ipv4.ip_forward=1
-    # 使其在重启后保持生效
-    if ! grep -q "net.ipv4.ip_forward=1" /etc/sysctl.conf; then
-        echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-    fi
-
-    echo_info "正在设置 iptables 流量转发规则..."
-    local lan_ip_range=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1)
-    if [ -z "$lan_ip_range" ]; then
-        echo_error "无法自动检测局域网 IP 范围。"
-        return 1
-    fi
-    echo_info "检测到局域网 IP 段: $lan_ip_range"
-
-    # 清除旧规则以避免重复
-    iptables -t nat -D PREROUTING -p tcp -s "$lan_ip_range" -j REDIRECT --to-port 7892 &>/dev/null
-
-    # 添加新规则
-    iptables -t nat -A PREROUTING -p tcp -s "$lan_ip_range" -j REDIRECT --to-port 7892
-    
-    echo_info "网关设置完成。"
-    echo_warn "请将局域网内其他设备的网关地址设置为主机的 IP 地址。"
-
-    # 提示安装 iptables-persistent
-    if ! command -v netfilter-persistent &> /dev/null; then
-        echo_warn "为使 iptables 规则在重启后生效，建议安装 'iptables-persistent'。"
-        read -p "是否现在尝试使用 apt 安装 (y/N)？" install_persistent
-        if [[ "$install_persistent" =~ ^[Yy]$ ]]; then
-            apt-get update && apt-get install -y iptables-persistent
-        fi
-    fi
-
-    # 保存规则
-    if command -v netfilter-persistent &> /dev/null; then
-        echo_info "正在保存 iptables 规则..."
-        netfilter-persistent save
-    fi
 }
 
 # 清除局域网网关设置
@@ -1146,20 +1134,17 @@ show_menu() {
     echo "================================================="
     echo "            Clash 管理脚本"
     echo "================================================="
-    echo " 1. 安装或重新安装 Clash"
-    echo " 2. 查看当前 Clash 运行状态"
-    echo " 3. 测试代理连通性"
-    echo " 4. 为 APT 设置代理"
-    echo " 5. 为 Docker 设置代理"
-    echo " 6. 为当前系统设置全局代理"
-    echo " 7. 设置局域网网关 (透明代理)"
-    echo " 8. 测试工具代理 (APT/Docker)"
-    echo " 9. 清除代理配置"
-    echo " 10. 卸载 Clash"
+    echo " 1. 安装 Clash"
+    echo " 2. 更新订阅"
+    echo " 3. 查看当前 Clash 运行状态"
+    echo " 4. 运行所有连接测试"
+    echo " 5. 为软件/系统设置代理"
+    echo " 6. 清除代理配置"
+    echo " 7. 卸载 Clash"
     echo "-------------------------------------------------"
     echo " 0. 退出脚本"
     echo "================================================="
-    read -p "请输入选项 [0-10]: " choice
+    read -p "请输入选项 [0-7]: " choice
     
     case $choice in
         1)
@@ -1167,44 +1152,24 @@ show_menu() {
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         2)
-            show_clash_status
+            update_subscription
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         3)
-            test_proxy
+            show_clash_status
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         4)
-            if check_unnecessary_action; then
-                set_apt_proxy
-            fi
+            run_all_tests
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         5)
-            if check_unnecessary_action; then
-                set_docker_proxy
-            fi
-            read -p $'\n按任意键返回菜单...' -n 1 -r -s
+            set_proxy_menu
             ;;
         6)
-            if check_unnecessary_action; then
-                set_system_proxy
-            fi
-            read -p $'\n按任意键返回菜单...' -n 1 -r -s
-            ;;
-        7)
-            if check_unnecessary_action; then
-                setup_gateway
-            fi
-            read -p $'\n按任意键返回菜单...' -n 1 -r -s
-            ;;
-        8)
-            test_tools_proxy_menu
-            ;;
-        9)
             clear_proxy_menu
             ;;
-        10)
+        7)
             uninstall_clash
             # 卸载后脚本的功能基本失效，直接退出
             if [ $? -eq 0 ]; then
@@ -1216,7 +1181,7 @@ show_menu() {
             exit 0
             ;;
         *)
-            echo_error "无效选项，请输入 0 到 10 之间的数字。"
+            echo_error "无效选项，请输入 0 到 7 之间的数字。"
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
     esac
@@ -1229,6 +1194,8 @@ main() {
         CLASH_SUB_URL="$2"
         # 为了保持兼容性，一键安装默认使用 Docker
         echo_info "检测到一键安装参数，将使用 Docker 方式进行安装..."
+        ALLOW_LAN='y'
+        ENABLE_TUN='n'
         install_clash_docker
     fi
 
