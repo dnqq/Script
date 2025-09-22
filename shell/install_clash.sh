@@ -4,16 +4,16 @@
 # Clash Docker 一键安装及管理脚本
 #
 # 功能:
-#   - 自动在 Debian/Ubuntu 服务器上使用 Docker 和 Docker Compose 部署 Clash。
+#   - 自动在 Debian/Ubuntu/CentOS 服务器上使用 Docker 或 二进制文件 部署 Clash。
 #   - 支持通过参数或交互式输入获取 Clash 订阅链接。
 #   - 自动下载并修改配置文件以适应服务器环境。
 #   - 将 Clash 设置为开机自启动。
-#   - 提供菜单进行功能选择：安装、代理测试、为常用工具设置代理。
+#   - 提供多种安装模式：标准代理、本机透明代理、局域网透明网关。
+#   - 自动处理依赖安装、防火墙规则设置与持久化。
 #
 # 使用方法:
-#   1. 确保服务器已安装 Docker 和 Docker Compose。
-#   2. 赋予脚本执行权限: chmod +x install_clash.sh
-#   3. 运行脚本:
+#   1. 赋予脚本执行权限: chmod +x install_clash.sh
+#   2. 运行脚本:
 #      - 显示菜单: sudo ./install_clash.sh
 #      - 一键安装: sudo ./install_clash.sh install <你的订阅链接>
 #
@@ -132,7 +132,8 @@ apply_server_mods_to_config() {
          -e '/^allow-lan:/d' \
          -e '/^external-controller:/d' \
          -e '/^log-level:/d' \
-         -e '/^tun:/,$d' "$CONFIG_FILE" # 删除旧的TUN配置
+         -e '/^tun:/,$d' \
+         -e '/^dns:/,$d' "$CONFIG_FILE" # 删除旧的TUN和DNS配置
 
   # 根据用户选择设置 allow-lan
   local allow_lan_value="false"
@@ -146,10 +147,22 @@ apply_server_mods_to_config() {
 # --- Appended by install_clash.sh for server environment ---
 port: 7890
 socks-port: 7891
-allow-lan: ${allow_lan_value}
 redir-port: 7892
+allow-lan: ${allow_lan_value}
 external-controller: '0.0.0.0:9090'
 log-level: info
+
+# DNS server settings for gateway mode
+dns:
+  enable: true
+  listen: 0.0.0.0:1053
+  enhanced-mode: redir-host
+  nameserver:
+    - 114.114.114.114
+    - 8.8.8.8
+  fallback:
+    - https://dns.google/dns-query
+    - https://1.1.1.1/dns-query
 EOF
 
   # 如果启用了TUN模式，则追加TUN配置
@@ -320,7 +333,7 @@ show_clash_status() {
     
     # 4. Gateway Status
     echo -n "  - 透明网关 (iptables): "
-    if command -v iptables-save &> /dev/null && iptables-save | grep -q -- '-j REDIRECT --to-ports 7892'; then
+    if command -v iptables-save &> /dev/null && iptables-save | grep -q -- '-j CLASH'; then
          print_status "规则已设置" 0
     else
          print_status "规则未设置" 2
@@ -656,17 +669,19 @@ install_clash() {
     echo " 1. Docker 安装:   标准代理 (局域网设备可通过 IP:Port 连接)"
     echo " 2. 二进制 安装:   标准代理 (局域网设备可通过 IP:Port 连接)"
     echo ""
-    echo "--- 场景 2: 本机透明代理 (仅影响本机) ---"
-    echo " 3. Docker 安装:   本机 TUN 代理 (自动接管本机所有流量)"
-    echo " 4. 二进制 安装:   本机 TUN 代理 (自动接管本机所有流量)"
+    echo "--- 场景 2: 本机透明代理 (自动接管本机所有流量) ---"
+    echo " 3. Docker 安装:   本机 TUN 代理 (局域网设备可通过 IP:Port 连接)"
+    echo " 4. 二进制 安装:   本机 TUN 代理 (局域网设备可通过 IP:Port 连接)"
     echo ""
     echo "--- 场景 3: 局域网网关 (客户端自动全局代理) ---"
-    echo " 5. Docker 安装:   TUN 网关 (推荐, 接管 TCP+UDP)"
-    echo " 6. 二进制 安装:   TUN 网关 (接管 TCP+UDP)"
+    echo " 5. Docker 安装:   标准代理服务网关 ( 接管 TCP和DNS)"
+    echo " 6. Docker 安装:   TUN 网关 ( 接管 TCP+UDP，容器中安装需要开启 TUN 模块)"
+    echo " 7. 二进制 安装:   标准代理服务网关 ( 接管 TCP和DNS)"
+    echo " 8. 二进制 安装:   TUN 网关 (接管 TCP+UDP，容器中安装需要开启 TUN 模块)"
     echo "-------------------------------------------------"
     echo " 0. 返回主菜单"
     echo "================================================="
-    read -p "请输入选项 [0-6]: " install_choice
+    read -p "请输入选项 [0-8]: " install_choice
 
     case $install_choice in
         1)
@@ -683,26 +698,44 @@ install_clash() {
             ;;
         3)
             echo_info "模式: Docker, 本机透明代理 (TUN)"
-            ALLOW_LAN='n'
+            ALLOW_LAN='y' # 本机透明代理也需要允许局域网连接，以便其他设备使用
             ENABLE_TUN='y'
             install_clash_docker
             ;;
         4)
             echo_info "模式: 二进制, 本机透明代理 (TUN)"
-            ALLOW_LAN='n'
+            ALLOW_LAN='y' # 本机透明代理也需要允许局域网连接，以便其他设备使用
             ENABLE_TUN='y'
             install_clash_binary
             ;;
         5)
-            echo_info "模式: Docker, TUN 网关"
+            echo_info "模式: Docker, 标准代理服务网关"
             ALLOW_LAN='y'
-            ENABLE_TUN='y'
+            ENABLE_TUN='n'
+            setup_standard_gateway
             install_clash_docker
             ;;
         6)
+            echo_info "模式: Docker, TUN 网关"
+            ALLOW_LAN='y'
+            ENABLE_TUN='y'
+            # TUN 网关也需要 MASQUERADE
+            setup_standard_gateway
+            install_clash_docker
+            ;;
+        7)
+            echo_info "模式: 二进制, 标准代理服务网关"
+            ALLOW_LAN='y'
+            ENABLE_TUN='n'
+            setup_standard_gateway
+            install_clash_binary
+            ;;
+        8)
             echo_info "模式: 二进制, TUN 网关"
             ALLOW_LAN='y'
             ENABLE_TUN='y'
+            # TUN 网关也需要 MASQUERADE
+            setup_standard_gateway
             install_clash_binary
             ;;
         0)
@@ -1082,6 +1115,140 @@ check_unnecessary_action() {
     return 0
 }
 
+# --- 系统与网络辅助函数 ---
+
+# 检测操作系统
+detect_os() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$NAME
+    elif type lsb_release >/dev/null 2>&1; then
+        OS=$(lsb_release -si)
+    elif [ -f /etc/lsb-release ]; then
+        . /etc/lsb-release
+        OS=$DISTRIB_ID
+    elif [ -f /etc/debian_version ]; then
+        OS="Debian"
+    elif [ -f /etc/redhat-release ]; then
+        OS="CentOS" # or RHEL
+    else
+        OS=$(uname -s)
+    fi
+    echo "$OS"
+}
+
+# 通用包安装函数
+install_package() {
+    local package_name=$1
+    local os_name
+    os_name=$(detect_os)
+
+    echo_info "正在为 $os_name 安装 '$package_name'..."
+    if [[ "$os_name" == "Ubuntu" || "$os_name" == "Debian" ]]; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y "$package_name"
+    elif [[ "$os_name" == "CentOS" || "$os_name" == "Red Hat Enterprise Linux" ]]; then
+        yum install -y "$package_name"
+    else
+        echo_error "不支持的操作系统: $os_name。请手动安装 '$package_name'。"
+        return 1
+    fi
+}
+
+# 设置透明网关 (标准和TUN模式共用)
+setup_standard_gateway() {
+    check_root
+    echo_info "正在配置透明网关..."
+
+    # 1. 开启 IP 转发
+    echo_info "正在开启内核 IP 转发并持久化..."
+    if ! grep -q "^net.ipv4.ip_forward=1" /etc/sysctl.conf; then
+        echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+    fi
+    sysctl -p
+    if [ "$(cat /proc/sys/net/ipv4/ip_forward)" -ne 1 ]; then
+        echo_error "开启 IP 转发失败！"
+        exit 1
+    fi
+
+    # 2. 确保 iptables 已安装
+    if ! command -v iptables &> /dev/null; then
+        echo_warn "iptables 命令未找到。正在尝试自动安装..."
+        install_package "iptables"
+        if ! command -v iptables &> /dev/null; then
+            echo_error "iptables 安装失败。请手动安装后重试。"
+            exit 1
+        fi
+    fi
+    
+    # 3. 配置 iptables 规则
+    echo_info "正在配置 iptables 规则 (使用 CLASH 自定义链)..."
+    local lan_ip_range
+    lan_ip_range=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1)
+    local server_ip
+    server_ip=$(echo "$lan_ip_range" | cut -d'/' -f1)
+
+    # 创建 CLASH 链
+    iptables -t nat -N CLASH &>/dev/null
+    # 清空旧规则
+    iptables -t nat -F CLASH
+
+    # 忽略发往 Clash 服务器自身和私有地址的流量
+    iptables -t nat -A CLASH -d "$server_ip" -j RETURN
+    iptables -t nat -A CLASH -d 0.0.0.0/8 -j RETURN
+    iptables -t nat -A CLASH -d 10.0.0.0/8 -j RETURN
+    iptables -t nat -A CLASH -d 127.0.0.0/8 -j RETURN
+    iptables -t nat -A CLASH -d 169.254.0.0/16 -j RETURN
+    iptables -t nat -A CLASH -d 172.16.0.0/12 -j RETURN
+    iptables -t nat -A CLASH -d 192.168.0.0/16 -j RETURN
+    iptables -t nat -A CLASH -d 224.0.0.0/4 -j RETURN
+    iptables -t nat -A CLASH -d 240.0.0.0/4 -j RETURN
+
+    # 将剩余 TCP 流量重定向到 Clash 的 redir-port
+    if [[ "$ENABLE_TUN" != "y" ]]; then # 只有标准网关需要重定向TCP
+        iptables -t nat -A CLASH -p tcp -j REDIRECT --to-port 7892
+    fi
+
+    # 清空 PREROUTING 链中的旧规则
+    iptables -t nat -D PREROUTING -p tcp -j CLASH &>/dev/null
+    iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-port 1053 &>/dev/null
+
+    # 将 PREROUTING 链中的流量引导至 CLASH 链
+    iptables -t nat -A PREROUTING -p tcp -j CLASH
+    # 将 DNS 请求重定向到 Clash 的 DNS 端口
+    iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-port 1053
+
+    # 为局域网设备做 SNAT
+    iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE &>/dev/null
+    iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+    
+    echo_info "iptables 规则配置完成。正在持久化规则..."
+    
+    # 4. 持久化 iptables 规则
+    local os_name
+    os_name=$(detect_os)
+    if [[ "$os_name" == "Ubuntu" || "$os_name" == "Debian" ]]; then
+        if ! command -v netfilter-persistent &> /dev/null; then
+            install_package "iptables-persistent"
+        fi
+        # 预设答案，避免交互
+        echo "iptables-persistent iptables-persistent/autosave_v4 boolean true" | debconf-set-selections
+        echo "iptables-persistent iptables-persistent/autosave_v6 boolean true" | debconf-set-selections
+        DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
+        netfilter-persistent save
+    elif [[ "$os_name" == "CentOS" || "$os_name" == "Red Hat Enterprise Linux" ]]; then
+        if ! command -v service &> /dev/null || ! systemctl list-unit-files | grep -q iptables.service; then
+            install_package "iptables-services"
+        fi
+        service iptables save
+        systemctl enable iptables
+    else
+        echo_warn "无法为 $os_name 自动持久化 iptables 规则。请手动操作。"
+    fi
+    
+    echo_info "透明网关配置完成。"
+}
+
+
 # 清除局域网网关设置
 clear_gateway() {
     check_root
@@ -1090,14 +1257,25 @@ clear_gateway() {
     sed -i '/^net.ipv4.ip_forward=1/d' /etc/sysctl.conf
 
     if command -v iptables &> /dev/null; then
-        echo_info "正在清除 iptables 流量转发规则..."
-        local lan_ip_range=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1)
-        if [ -n "$lan_ip_range" ]; then
-            iptables -t nat -D PREROUTING -p tcp -s "$lan_ip_range" -j REDIRECT --to-port 7892 &>/dev/null
-        fi
-        if command -v netfilter-persistent &> /dev/null; then
-            echo_info "正在保存 iptables 规则..."
+        echo_info "正在清除 iptables 网关规则..."
+        # 清除 PREROUTING 和 POSTROUTING 中的规则
+        iptables -t nat -D PREROUTING -p tcp -j CLASH &>/dev/null
+        iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-port 1053 &>/dev/null
+        iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE &>/dev/null
+        
+        # 清空并删除 CLASH 链
+        iptables -t nat -F CLASH &>/dev/null
+        iptables -t nat -X CLASH &>/dev/null
+        
+        # 尝试保存规则
+        local os_name
+        os_name=$(detect_os)
+        if [[ "$os_name" == "Ubuntu" || "$os_name" == "Debian" ]] && command -v netfilter-persistent &> /dev/null; then
+            echo_info "正在保存已清除的 iptables 规则..."
             netfilter-persistent save
+        elif [[ "$os_name" == "CentOS" || "$os_name" == "Red Hat Enterprise Linux" ]] && command -v service &> /dev/null; then
+             echo_info "正在保存已清除的 iptables 规则..."
+             service iptables save
         fi
     fi
     echo_info "网关设置已清除。"
