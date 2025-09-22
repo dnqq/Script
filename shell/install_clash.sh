@@ -34,6 +34,8 @@ CONFIG_FILE="$INSTALL_DIR/config.yaml"
 COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 # Clash 镜像
 CLASH_IMAGE="dreamacro/clash-premium:latest"
+# Clash 二进制文件下载链接
+CLASH_BINARY_URL="https://alist.739999.xyz/d/%E8%B5%84%E6%BA%90/software/ashin/%E7%BD%91%E7%BB%9C%E5%B7%A5%E5%85%B7/clash-linux-amd64-2023.08.17.gz"
 # 代理地址
 PROXY_HTTP="http://127.0.0.1:7890"
 PROXY_SOCKS5="socks5://127.0.0.1:7891"
@@ -208,12 +210,21 @@ EOF
   echo "$compose_content" > "$COMPOSE_FILE"
 }
 
+# 检查 Clash 是否正在运行 (Docker 或 systemd)
+is_clash_running() {
+    if [ -n "$(docker ps -q -f name=clash)" ] || systemctl is-active --quiet clash; then
+        return 0 # true
+    else
+        return 1 # false
+    fi
+}
+
 # 更新订阅
 update_subscription() {
     check_root
     echo_info "正在检查 Clash 服务状态..."
-    if [ -z "$(docker ps -q -f name=clash)" ]; then
-        echo_error "Clash 容器未运行，无法更新订阅。"
+    if ! is_clash_running; then
+        echo_error "Clash 服务未运行，无法更新订阅。"
         return 1
     fi
 
@@ -250,19 +261,36 @@ update_subscription() {
     setup_clash_config
     
     echo_info "正在重启 Clash 服务以应用新的配置..."
-    if command -v docker-compose &> /dev/null; then
-        (cd "$INSTALL_DIR" && docker-compose restart)
-    else
-        (cd "$INSTALL_DIR" && docker compose restart)
-    fi
+    # 判断是重启 docker 还是二进制服务
+    if [ -f "$COMPOSE_FILE" ] && [ -n "$(docker ps -q -f name=clash)" ]; then
+        echo_info "检测到 Docker 安装，正在重启容器..."
+        if command -v docker-compose &> /dev/null; then
+            (cd "$INSTALL_DIR" && docker-compose restart)
+        else
+            (cd "$INSTALL_DIR" && docker compose restart)
+        fi
 
-    sleep 3
-    if [ $? -eq 0 ] && [ "$(docker ps -q -f name=clash)" ]; then
-        echo_info "订阅更新成功，Clash 服务已重启。"
-        echo_info "正在进行自动代理测试..."
-        test_proxy
+        sleep 3
+        if [ $? -eq 0 ] && [ -n "$(docker ps -q -f name=clash)" ]; then
+            echo_info "订阅更新成功，Clash 服务已重启。"
+            echo_info "正在进行自动代理测试..."
+            test_proxy
+        else
+            echo_error "Clash 服务重启失败。请使用 'cd ${INSTALL_DIR} && docker compose logs' 查看日志。"
+        fi
+    elif systemctl is-active --quiet clash; then
+        echo_info "检测到二进制安装，正在重启服务..."
+        systemctl restart clash
+        sleep 3
+        if systemctl is-active --quiet clash; then
+            echo_info "订阅更新成功，Clash 服务已重启。"
+            echo_info "正在进行自动代理测试..."
+            test_proxy
+        else
+            echo_error "Clash 服务重启失败。请使用 'journalctl -u clash' 查看日志。"
+        fi
     else
-        echo_error "Clash 服务重启失败。请使用 'cd ${INSTALL_DIR} && docker compose logs' 查看日志。"
+        echo_error "未知的 Clash 安装类型或服务未运行。"
     fi
 }
 
@@ -288,22 +316,40 @@ stop_clash_service() {
         (cd "$INSTALL_DIR" && docker-compose down)
     else
         (cd "$INSTALL_DIR" && docker compose down)
-    fi
-}
+        fi
+    }
+    
+    # 停止并移除 Clash 二进制服务
+    stop_binary_service() {
+        echo_info "正在停止并移除 Clash 二进制服务..."
+        if systemctl is-active --quiet clash; then
+            systemctl stop clash
+            systemctl disable clash
+            echo_info "Clash 服务已停止并禁用。"
+        fi
+        if [ -f "/etc/systemd/system/clash.service" ]; then
+            rm -f "/etc/systemd/system/clash.service"
+            systemctl daemon-reload
+            echo_info "Clash systemd 服务文件已移除。"
+        fi
+        # 不删除二进制文件本身，以便于重新安装
+        # rm -f "$INSTALL_DIR/clash"
+    }
 
-# 安装 Clash
-install_clash() {
+# 自动安装 - Docker
+install_clash_docker() {
   check_root
   check_docker
 
-  # 如果服务已在运行，询问是否要重新安装
-  if [ "$(docker ps -q -f name=clash)" ]; then
-    read -p "检测到 Clash 容器已在运行。是否要继续并覆盖现有配置？(y/N): " choice
+  # 检查并停止现有服务
+  if is_clash_running; then
+    read -p "检测到 Clash 已在运行。是否要停止现有服务并使用 Docker 重新安装？(y/N): " choice
     if [[ ! "$choice" =~ ^[Yy]$ ]]; then
       echo_info "操作已取消。"
-      exit 0
+      return
     fi
     stop_clash_service
+    stop_binary_service
   fi
 
   get_user_input
@@ -332,7 +378,7 @@ install_clash() {
 
   # 检查启动结果
   sleep 3 # 等待容器启动
-  if [ $? -eq 0 ] && [ "$(docker ps -q -f name=clash)" ]; then
+  if [ $? -eq 0 ] && [ -n "$(docker ps -q -f name=clash)" ]; then
     echo_info "============================================================"
     echo_info "Clash 服务已成功启动！"
     echo_info ""
@@ -347,12 +393,213 @@ install_clash() {
   fi
 }
 
+# 创建 systemd 服务文件
+create_systemd_service() {
+    echo_info "正在创建 systemd 服务文件..."
+    cat <<EOF > /etc/systemd/system/clash.service
+[Unit]
+Description=Clash daemon
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=$INSTALL_DIR/clash -d $INSTALL_DIR
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    echo_info "正在重新加载 systemd..."
+    systemctl daemon-reload
+}
+
+# 自动安装 - 二进制
+install_clash_binary() {
+    check_root
+
+    # 检查并停止现有服务
+    if is_clash_running; then
+        read -p "检测到 Clash 已在运行。是否要停止现有服务并使用二进制文件重新安装？(y/N): " choice
+        if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+            echo_info "操作已取消。"
+            return
+        fi
+        stop_clash_service
+        stop_binary_service
+    fi
+
+    get_user_input
+    prepare_directory
+
+    # 保存订阅链接
+    echo "$CLASH_SUB_URL" > "$INSTALL_DIR/.subscription_url"
+    if [ $? -ne 0 ]; then
+        echo_error "保存订阅链接失败。"
+        exit 1
+    fi
+    echo_info "订阅链接已保存，用于后续更新。"
+
+    read -p "是否允许局域网(LAN)连接 (y/N)？ [默认: N]: " ALLOW_LAN
+    ALLOW_LAN=${ALLOW_LAN:-n}
+    # 二进制安装默认不启用TUN，因其配置更复杂
+    ENABLE_TUN='n'
+
+    setup_clash_config
+
+    echo_info "正在下载 Clash 二进制文件: $CLASH_BINARY_URL"
+    # 从文件名中提取预期的二进制文件名
+    local binary_gz_filename=$(basename "$CLASH_BINARY_URL")
+    local binary_filename="${binary_gz_filename%.gz}" # 移除 .gz 后缀
+    
+    if ! curl -L -o "$INSTALL_DIR/clash.gz" "$CLASH_BINARY_URL"; then
+        echo_error "下载 Clash 二进制文件失败！"
+        exit 1
+    fi
+
+    echo_info "正在解压二进制文件..."
+    # 解压并将输出重命名为 'clash'
+    if ! gunzip -c "$INSTALL_DIR/clash.gz" > "$INSTALL_DIR/clash"; then
+        echo_error "解压失败！"
+        rm -f "$INSTALL_DIR/clash.gz"
+        exit 1
+    fi
+    rm -f "$INSTALL_DIR/clash.gz"
+    
+    chmod +x "$INSTALL_DIR/clash"
+
+    create_systemd_service
+
+    echo_info "正在启动 Clash 服务..."
+    systemctl start clash
+    systemctl enable clash
+
+    sleep 3
+    if systemctl is-active --quiet clash; then
+        echo_info "============================================================"
+        echo_info "Clash 服务已成功启动！"
+        echo_info ""
+        echo_info "代理地址如下:"
+        echo_info "  - HTTP 代理: $PROXY_HTTP"
+        echo_info "  - SOCKS5 代理: $PROXY_SOCKS5"
+        echo_info "============================================================"
+        echo_info "正在进行自动代理测试..."
+        test_proxy
+    else
+        echo_error "Clash 服务启动失败。请运行 'journalctl -u clash' 查看日志。"
+    fi
+}
+
+# 手动安装
+install_clash_manual() {
+    check_root
+
+    # 检查并停止现有服务
+    if is_clash_running; then
+        read -p "检测到 Clash 已在运行。是否要停止现有服务并进行手动安装？(y/N): " choice
+        if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+            echo_info "操作已取消。"
+            return
+        fi
+        stop_clash_service
+        stop_binary_service
+    fi
+
+    prepare_directory
+
+    echo_info "--- 手动安装说明 ---"
+    echo_warn "请将您的 Clash 核心文件和配置文件上传到以下位置:"
+    echo "1. Clash 二进制文件: $INSTALL_DIR/clash"
+    echo "   (请确保它已解压并具有执行权限: chmod +x $INSTALL_DIR/clash)"
+    echo "2. Clash 配置文件: $CONFIG_FILE"
+    echo "------------------------"
+    read -p "完成上传后，请按任意键继续安装..." -n 1 -r -s
+
+    # 验证文件是否存在
+    if [ ! -f "$INSTALL_DIR/clash" ]; then
+        echo_error "未找到 Clash 二进制文件: $INSTALL_DIR/clash"
+        return 1
+    fi
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo_error "未找到 Clash 配置文件: $CONFIG_FILE"
+        return 1
+    fi
+
+    # 确保二进制文件有执行权限
+    chmod +x "$INSTALL_DIR/clash"
+
+    create_systemd_service
+
+    echo_info "正在启动 Clash 服务..."
+    systemctl start clash
+    systemctl enable clash
+
+    sleep 3
+    if systemctl is-active --quiet clash; then
+        echo_info "============================================================"
+        echo_info "Clash 服务已通过手动提供的文件成功启动！"
+        echo_info ""
+        echo_info "代理地址如下 (请确保与您的配置文件一致):"
+        echo_info "  - HTTP 代理: $PROXY_HTTP"
+        echo_info "  - SOCKS5 代理: $PROXY_SOCKS5"
+        echo_info "============================================================"
+        echo_info "正在进行自动代理测试..."
+        test_proxy
+    else
+        echo_error "Clash 服务启动失败。请运行 'journalctl -u clash' 查看日志。"
+        echo_warn "请检查您的配置文件 $CONFIG_FILE 是否正确。"
+    fi
+}
+
+# 安装 Clash (主入口)
+install_clash() {
+    check_root
+    echo_info "请选择安装模式:"
+    echo " 1. 自动安装 (推荐)"
+    echo " 2. 手动安装"
+    echo " 0. 返回主菜单"
+    read -p "请输入选项 [0-2]: " install_choice
+
+    case $install_choice in
+        1)
+            echo_info "请选择自动安装方式:"
+            echo " 1. 使用 Docker (推荐)"
+            echo " 2. 使用二进制文件"
+            echo " 0. 返回"
+            read -p "请输入选项 [0-2]: " auto_choice
+            case $auto_choice in
+                1)
+                    install_clash_docker
+                    ;;
+                2)
+                    install_clash_binary
+                    ;;
+                0)
+                    return
+                    ;;
+                *)
+                    echo_error "无效选项。"
+                    ;;
+            esac
+            ;;
+        2)
+            install_clash_manual
+            ;;
+        0)
+            return
+            ;;
+        *)
+            echo_error "无效选项。"
+            ;;
+    esac
+}
+
 # 代理测试
 test_proxy() {
     echo_info "开始进行代理可用性测试..."
     
-    if [ -z "$(docker ps -q -f name=clash)" ]; then
-        echo_error "Clash 容器未运行，无法进行测试。"
+    if ! is_clash_running; then
+        echo_error "Clash 服务未运行，无法进行测试。"
         return 1
     fi
 
@@ -673,7 +920,7 @@ check_unnecessary_action() {
 show_menu() {
     clear
     echo "================================================="
-    echo "            Clash Docker 管理脚本"
+    echo "            Clash 管理脚本"
     echo "================================================="
     echo " 1. 安装或重新安装 Clash"
     echo " 2. 更新 Clash 订阅"
@@ -740,8 +987,9 @@ main() {
     # 支持一键安装: ./install_clash.sh install <sub_url>
     if [[ "$1" == "install" ]] && [ -n "$2" ]; then
         CLASH_SUB_URL="$2"
-        install_clash
-        # exit 0 # 不再退出，直接进入菜单
+        # 为了保持兼容性，一键安装默认使用 Docker
+        echo_info "检测到一键安装参数，将使用 Docker 方式进行安装..."
+        install_clash_docker
     fi
 
     # 如果没有参数，则显示菜单
