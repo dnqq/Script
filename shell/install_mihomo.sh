@@ -166,6 +166,7 @@ apply_server_mods_to_config() {
          -e '/^socks-port:/d' \
          -e '/^mixed-port:/d' \
          -e '/^redir-port:/d' \
+         -e '/^tproxy-port:/d' \
          -e '/^allow-lan:/d' \
          -e '/^external-controller:/d' \
          -e '/^log-level:/d' "$CONFIG_FILE"
