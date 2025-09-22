@@ -282,12 +282,12 @@ show_clash_status() {
     # 1. Clash Core Status
     echo -n "Clash 核心状态: "
     local install_type="未知"
-    if is_clash_running; then
-        if [ -n "$(docker ps -q -f name=clash)" ]; then
-            install_type="Docker"
-        elif systemctl is-active --quiet clash; then
-            install_type="二进制"
-        fi
+    if command -v docker &> /dev/null && [ -n "$(docker ps -q -f name=clash)" ]; then
+        install_type="Docker"
+        print_status "运行中" 0
+        echo "  - 安装方式: $install_type"
+    elif systemctl is-active --quiet clash; then
+        install_type="二进制"
         print_status "运行中" 0
         echo "  - 安装方式: $install_type"
     else
@@ -320,7 +320,7 @@ show_clash_status() {
     
     # 4. Gateway Status
     echo -n "  - 透明网关 (iptables): "
-    if iptables-save | grep -q -- '-j REDIRECT --to-ports 7892'; then
+    if command -v iptables-save &> /dev/null && iptables-save | grep -q -- '-j REDIRECT --to-ports 7892'; then
          print_status "规则已设置" 0
     else
          print_status "规则未设置" 2
@@ -359,11 +359,6 @@ show_clash_status() {
 # 更新订阅
 update_subscription() {
     check_root
-    echo_info "正在检查 Clash 服务状态..."
-    if ! is_clash_running; then
-        echo_error "Clash 服务未运行，无法更新订阅。"
-        return 1
-    fi
 
     local sub_url_file="$INSTALL_DIR/.subscription_url"
     if [ ! -f "$sub_url_file" ]; then
@@ -402,33 +397,32 @@ update_subscription() {
     # 重新应用服务器配置
     apply_server_mods_to_config
     
-    echo_info "正在重启 Clash 服务以应用新的配置..."
-    # 判断是重启 docker 还是二进制服务
-    if [ -f "$COMPOSE_FILE" ] && [ -n "$(docker ps -q -f name=clash)" ]; then
-        echo_info "检测到 Docker 安装，正在重启容器..."
+    echo_info "订阅已更新。正在尝试应用新配置..."
+    if [ -f "$COMPOSE_FILE" ]; then
+        echo_info "检测到 Docker 安装。正在启动/重启容器以应用新配置..."
+        local compose_cmd="docker compose"
         if command -v docker-compose &> /dev/null; then
-            (cd "$INSTALL_DIR" && docker-compose restart)
-        else
-            (cd "$INSTALL_DIR" && docker compose restart)
+            compose_cmd="docker-compose"
         fi
+        (cd "$INSTALL_DIR" && $compose_cmd up -d --force-recreate)
 
         sleep 3
-        if [ $? -eq 0 ] && [ -n "$(docker ps -q -f name=clash)" ]; then
-            echo_info "订阅更新成功，Clash 服务已重启。"
+        if [ -n "$(docker ps -q -f name=clash)" ]; then
+            echo_info "Clash (Docker) 服务已成功启动/重启。"
         else
-            echo_error "Clash 服务重启失败。请使用 'cd ${INSTALL_DIR} && docker compose logs' 查看日志。"
+            echo_error "Clash (Docker) 服务未能启动。请使用 'cd ${INSTALL_DIR} && $compose_cmd logs' 查看日志。"
         fi
-    elif systemctl is-active --quiet clash; then
-        echo_info "检测到二进制安装，正在重启服务..."
+    elif [ -f "/etc/systemd/system/clash.service" ]; then
+        echo_info "检测到二进制安装。正在启动/重启服务以应用新配置..."
         systemctl restart clash
         sleep 3
         if systemctl is-active --quiet clash; then
-            echo_info "订阅更新成功，Clash 服务已重启。"
+            echo_info "Clash (二进制) 服务已成功启动/重启。"
         else
-            echo_error "Clash 服务重启失败。请使用 'journalctl -u clash' 查看日志。"
+            echo_error "Clash (二进制) 服务未能启动。请使用 'journalctl -u clash' 查看日志。"
         fi
     else
-        echo_error "未知的 Clash 安装类型或服务未运行。"
+        echo_warn "未检测到有效的 Clash 安装。配置文件已更新，请手动启动服务。"
     fi
 }
 
@@ -930,13 +924,20 @@ clear_docker_proxy() {
     local docker_proxy_file="/etc/systemd/system/docker.service.d/http-proxy.conf"
     if [ -f "$docker_proxy_file" ]; then
         rm -f "$docker_proxy_file"
-        echo_info "正在重新加载 systemd 并重启 Docker 服务..."
-        systemctl daemon-reload
-        restart_docker_service
-        if [ $? -eq 0 ]; then
-            echo_info "Docker 代理配置已清除。"
+        echo_info "Docker 代理配置文件已移除。"
+        
+        # 只有在 Docker 安装的情况下才尝试重启服务
+        if command -v docker &> /dev/null; then
+            echo_info "正在重新加载 systemd 并重启 Docker 服务..."
+            systemctl daemon-reload
+            if restart_docker_service; then
+                echo_info "Docker 服务已重启。"
+            else
+                echo_error "Docker 服务重启失败，请手动检查。"
+            fi
         else
-            echo_error "Docker 服务重启失败，请手动检查。"
+            echo_info "检测到 Docker 未安装，跳过重启服务。正在重新加载 systemd..."
+            systemctl daemon-reload
         fi
     else
         echo_info "未找到 Docker 代理配置，无需清除。"
@@ -1189,17 +1190,7 @@ show_menu() {
 
 # --- 主程序 ---
 main() {
-    # 支持一键安装: ./install_clash.sh install <sub_url>
-    if [[ "$1" == "install" ]] && [ -n "$2" ]; then
-        CLASH_SUB_URL="$2"
-        # 为了保持兼容性，一键安装默认使用 Docker
-        echo_info "检测到一键安装参数，将使用 Docker 方式进行安装..."
-        ALLOW_LAN='y'
-        ENABLE_TUN='n'
-        install_clash_docker
-    fi
-
-    # 如果没有参数，则显示菜单
+    # 主循环，显示菜单
     while true; do
         show_menu
     done
