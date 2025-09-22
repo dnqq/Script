@@ -153,6 +153,7 @@ setup_clash_config() {
 port: 7890
 socks-port: 7891
 allow-lan: ${allow_lan_value}
+redir-port: 7892
 external-controller: '0.0.0.0:9090'
 log-level: info
 EOF
@@ -400,7 +401,8 @@ install_clash_docker() {
 # 创建 systemd 服务文件
 create_systemd_service() {
     echo_info "正在创建 systemd 服务文件..."
-    cat <<EOF > /etc/systemd/system/clash.service
+    local service_content
+    service_content=$(cat <<EOF
 [Unit]
 Description=Clash daemon
 After=network.target
@@ -410,10 +412,24 @@ Type=simple
 User=root
 ExecStart=$INSTALL_DIR/clash -d $INSTALL_DIR
 Restart=on-failure
+EOF
+)
+    # 如果启用了TUN模式，为服务添加网络管理权限
+    if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]]; then
+        service_content+=$(cat <<EOF
+AmbientCapabilities=CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_ADMIN
+EOF
+)
+    fi
+
+    service_content+=$(cat <<EOF
 
 [Install]
 WantedBy=multi-user.target
 EOF
+)
+    echo "$service_content" > /etc/systemd/system/clash.service
     echo_info "正在重新加载 systemd..."
     systemctl daemon-reload
 }
@@ -446,8 +462,15 @@ install_clash_binary() {
 
     read -p "是否允许局域网(LAN)连接 (y/N)？ [默认: N]: " ALLOW_LAN
     ALLOW_LAN=${ALLOW_LAN:-n}
-    # 二进制安装默认不启用TUN，因其配置更复杂
-    ENABLE_TUN='n'
+    
+    read -p "是否启用 TUN 模式 (y/N)？[需要 iproute2 包支持] [默认: N]: " ENABLE_TUN
+    ENABLE_TUN=${ENABLE_TUN:-n}
+
+    if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]] && ! command -v ip &> /dev/null; then
+        echo_error "启用 TUN 模式需要 'ip' 命令 (通常由 'iproute2' 包提供)，但未找到该命令。"
+        echo_warn "将禁用 TUN 模式继续安装。"
+        ENABLE_TUN='n'
+    fi
 
     setup_clash_config
 
@@ -906,6 +929,118 @@ check_unnecessary_action() {
     return 0
 }
 
+# 设置局域网网关
+setup_gateway() {
+    check_root
+    if ! is_clash_running; then
+        echo_error "Clash 服务未运行，无法设置网关。"
+        return 1
+    fi
+    if ! grep -q "allow-lan: true" "$CONFIG_FILE"; then
+        echo_error "Clash 未配置为允许局域网连接。"
+        echo_warn "请在安装或更新时选择 'y' 允许局域网连接。"
+        return 1
+    fi
+    if ! command -v iptables &> /dev/null; then
+        echo_error "未找到 iptables 命令，无法设置网关。"
+        return 1
+    fi
+
+    echo_info "正在启用内核 IP 转发..."
+    sysctl -w net.ipv4.ip_forward=1
+    # 使其在重启后保持生效
+    if ! grep -q "net.ipv4.ip_forward=1" /etc/sysctl.conf; then
+        echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+    fi
+
+    echo_info "正在设置 iptables 流量转发规则..."
+    local lan_ip_range=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1)
+    if [ -z "$lan_ip_range" ]; then
+        echo_error "无法自动检测局域网 IP 范围。"
+        return 1
+    fi
+    echo_info "检测到局域网 IP 段: $lan_ip_range"
+
+    # 清除旧规则以避免重复
+    iptables -t nat -D PREROUTING -p tcp -s "$lan_ip_range" -j REDIRECT --to-port 7892 &>/dev/null
+
+    # 添加新规则
+    iptables -t nat -A PREROUTING -p tcp -s "$lan_ip_range" -j REDIRECT --to-port 7892
+    
+    echo_info "网关设置完成。"
+    echo_warn "请将局域网内其他设备的网关地址设置为主机的 IP 地址。"
+
+    # 提示安装 iptables-persistent
+    if ! command -v netfilter-persistent &> /dev/null; then
+        echo_warn "为使 iptables 规则在重启后生效，建议安装 'iptables-persistent'。"
+        read -p "是否现在尝试使用 apt 安装 (y/N)？" install_persistent
+        if [[ "$install_persistent" =~ ^[Yy]$ ]]; then
+            apt-get update && apt-get install -y iptables-persistent
+        fi
+    fi
+
+    # 保存规则
+    if command -v netfilter-persistent &> /dev/null; then
+        echo_info "正在保存 iptables 规则..."
+        netfilter-persistent save
+    fi
+}
+
+# 清除局域网网关设置
+clear_gateway() {
+    check_root
+    echo_info "正在禁用内核 IP 转发..."
+    sysctl -w net.ipv4.ip_forward=0
+    sed -i '/^net.ipv4.ip_forward=1/d' /etc/sysctl.conf
+
+    if command -v iptables &> /dev/null; then
+        echo_info "正在清除 iptables 流量转发规则..."
+        local lan_ip_range=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1)
+        if [ -n "$lan_ip_range" ]; then
+            iptables -t nat -D PREROUTING -p tcp -s "$lan_ip_range" -j REDIRECT --to-port 7892 &>/dev/null
+        fi
+        if command -v netfilter-persistent &> /dev/null; then
+            echo_info "正在保存 iptables 规则..."
+            netfilter-persistent save
+        fi
+    fi
+    echo_info "网关设置已清除。"
+}
+
+# 卸载 Clash
+uninstall_clash() {
+    check_root
+    echo_warn "警告：此操作将停止 Clash 服务，并永久删除所有相关配置和文件！"
+    read -p "确定要卸载 Clash 吗？(y/N): " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        echo_info "操作已取消。"
+        return
+    fi
+
+    echo_info "正在开始卸载流程..."
+    
+    # 1. 停止服务
+    stop_clash_service
+    stop_binary_service
+    
+    # 2. 清除网关设置
+    clear_gateway
+    
+    # 3. 清除所有代理配置
+    echo_info "正在清除所有代理配置..."
+    clear_apt_proxy
+    clear_docker_proxy
+    clear_system_proxy
+    
+    # 4. 删除安装目录
+    if [ -d "$INSTALL_DIR" ]; then
+        echo_info "正在删除安装目录: $INSTALL_DIR"
+        rm -rf "$INSTALL_DIR"
+    fi
+    
+    echo_info "Clash 已成功卸载。"
+}
+
 # 显示菜单
 show_menu() {
     clear
@@ -918,12 +1053,14 @@ show_menu() {
     echo " 4. 为 APT 设置代理"
     echo " 5. 为 Docker 设置代理"
     echo " 6. 为当前系统设置全局代理"
-    echo " 7. 清除代理配置"
+    echo " 7. 设置局域网网关 (透明代理)"
     echo " 8. 测试工具代理 (APT/Docker)"
+    echo " 9. 清除代理配置"
+    echo " 10. 卸载 Clash"
     echo "-------------------------------------------------"
     echo " 0. 退出脚本"
     echo "================================================="
-    read -p "请输入选项 [0-8]: " choice
+    read -p "请输入选项 [0-10]: " choice
     
     case $choice in
         1)
@@ -957,16 +1094,28 @@ show_menu() {
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         7)
-            clear_proxy_menu
+            setup_gateway
+            read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         8)
             test_tools_proxy_menu
+            ;;
+        9)
+            clear_proxy_menu
+            ;;
+        10)
+            uninstall_clash
+            # 卸载后脚本的功能基本失效，直接退出
+            if [ $? -eq 0 ]; then
+                exit 0
+            fi
+            read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
         0)
             exit 0
             ;;
         *)
-            echo_error "无效选项，请输入 0 到 8 之间的数字。"
+            echo_error "无效选项，请输入 0 到 10 之间的数字。"
             read -p $'\n按任意键返回菜单...' -n 1 -r -s
             ;;
     esac
