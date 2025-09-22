@@ -621,60 +621,69 @@ install_clash() {
     echo "================================================="
     echo "                Clash 安装向导"
     echo "================================================="
-    echo "--- 场景 1: 仅本机使用 (作为标准代理) ---"
-    echo " 1. Docker 安装:   仅本机使用，手动为软件设置代理 (allow-lan: no, tun: no)"
-    echo " 2. 二进制 安装:   仅本机使用，手动为软件设置代理 (allow-lan: no, tun: no)"
-    echo " 3. 二进制 安装:   本机透明代理 (接管本机所有流量) (allow-lan: no, tun: yes)"
+    echo "--- 场景 1: 标准代理服务器 (客户端手动配置代理) ---"
+    echo " 1. Docker 安装:   标准代理 (局域网设备可通过 IP:Port 连接)"
+    echo " 2. 二进制 安装:   标准代理 (局域网设备可通过 IP:Port 连接)"
     echo ""
-    echo "--- 场景 2: 作为局域网网关 (为其他设备服务) ---"
-    echo " 4. Docker 安装:   TUN 网关 (推荐，接管 TCP+UDP 流量)"
-    echo " 5. Docker 安装:   透明代理网关 (仅 TCP 流量，通过 iptables)"
-    echo " 6. 二进制 安装:   TUN 网关 (接管 TCP+UDP 流量)"
-    echo " 7. 二进制 安装:   透明代理网关 (仅 TCP 流量，通过 iptables)"
+    echo "--- 场景 2: 本机透明代理 (仅影响本机) ---"
+    echo " 3. Docker 安装:   本机 TUN 代理 (自动接管本机所有流量)"
+    echo " 4. 二进制 安装:   本机 TUN 代理 (自动接管本机所有流量)"
+    echo ""
+    echo "--- 场景 3: 局域网网关 (客户端自动全局代理) ---"
+    echo " 5. Docker 安装:   TUN 网关 (推荐, 接管 TCP+UDP)"
+    echo " 6. Docker 安装:   透明代理网关 (仅 TCP, 需额外设置 iptables)"
+    echo " 7. 二进制 安装:   TUN 网关 (接管 TCP+UDP)"
+    echo " 8. 二进制 安装:   透明代理网关 (仅 TCP, 需额外设置 iptables)"
     echo "-------------------------------------------------"
     echo " 0. 返回主菜单"
     echo "================================================="
-    read -p "请输入选项 [0-7]: " install_choice
+    read -p "请输入选项 [0-8]: " install_choice
 
     case $install_choice in
         1)
-            echo_info "模式: Docker, 仅本机使用 (标准代理)"
-            ALLOW_LAN='n'
+            echo_info "模式: Docker, 标准代理服务器"
+            ALLOW_LAN='y'
             ENABLE_TUN='n'
             install_clash_docker
             ;;
         2)
-            echo_info "模式: 二进制, 仅本机使用 (标准代理)"
-            ALLOW_LAN='n'
+            echo_info "模式: 二进制, 标准代理服务器"
+            ALLOW_LAN='y'
             ENABLE_TUN='n'
             install_clash_binary
             ;;
         3)
+            echo_info "模式: Docker, 本机透明代理 (TUN)"
+            ALLOW_LAN='n'
+            ENABLE_TUN='y'
+            install_clash_docker
+            ;;
+        4)
             echo_info "模式: 二进制, 本机透明代理 (TUN)"
             ALLOW_LAN='n'
             ENABLE_TUN='y'
             install_clash_binary
             ;;
-        4)
+        5)
             echo_info "模式: Docker, TUN 网关"
             ALLOW_LAN='y'
             ENABLE_TUN='y'
             install_clash_docker
             ;;
-        5)
+        6)
             echo_info "模式: Docker, 透明代理网关 (iptables)"
             ALLOW_LAN='y'
             ENABLE_TUN='n'
             install_clash_docker
             echo_warn "基础安装完成。请稍后从主菜单选择 '7. 设置局域网网关' 来完成透明代理的配置。"
             ;;
-        6)
+        7)
             echo_info "模式: 二进制, TUN 网关"
             ALLOW_LAN='y'
             ENABLE_TUN='y'
             install_clash_binary
             ;;
-        7)
+        8)
             echo_info "模式: 二进制, 透明代理网关 (iptables)"
             ALLOW_LAN='y'
             ENABLE_TUN='n'
