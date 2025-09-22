@@ -504,7 +504,7 @@ update_subscription() {
 
     # 强制覆盖现有配置文件
     echo_info "正在从订阅链接下载新配置文件..."
-    if ! curl -L -A "mihomo" -o "$CONFIG_FILE" "$SUB_URL"; then
+    if ! curl -L -A "clash" -o "$CONFIG_FILE" "$SUB_URL"; then
         echo_error "下载新订阅文件失败！"
         return 1
     fi
