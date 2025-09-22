@@ -39,8 +39,17 @@ MIHOMO_BINARY_URL_2="https://hubproxy.739999.xyz/https://github.com/MetaCubeX/mi
 MIHOMO_BINARY_URL_3="https://demo.52013120.xyz/https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
 MIHOMO_BINARY_URL="$MIHOMO_BINARY_URL_2" # 默认使用第二个 (hubproxy 加速)
 # 代理地址
-PROXY_HTTP="http://127.0.0.1:7890"
-PROXY_SOCKS5="socks5://127.0.0.1:7891"
+# 端口配置
+MIHOMO_HTTP_PORT="7890"
+MIHOMO_SOCKS_PORT="7891"
+MIHOMO_REDIR_PORT="7892"
+MIHOMO_TPROXY_PORT="7893"
+MIHOMO_DNS_PORT="1053"
+MIHOMO_EXTERNAL_CONTROLLER_PORT="9090"
+
+# 代理地址
+PROXY_HTTP="http://127.0.0.1:${MIHOMO_HTTP_PORT}"
+PROXY_SOCKS5="socks5://127.0.0.1:${MIHOMO_SOCKS_PORT}"
 IMAGE_PROXY_PREFIX=""
 
 # --- 函数定义 ---
@@ -172,11 +181,12 @@ apply_server_mods_to_config() {
 
 # --- Appended by install_mihomo.sh for server environment (safe-append) ---
 # The following settings override any previous definitions in this file.
-port: 7890
-socks-port: 7891
-redir-port: 7892
+port: ${MIHOMO_HTTP_PORT}
+socks-port: ${MIHOMO_SOCKS_PORT}
+redir-port: ${MIHOMO_REDIR_PORT}
+tproxy-port: ${MIHOMO_TPROXY_PORT}
 allow-lan: ${allow_lan_value}
-external-controller: '0.0.0.0:9090'
+external-controller: "0.0.0.0:${MIHOMO_EXTERNAL_CONTROLLER_PORT}"
 log-level: info
 EOF
 
@@ -196,9 +206,9 @@ EOF
       
       # 2. 确保 listen: 0.0.0.0:1053
       if sed -n '/^\s*dns:/,/^[^[:space:]]/p' "$CONFIG_FILE" | grep -q '^\s*listen:'; then
-        sed -i -E '/^\s*dns:/,/^[^[:space:]]/s/^(\s*listen:).*/\1 0.0.0.0:1053/' "$CONFIG_FILE"
+        sed -i -E "/^\s*dns:/,/^[^[:space:]]/s/^(\s*listen:).*/\1 0.0.0.0:${MIHOMO_DNS_PORT}/" "$CONFIG_FILE"
       else
-        sed -i '/^\s*dns:/a \  listen: 0.0.0.0:1053' "$CONFIG_FILE"
+        sed -i "/^\s*dns:/a \  listen: 0.0.0.0:${MIHOMO_DNS_PORT}" "$CONFIG_FILE"
       fi
       
       # 3. 确保 enhanced-mode: redir-host (网关模式所需)
@@ -213,7 +223,7 @@ EOF
       cat <<EOF >> "$CONFIG_FILE"
 dns:
   enable: true
-  listen: 0.0.0.0:1053
+  listen: 0.0.0.0:${MIHOMO_DNS_PORT}
   enhanced-mode: redir-host
   nameserver:
     - 114.114.114.114
@@ -1298,46 +1308,85 @@ setup_standard_gateway() {
     fi
     
     # 3. 配置 iptables 规则
-    echo_info "正在配置 iptables 规则 (使用 CLASH 自定义链)..."
+    echo_info "正在配置 iptables 规则 (使用 MIHOMO 自定义链)..."
+    # 自动获取 LAN 和 WAN 接口
     local lan_ip_range
     lan_ip_range=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1)
     local server_ip
     server_ip=$(echo "$lan_ip_range" | cut -d'/' -f1)
-
-    # 创建 CLASH 链
-    iptables -t nat -N CLASH &>/dev/null
-    # 清空旧规则
-    iptables -t nat -F CLASH
-
-    # 忽略发往 Clash 服务器自身和私有地址的流量
-    iptables -t nat -A CLASH -d "$server_ip" -j RETURN
-    iptables -t nat -A CLASH -d 0.0.0.0/8 -j RETURN
-    iptables -t nat -A CLASH -d 10.0.0.0/8 -j RETURN
-    iptables -t nat -A CLASH -d 127.0.0.0/8 -j RETURN
-    iptables -t nat -A CLASH -d 169.254.0.0/16 -j RETURN
-    iptables -t nat -A CLASH -d 172.16.0.0/12 -j RETURN
-    iptables -t nat -A CLASH -d 192.168.0.0/16 -j RETURN
-    iptables -t nat -A CLASH -d 224.0.0.0/4 -j RETURN
-    iptables -t nat -A CLASH -d 240.0.0.0/4 -j RETURN
-
-    # 将剩余 TCP 流量重定向到 Clash 的 redir-port
-    if [[ "$ENABLE_TUN" != "y" ]]; then # 只有标准网关需要重定向TCP
-        iptables -t nat -A CLASH -p tcp -j REDIRECT --to-port 7892
-    fi
-
-    # 清空 PREROUTING 链中的旧规则
-    iptables -t nat -D PREROUTING -p tcp -j CLASH &>/dev/null
-    iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-port 1053 &>/dev/null
-
-    # 将 PREROUTING 链中的流量引导至 CLASH 链
-    iptables -t nat -A PREROUTING -p tcp -j CLASH
-    # 将 DNS 请求重定向到 Clash 的 DNS 端口
-    iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-port 1053
-
-    # 为局域网设备做 SNAT
-    iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE &>/dev/null
-    iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+    local lan_if
+    lan_if=$(ip -o -f inet addr show | awk '/scope global/ {print $2}' | head -n 1)
+    local wan_if
+    wan_if=$(ip route | grep default | awk '{print $5}' | head -n 1)
     
+    # 设置默认端口
+    local mihomo_redir_port=${MIHOMO_REDIR_PORT:-7892}
+    local mihomo_tproxy_port=${MIHOMO_TPROXY_PORT:-7893}
+    local mihomo_dns_port=${MIHOMO_DNS_PORT:-1053}
+    
+    # 清理旧规则
+    iptables -t nat -F MIHOMO &>/dev/null
+    iptables -t nat -F PREROUTING &>/dev/null
+    iptables -t nat -F POSTROUTING &>/dev/null
+    iptables -t mangle -F PREROUTING &>/dev/null
+    iptables -t mangle -F MIHOMO_MARK &>/dev/null
+    iptables -t nat -X MIHOMO &>/dev/null
+    iptables -t mangle -X MIHOMO_MARK &>/dev/null
+    ip rule del fwmark 1 &>/dev/null
+    ip route del local default dev lo table 100 &>/dev/null
+
+    # 1. 策略路由：让内核知道如何处理被标记的流量
+    ip rule add fwmark 1 table 100
+    ip route add local default dev lo table 100
+
+    # 2. Mangle 表 (处理 UDP): 给非局域网的 UDP 流量打上标记 "1"
+    iptables -t mangle -N MIHOMO_MARK
+    iptables -t mangle -A MIHOMO_MARK -d 0.0.0.0/8 -j RETURN
+    iptables -t mangle -A MIHOMO_MARK -d 10.0.0.0/8 -j RETURN
+    iptables -t mangle -A MIHOMO_MARK -d 127.0.0.0/8 -j RETURN
+    iptables -t mangle -A MIHOMO_MARK -d 169.254.0.0/16 -j RETURN
+    iptables -t mangle -A MIHOMO_MARK -d 172.16.0.0/12 -j RETURN
+    iptables -t mangle -A MIHOMO_MARK -d 192.168.0.0/16 -j RETURN
+    iptables -t mangle -A MIHOMO_MARK -d "$server_ip" -j RETURN
+    iptables -t mangle -A MIHOMO_MARK -p udp -j MARK --set-mark 1
+    iptables -t mangle -A PREROUTING -i "$lan_if" -p udp -j MIHOMO_MARK
+
+    # 3. Nat 表 (处理 TCP): 重定向 TCP 流量
+    iptables -t nat -N MIHOMO
+    iptables -t nat -A MIHOMO -d 0.0.0.0/8 -j RETURN
+    iptables -t nat -A MIHOMO -d 10.0.0.0/8 -j RETURN
+    iptables -t nat -A MIHOMO -d 127.0.0.0/8 -j RETURN
+    iptables -t nat -A MIHOMO -d 169.254.0.0/16 -j RETURN
+    iptables -t nat -A MIHOMO -d 172.16.0.0/12 -j RETURN
+    iptables -t nat -A MIHOMO -d 192.168.0.0/16 -j RETURN
+    iptables -t nat -A MIHOMO -d "$server_ip" -j RETURN
+    iptables -t nat -A MIHOMO -p tcp -j REDIRECT --to-port "$mihomo_redir_port"
+
+    # 4. PREROUTING 链：将流量引导至我们的自定义链
+    # 将 TCP 流量引导至 MIHOMO 链 (在 Nat 表)
+    iptables -t nat -A PREROUTING -i "$lan_if" -p tcp -j MIHOMO
+    # 将带标记的 UDP 流量交给 TPROXY 处理 (在 Mangle 表)
+    iptables -t mangle -A PREROUTING -i "$lan_if" -p udp -m mark --mark 1 -j TPROXY --on-port "$mihomo_tproxy_port" --tproxy-mark 0x1/0x1
+
+    # 5. DNS 劫持：将所有 DNS 请求重定向到 Mihomo
+    iptables -t nat -A PREROUTING -i "$lan_if" -p udp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port"
+    iptables -t nat -A PREROUTING -i "$lan_if" -p tcp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port"
+
+    # 6. SNAT：为局域网设备提供网络地址转换
+    iptables -t nat -A POSTROUTING -o "$wan_if" -j MASQUERADE
+
+    echo_info "IPv4 透明代理规则已应用 (TCP Redirect + UDP TProxy)"
+
+    # --- IPv6 设置 ---
+    # 清理旧规则
+    ip6tables -t mangle -F PREROUTING &>/dev/null
+    ip6tables -F FORWARD &>/dev/null
+
+    # 阻止所有来自局域网的IPv6转发请求，防止泄露
+    ip6tables -A FORWARD -i "$lan_if" -j DROP
+
+    echo_info "IPv6 规则已应用"
+
     echo_info "iptables 规则配置完成。正在持久化规则..."
     
     # 4. 持久化 iptables 规则
