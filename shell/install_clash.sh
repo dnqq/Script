@@ -212,11 +212,15 @@ EOF
 
 # 检查 Clash 是否正在运行 (Docker 或 systemd)
 is_clash_running() {
-    if [ -n "$(docker ps -q -f name=clash)" ] || systemctl is-active --quiet clash; then
+    # 检查 docker 是否安装，如果安装了再检查容器状态
+    if command -v docker &> /dev/null && [ -n "$(docker ps -q -f name=clash)" ]; then
         return 0 # true
-    else
-        return 1 # false
     fi
+    # 检查 systemd 服务状态
+    if systemctl is-active --quiet clash; then
+        return 0 # true
+    fi
+    return 1 # false
 }
 
 # 更新订阅
@@ -554,35 +558,21 @@ install_clash_manual() {
 # 安装 Clash (主入口)
 install_clash() {
     check_root
-    echo_info "请选择安装模式:"
-    echo " 1. 自动安装 (推荐)"
-    echo " 2. 手动安装"
+    echo_info "请选择安装方式:"
+    echo " 1. 使用 Docker 安装 (推荐)"
+    echo " 2. 使用二进制文件安装"
+    echo " 3. 手动安装"
     echo " 0. 返回主菜单"
-    read -p "请输入选项 [0-2]: " install_choice
+    read -p "请输入选项 [0-3]: " install_choice
 
     case $install_choice in
         1)
-            echo_info "请选择自动安装方式:"
-            echo " 1. 使用 Docker (推荐)"
-            echo " 2. 使用二进制文件"
-            echo " 0. 返回"
-            read -p "请输入选项 [0-2]: " auto_choice
-            case $auto_choice in
-                1)
-                    install_clash_docker
-                    ;;
-                2)
-                    install_clash_binary
-                    ;;
-                0)
-                    return
-                    ;;
-                *)
-                    echo_error "无效选项。"
-                    ;;
-            esac
+            install_clash_docker
             ;;
         2)
+            install_clash_binary
+            ;;
+        3)
             install_clash_manual
             ;;
         0)
