@@ -126,14 +126,14 @@ prepare_directory() {
 # 应用服务器特定的配置修改
 apply_server_mods_to_config() {
   echo_info "正在为服务器环境优化配置文件..."
-  # 使用 sed 删除可能存在的旧配置，避免冲突
+  # 安全地删除我们想要控制的单行配置，避免冲突和破坏文件
   sed -i -e '/^port:/d' \
          -e '/^socks-port:/d' \
+         -e '/^mixed-port:/d' \
+         -e '/^redir-port:/d' \
          -e '/^allow-lan:/d' \
          -e '/^external-controller:/d' \
-         -e '/^log-level:/d' \
-         -e '/^tun:/,$d' \
-         -e '/^dns:/,$d' "$CONFIG_FILE" # 删除旧的TUN和DNS配置
+         -e '/^log-level:/d' "$CONFIG_FILE"
 
   # 根据用户选择设置 allow-lan
   local allow_lan_value="false"
@@ -141,18 +141,25 @@ apply_server_mods_to_config() {
     allow_lan_value="true"
   fi
 
-  # 追加新的标准配置
+  # 追加一个完整的、正确的服务器配置块
   cat <<EOF >> "$CONFIG_FILE"
 
-# --- Appended by install_clash.sh for server environment ---
+# --- Appended by install_clash.sh for server environment (safe-append) ---
+# The following settings override any previous definitions in this file.
 port: 7890
 socks-port: 7891
 redir-port: 7892
 allow-lan: ${allow_lan_value}
 external-controller: '0.0.0.0:9090'
 log-level: info
+EOF
 
-# DNS server settings for gateway mode
+  # 如果是网关模式，智能处理 DNS 配置
+  if [[ "$SETUP_GATEWAY" =~ ^[Yy]$ ]]; then
+    # 检查配置文件中是否已存在 dns: 配置
+    if ! grep -q -E "^\s*dns:" "$CONFIG_FILE"; then
+      echo_info "未检测到 DNS 配置，正在为网关模式添加默认 DNS 设置..."
+      cat <<EOF >> "$CONFIG_FILE"
 dns:
   enable: true
   listen: 0.0.0.0:1053
@@ -164,17 +171,26 @@ dns:
     - https://dns.google/dns-query
     - https://1.1.1.1/dns-query
 EOF
+    else
+      echo_warn "检测到您的订阅配置中已包含 DNS 设置。为确保网关模式正常工作，脚本不会覆盖它。"
+      echo_warn "请您手动检查并确保您的 DNS 配置包含 'enable: true' 和 'listen: 0.0.0.0:1053'。"
+      echo_warn "如果缺失或不正确，DNS 透明代理可能无法生效。"
+    fi
+  fi
 
   # 如果启用了TUN模式，则追加TUN配置
   if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]]; then
-    echo_info "正在为配置文件添加 TUN 模式支持..."
-    cat <<EOF >> "$CONFIG_FILE"
+    # 同样检查是否已存在 tun: 配置
+    if ! grep -q -E "^\s*tun:" "$CONFIG_FILE"; then
+      echo_info "正在为配置文件添加 TUN 模式支持..."
+      cat <<EOF >> "$CONFIG_FILE"
 tun:
   enable: true
   stack: system
   dns-hijack:
     - any:53
 EOF
+    fi
   fi
   echo_info "配置文件优化完成。"
 }
@@ -182,15 +198,27 @@ EOF
 # 下载并修改 Clash 配置
 setup_clash_config() {
   local should_download=true
+  # 1. 先检测
   if [ -f "$CONFIG_FILE" ]; then
+    # 2. 再提醒
     read -p "检测到已存在的配置文件 (config.yaml)，是否要下载并覆盖它？(y/N): " choice
     if [[ ! "$choice" =~ ^[Yy]$ ]]; then
-      echo_info "已跳过下载配置文件。"
+      echo_info "已跳过下载配置文件。将使用现有配置。"
       should_download=false
     fi
   fi
 
   if [ "$should_download" = true ]; then
+    # 3. 如果需要下载，再获取输入
+    get_user_input
+    # 保存订阅链接
+    echo "$CLASH_SUB_URL" > "$INSTALL_DIR/.subscription_url"
+    if [ $? -ne 0 ]; then
+      echo_error "保存订阅链接失败。"
+      exit 1
+    fi
+    echo_info "订阅链接已保存，用于后续更新。"
+
     echo_info "正在从订阅链接下载配置文件..."
     if ! curl -L -A "clash" -o "$CONFIG_FILE" "$CLASH_SUB_URL"; then
       echo_error "下载订阅文件失败！请检查链接是否正确以及网络是否通畅。"
@@ -198,6 +226,7 @@ setup_clash_config() {
     fi
   fi
   
+  # 无论是否下载，都应用服务器配置
   apply_server_mods_to_config
 }
 
@@ -497,18 +526,9 @@ install_clash_docker() {
     stop_binary_service
   fi
 
-  get_user_input
   select_image_proxy
   
   prepare_directory
-
-  # 保存订阅链接
-  echo "$CLASH_SUB_URL" > "$INSTALL_DIR/.subscription_url"
-  if [ $? -ne 0 ]; then
-    echo_error "保存订阅链接失败。"
-    exit 1
-  fi
-  echo_info "订阅链接已保存，用于后续更新。"
 
   # Prompts are removed, variables are now set by install_clash()
   ALLOW_LAN=${ALLOW_LAN:-n}
@@ -591,16 +611,7 @@ install_clash_binary() {
         stop_binary_service
     fi
 
-    get_user_input
     prepare_directory
-
-    # 保存订阅链接
-    echo "$CLASH_SUB_URL" > "$INSTALL_DIR/.subscription_url"
-    if [ $? -ne 0 ]; then
-        echo_error "保存订阅链接失败。"
-        exit 1
-    fi
-    echo_info "订阅链接已保存，用于后续更新。"
 
     # Prompts are removed, variables are now set by install_clash()
     ALLOW_LAN=${ALLOW_LAN:-n}
@@ -1158,6 +1169,7 @@ install_package() {
     # 使用 case 和通配符进行更灵活的匹配
     case "$os_name" in
         *Ubuntu*|*Debian*)
+            DEBIAN_FRONTEND=noninteractive apt-get update
             DEBIAN_FRONTEND=noninteractive apt-get install -y "$package_name"
             ;;
         *CentOS*|*Red*Hat*)
