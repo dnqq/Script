@@ -244,37 +244,29 @@ EOF
 
 # 下载并修改配置
 setup_config() {
-  local should_download=true
-  # 1. 先检测
+  # 1. 检查是否已存在配置文件
   if [ -f "$CONFIG_FILE" ]; then
-    # 2. 再提醒
-    read -p "检测到已存在的配置文件 (config.yaml)，是否要下载并覆盖它？(y/N): " choice
+    read -p "检测到已存在的配置文件 (config.yaml)，是否要下载新配置并覆盖它？(y/N): " choice
     if [[ ! "$choice" =~ ^[Yy]$ ]]; then
-      echo_info "已跳过下载配置文件。将使用现有配置。"
-      should_download=false
+      echo_info "已选择不下载新配置。将仅对现有配置文件进行二次处理..."
+      apply_server_mods_to_config
+      return 0 # 任务完成
     fi
   fi
 
-  if [ "$should_download" = true ]; then
-    # 3. 如果需要下载，再获取输入
-    get_user_input
-    # 保存订阅链接
-    echo "$SUB_URL" > "$INSTALL_DIR/.subscription_url"
-    if [ $? -ne 0 ]; then
-      echo_error "保存订阅链接失败。"
-      exit 1
-    fi
-    echo_info "订阅链接已保存，用于后续更新。"
-
-    echo_info "正在从订阅链接下载配置文件..."
-    if ! curl -L -A "clash" -o "$CONFIG_FILE" "$SUB_URL"; then
-      echo_error "下载订阅文件失败！请检查链接是否正确以及网络是否通畅。"
-      exit 1
-    fi
-  fi
+  # 2. 如果需要下载 (文件不存在或用户选择覆盖)
+  get_user_input # 获取 SUB_URL
   
-  # 无论是否下载，都应用服务器配置
-  apply_server_mods_to_config
+  # 保存订阅链接以备将来更新
+  echo "$SUB_URL" > "$INSTALL_DIR/.subscription_url"
+  if [ $? -ne 0 ]; then
+    echo_error "保存订阅链接失败。"
+    exit 1
+  fi
+  echo_info "订阅链接已保存，用于后续更新。"
+
+  # 3. 调用统一的函数进行下载和处理
+  _fetch_and_process_config "$SUB_URL" || exit 1
 }
 
 # 创建 Docker Compose 文件
@@ -327,6 +319,44 @@ is_mihomo_running() {
         return 0 # true
     fi
     return 1 # false
+}
+
+# 从现有配置和系统状态推断出当前的运行模式
+_infer_current_state() {
+    echo_info "正在从现有配置和系统状态推断运行模式..."
+    if is_tun_enabled; then
+        ENABLE_TUN='y'
+    else
+        ENABLE_TUN='n'
+    fi
+
+    if [ -f "$CONFIG_FILE" ] && grep -q "allow-lan: true" "$CONFIG_FILE"; then
+        ALLOW_LAN='y'
+    else
+        ALLOW_LAN='n'
+    fi
+
+    if command -v iptables-save &> /dev/null && iptables-save | grep -q -- '-j CLASH'; then
+        echo_info "检测到活动的 iptables 网关规则，将以网关模式更新配置。"
+        SETUP_GATEWAY='y'
+    else
+        SETUP_GATEWAY='n'
+    fi
+}
+
+# 下载并处理配置文件 (下载 + 二次处理)
+_fetch_and_process_config() {
+    local sub_url="$1"
+    
+    echo_info "正在从订阅链接下载配置文件: $sub_url"
+    if ! curl -L -A "clash" -o "$CONFIG_FILE" "$sub_url"; then
+        echo_error "下载订阅文件失败！请检查链接是否正确以及网络是否通畅。"
+        return 1
+    fi
+
+    echo_info "下载完成，正在进行二次处理..."
+    apply_server_mods_to_config
+    return 0
 }
 
 # 智能重启 Docker 服务
@@ -489,28 +519,13 @@ update_subscription() {
     
     echo_info "正在使用已保存的链接更新订阅: $SUB_URL"
     
-    # 从现有配置中推断出 TUN 和 allow-lan 的设置
-    if is_tun_enabled; then
-        ENABLE_TUN='y'
-    else
-        ENABLE_TUN='n'
-    fi
-
-    if [ -f "$CONFIG_FILE" ] && grep -q "allow-lan: true" "$CONFIG_FILE"; then
-        ALLOW_LAN='y'
-    else
-        ALLOW_LAN='n'
-    fi
-
-    # 强制覆盖现有配置文件
-    echo_info "正在从订阅链接下载新配置文件..."
-    if ! curl -L -A "clash" -o "$CONFIG_FILE" "$SUB_URL"; then
-        echo_error "下载新订阅文件失败！"
-        return 1
-    fi
+    # 调用统一的函数来从系统状态推断出所有必要的模式变量
+    _infer_current_state
     
-    # 重新应用服务器配置
-    apply_server_mods_to_config
+    # 调用统一的函数进行下载和处理
+    if ! _fetch_and_process_config "$SUB_URL"; then
+        return 1 # 如果下载或处理失败，则中止
+    fi
     
     echo_info "订阅已更新。正在尝试应用新配置..."
     if [ -f "$COMPOSE_FILE" ]; then
