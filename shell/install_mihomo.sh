@@ -28,7 +28,7 @@
 # Mihomo 的安装和配置目录
 INSTALL_DIR="/opt/mihomo"
 # 配置文件路径
-CONFIG_FILE="$INSTALL_DIR/config.yaml"
+CONFIG_FILE="$INSTALL_DIR/data/config.yaml"
 # Docker Compose 文件路径
 COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 # Mihomo 镜像
@@ -151,7 +151,7 @@ select_binary_url() {
 # 创建并准备目录
 prepare_directory() {
   echo_info "正在创建配置目录: $INSTALL_DIR"
-  mkdir -p "$INSTALL_DIR"
+  mkdir -p "$INSTALL_DIR/data"
   if [ $? -ne 0 ]; then
     echo_error "创建目录 $INSTALL_DIR 失败。"
     exit 1
@@ -671,7 +671,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-ExecStart=$INSTALL_DIR/mihomo -d $INSTALL_DIR
+ExecStart=$INSTALL_DIR/mihomo -d $INSTALL_DIR/data
 Restart=on-failure
 EOF
 )
