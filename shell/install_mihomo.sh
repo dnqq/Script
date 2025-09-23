@@ -32,7 +32,7 @@ CONFIG_FILE="$INSTALL_DIR/config.yaml"
 # Docker Compose 文件路径
 COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 # Mihomo 镜像
-MIHOMO_IMAGE="metacubexd/mihomo:latest"
+MIHOMO_IMAGE="metacubex/mihomo:latest"
 # Mihomo 二进制文件下载链接
 MIHOMO_BINARY_URL_1="https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
 MIHOMO_BINARY_URL_2="https://hubproxy.739999.xyz/https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
