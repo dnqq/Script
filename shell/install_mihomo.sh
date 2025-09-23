@@ -248,6 +248,8 @@ tun:
   stack: system
   dns-hijack:
     - any:53
+  auto-route: true
+  auto-detect-interface: true
 EOF
     fi
   fi
@@ -1415,74 +1417,63 @@ configure_standard_gateway_rules() {
 
 # 配置TUN网关的iptables规则
 configure_tun_gateway_rules() {
-    echo_info "正在配置 iptables 规则 (TUN 模式)..."
-    # 自动获取接口信息
-    local lan_ip_range
-    lan_ip_range=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1)
-    local server_ip
-    server_ip=$(echo "$lan_ip_range" | cut -d'/' -f1)
+    echo_info "正在配置 TUN 透明网关 (全新简化模式)..."
+    echo_info "此模式依赖 mihomo 配置中的 'auto-route: true'。"
+    # --- 1. 自动检测接口 ---
     local lan_if
     lan_if=$(ip -o -f inet addr show | awk '/scope global/ {print $2}' | head -n 1)
+    if [ -z "$lan_if" ]; then
+        echo_error "未能自动检测到 LAN 接口。"
+        return 1
+    fi
     local wan_if
     wan_if=$(ip route | grep default | awk '{print $5}' | head -n 1)
-    # 动态查找活动的 TUN 接口，优先查找 'Meta'，然后是 'utun' 和 'tun'
-    # 关键在于检查接口状态是否为 UP 或 UNKNOWN，并排除已知的非目标接口如 ip6tnl
+    if [ -z "$wan_if" ]; then
+        echo_error "未能自动检测到 WAN 接口。"
+        return 1
+    fi
     local tun_if
-    # 优先查找 Mihomo 默认的 'Meta' 接口
-    tun_if=$(ip -o link show | awk -F': ' '/Meta/ && /state (UP|UNKNOWN)/ {print $2; exit}')
-    if [ -z "$tun_if" ]; then
-        tun_if=$(ip -o link show | awk -F': ' '/utun/ && /state (UP|UNKNOWN)/ {print $2; exit}')
-    fi
-    if [ -z "$tun_if" ]; then
-        # 排除 ip6tnl，因为它是一个常见的、非 mihomo 使用的隧道
-        tun_if=$(ip -o link show | awk -F': ' '/tun/ && !/ip6tnl/ && /state (UP|UNKNOWN)/ {print $2; exit}')
-    fi
-    if [ -z "$tun_if" ]; then
-        # 作为最后的备用方案，通过 Mihomo 默认的 TUN IP 地址来查找接口
+    tun_if=$(ip -o link show | awk -F': ' '/(clash|Meta|utun|tun)/ && !/ip6tnl/ && /state (UP|UNKNOWN)/ {print $2; exit}')
+     if [ -z "$tun_if" ]; then
         tun_if=$(ip -o -f inet addr show | awk '/198.18.0.1/ {print $2}' | head -n 1)
     fi
     if [ -z "$tun_if" ]; then
-        echo_error "未找到活动的 TUN 接口 (如 utun, tun, Meta)。请确保 Mihomo 已在 TUN 模式下成功启动，并且接口状态为 UP 或 UNKNOWN。"
+        echo_error "未找到活动的 TUN 接口 (如 clash, Meta, utun)。请确保 Mihomo 已在 TUN 模式下成功启动。"
         return 1
     fi
-    echo_info "检测到 TUN 接口: $tun_if"
-
-    # 清理旧规则
-    clear_gateway_rules
-
-    # --- 配置 Mangle 表和策略路由 ---
-    # 1. 创建自定义链用于标记流量
-    iptables -t mangle -N MIHOMO_TUN
-    # 绕过局域网和保留地址
-    iptables -t mangle -A MIHOMO_TUN -d 0.0.0.0/8 -j RETURN
-    iptables -t mangle -A MIHOMO_TUN -d 10.0.0.0/8 -j RETURN
-    iptables -t mangle -A MIHOMO_TUN -d 127.0.0.0/8 -j RETURN
-    iptables -t mangle -A MIHOMO_TUN -d 169.254.0.0/16 -j RETURN
-    iptables -t mangle -A MIHOMO_TUN -d 172.16.0.0/12 -j RETURN
-    iptables -t mangle -A MIHOMO_TUN -d 192.168.0.0/16 -j RETURN
-    iptables -t mangle -A MIHOMO_TUN -d "$server_ip" -j RETURN
-    # 标记所有其他流量 (TCP 和 UDP)
-    iptables -t mangle -A MIHOMO_TUN -j MARK --set-mark 1
-
-    # 2. 将来自局域网的流量引导至标记链
-    iptables -t mangle -A PREROUTING -i "$lan_if" -j MIHOMO_TUN
-
-    # 3. 设置策略路由，将标记过的流量路由到 TUN 接口
-    ip rule add fwmark 1 table 100
-    ip route add default dev "$tun_if" table 100
-
-    # 4. SNAT: 为局域网设备提供网络地址转换
-    iptables -t nat -A POSTROUTING -o "$wan_if" -j MASQUERADE
-
-    echo_info "IPv4 透明代理规则已应用 (TUN 策略路由)"
-
-    # --- IPv6 设置 ---
-    block_ipv6_forwarding "$lan_if"
-
-    echo_info "iptables 规则配置完成。正在持久化规则..."
+    echo_info "检测到接口 -> LAN: ${lan_if}, WAN: ${wan_if}, TUN: ${tun_if}"
+    # --- 2. 清理所有旧规则，避免冲突 ---
+    clear_all_rules
+    # --- 3. 开启内核转发功能 (核心步骤) ---
+    echo_info "正在开启内核 IP 转发功能..."
+    sysctl -w net.ipv4.ip_forward=1
+    sysctl -w net.ipv6.conf.all.forwarding=1
+    # 建议将这两行也添加到 /etc/sysctl.conf 以便永久生效
+    # --- 4. 配置新的、简单的防火墙规则 ---
+    echo_info "正在应用新的 IPv4 和 IPv6 防火墙规则..."
+    
+    # IPv4 规则
+    # 允许已建立和相关的连接通过，这是最高效的规则，必须放在前面
+    iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+    # 允许从局域网到 TUN 接口的新连接
+    iptables -A FORWARD -i "${lan_if}" -o "${tun_if}" -j ACCEPT
+    # NAT 地址伪装，让局域网设备能通过 Armbian 的公网 IP 上网
+    iptables -t nat -A POSTROUTING -o "${wan_if}" -j MASQUERADE
+    # IPv6 规则
+    # 允许已建立和相关的连接通过
+    ip6tables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+    # 允许从局域网到 TUN 接口的新连接
+    ip6tables -A FORWARD -i "${lan_if}" -o "${tun_if}" -j ACCEPT
+    # NAT 地址伪装 (非常重要！用于 IPv6 代理)
+    ip6tables -t nat -A POSTROUTING -o "${wan_if}" -j MASQUERADE
+    # (可选) 设置默认拒绝所有其他转发，更安全
+    iptables -P FORWARD DROP
+    ip6tables -P FORWARD DROP
+    echo_info "防火墙规则配置完成。"
+    # --- 5. 持久化规则 ---
     persist_iptables_rules
-
-    echo_info "TUN 透明网关配置完成。"
+    echo_info "✅ TUN 透明网关配置完成！"
+    echo_info "请确保你的局域网设备的网关和 DNS 指向 Armbian 的 LAN 口 IP。"
 }
 
 # 阻止IPv6转发
