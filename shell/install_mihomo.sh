@@ -1227,7 +1227,7 @@ test_docker_proxy() {
 # 检查TUN模式是否已启用
 is_tun_enabled() {
     # 检查 Docker 安装的 TUN 模式
-    if [ -f "$COMPOSE_FILE" ] && grep -q "privileged: true" "$COMPOSE_FILE"; then
+    if [ -f "$COMPOSE_FILE" ] && (grep -q "NET_ADMIN" "$COMPOSE_FILE" || grep -q "/dev/net/tun" "$COMPOSE_FILE"); then
         return 0 # Docker TUN is enabled
     fi
 
@@ -1235,6 +1235,15 @@ is_tun_enabled() {
     local service_file="/etc/systemd/system/mihomo.service"
     if [ -f "$service_file" ] && grep -q "CAP_NET_ADMIN" "$service_file"; then
         return 0 # Binary TUN is enabled
+    fi
+
+    # 作为后备，直接检查配置文件
+    if [ -f "$CONFIG_FILE" ]; then
+        if grep -q -E "^\s*tun:" "$CONFIG_FILE"; then
+            if sed -n '/^\s*tun:/,/^[^[:space:]]/p' "$CONFIG_FILE" | grep -q '^\s*enable:\s*true'; then
+                return 0 # Config TUN is enabled
+            fi
+        fi
     fi
 
     return 1 # TUN not enabled or not detectable
@@ -1379,7 +1388,7 @@ configure_standard_gateway_rules() {
     local mihomo_dns_port=${MIHOMO_DNS_PORT:-1053}
     
     # 清理旧规则
-    clear_gateway_rules
+    clear_all_rules
 
     # --- 配置 NAT 表 ---
     iptables -t nat -N MIHOMO
@@ -1433,22 +1442,38 @@ configure_tun_gateway_rules() {
         return 1
     fi
     local tun_if
-    tun_if=$(ip -o link show | awk -F': ' '/(clash|Meta|utun|tun)/ && !/ip6tnl/ && /state (UP|UNKNOWN)/ {print $2; exit}')
-     if [ -z "$tun_if" ]; then
-        tun_if=$(ip -o -f inet addr show | awk '/198.18.0.1/ {print $2}' | head -n 1)
-    fi
+    local retry_count=0
+    local max_retries=5
+    local retry_sleep=3
+
+    echo_info "正在等待 TUN 接口出现..."
+    while [ $retry_count -lt $max_retries ]; do
+        tun_if=$(ip -o link show | awk -F': ' '/(clash|Meta|utun|tun)/ && !/ip6tnl/ && /state (UP|UNKNOWN)/ {print $2; exit}')
+        if [ -z "$tun_if" ]; then
+            tun_if=$(ip -o -f inet addr show | awk '/198.18.0.1/ {print $2}' | head -n 1)
+        fi
+        
+        if [ -n "$tun_if" ]; then
+            echo_info "TUN 接口已找到: $tun_if"
+            break
+        fi
+        
+        retry_count=$((retry_count + 1))
+        if [ $retry_count -lt $max_retries ]; then
+            echo_info "未找到 TUN 接口，将在 ${retry_sleep} 秒后重试 (${retry_count}/${max_retries})..."
+            sleep $retry_sleep
+        fi
+    done
+
     if [ -z "$tun_if" ]; then
-        echo_error "未找到活动的 TUN 接口 (如 clash, Meta, utun)。请确保 Mihomo 已在 TUN 模式下成功启动。"
+        echo_error "在 $(($max_retries * $retry_sleep)) 秒内未找到活动的 TUN 接口 (如 clash, Meta, utun)。请确保 Mihomo 已在 TUN 模式下成功启动。"
         return 1
     fi
     echo_info "检测到接口 -> LAN: ${lan_if}, WAN: ${wan_if}, TUN: ${tun_if}"
     # --- 2. 清理所有旧规则，避免冲突 ---
     clear_all_rules
     # --- 3. 开启内核转发功能 (核心步骤) ---
-    echo_info "正在开启内核 IP 转发功能..."
-    sysctl -w net.ipv4.ip_forward=1
-    sysctl -w net.ipv6.conf.all.forwarding=1
-    # 建议将这两行也添加到 /etc/sysctl.conf 以便永久生效
+
     # --- 4. 配置新的、简单的防火墙规则 ---
     echo_info "正在应用新的 IPv4 和 IPv6 防火墙规则..."
     
@@ -1516,7 +1541,7 @@ persist_iptables_rules() {
 }
 
 # 清除所有网关规则的通用函数
-clear_gateway_rules() {
+clear_all_rules() {
     echo_info "正在安全地清除所有现存的网关规则..."
 
     # 动态获取接口信息，用于精确删除规则
@@ -1530,50 +1555,44 @@ clear_gateway_rules() {
     ip rule del fwmark 1 table 100 &>/dev/null
     ip route flush table 100 &>/dev/null
 
-    # 2. 从内置链中精确删除本脚本添加的规则
-    if [ -n "$lan_if" ]; then
-        # 删除标准网关的 TCP 跳转和 DNS 劫持规则
-        iptables -t nat -D PREROUTING -i "$lan_if" -p tcp -j MIHOMO &>/dev/null
-        iptables -t nat -D PREROUTING -i "$lan_if" -p udp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port" &>/dev/null
-        iptables -t nat -D PREROUTING -i "$lan_if" -p tcp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port" &>/dev/null
-        
-        # 删除 TUN 网关的流量标记规则
-        iptables -t mangle -D PREROUTING -i "$lan_if" -j MIHOMO_TUN &>/dev/null
-    fi
-    if [ -n "$wan_if" ]; then
-        # 删除 SNAT 规则 (两种模式共用)
-        iptables -t nat -D POSTROUTING -o "$wan_if" -j MASQUERADE &>/dev/null
-    fi
+    # 2. 重置默认策略
+    iptables -P INPUT ACCEPT
+    iptables -P FORWARD ACCEPT
+    iptables -P OUTPUT ACCEPT
+    ip6tables -P INPUT ACCEPT
+    ip6tables -P FORWARD ACCEPT
+    ip6tables -P OUTPUT ACCEPT
 
-    # 3. 清空并删除所有本脚本创建的自定义链
-    # -- nat table
-    iptables -t nat -F MIHOMO &>/dev/null
-    iptables -t nat -X MIHOMO &>/dev/null
-    # -- mangle table (MIHOMO_MARK 是旧版规则链，保留以实现兼容清理)
-    iptables -t mangle -F MIHOMO_MARK &>/dev/null
-    iptables -t mangle -X MIHOMO_MARK &>/dev/null
-    iptables -t mangle -F MIHOMO_TUN &>/dev/null
-    iptables -t mangle -X MIHOMO_TUN &>/dev/null
+    # 3. 清空所有链
+    iptables -F
+    iptables -t nat -F
+    iptables -t mangle -F
+    ip6tables -F
+    ip6tables -t nat -F
+    ip6tables -t mangle -F
 
-    # 4. 清理 IPv6 规则
-    if command -v ip6tables &> /dev/null && [ -n "$lan_if" ]; then
-        ip6tables -D FORWARD -i "$lan_if" -j DROP &>/dev/null
-    fi
+    # 4. 删除所有非默认链
+    iptables -X
+    iptables -t nat -X
+    iptables -t mangle -X
+    ip6tables -X
+    ip6tables -t nat -X
+    ip6tables -t mangle -X
     
-    echo_info "网关规则清理完毕。"
+    echo_info "所有 iptables 规则已重置。"
 }
 
 # 清除局域网网关设置
 clear_gateway() {
     check_root
     echo_info "正在禁用内核 IP 转发..."
-    sysctl -w net.ipv4.ip_forward=0 >/dev/null 2>&1
+    sysctl -w net.ipv4.ip_forward=0
     if [ -f /etc/sysctl.conf ]; then
         sed -i '/^net.ipv4.ip_forward=1/d' /etc/sysctl.conf
     fi
 
     if command -v iptables &> /dev/null; then
-        clear_gateway_rules
+        clear_all_rules
         
         # 尝试保存规则
         local os_name
