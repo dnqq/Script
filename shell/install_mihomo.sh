@@ -33,11 +33,11 @@ CONFIG_FILE="$INSTALL_DIR/data/config.yaml"
 COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 # Mihomo 镜像
 MIHOMO_IMAGE="metacubex/mihomo:latest"
-# Mihomo 二进制文件下载链接
-MIHOMO_BINARY_URL_1="https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
-MIHOMO_BINARY_URL_2="https://hubproxy.739999.xyz/https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
-MIHOMO_BINARY_URL_3="https://demo.52013120.xyz/https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
-MIHOMO_BINARY_URL="$MIHOMO_BINARY_URL_2" # 默认使用第二个 (hubproxy 加速)
+# Mihomo 二进制文件基础下载链接
+MIHOMO_BINARY_BASE_URL="https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
+# 加速代理地址
+PROXY_URL_HUBPROXY="https://hubproxy.739999.xyz"
+PROXY_URL_DEMO="https://demo.52013120.xyz"
 # 代理地址
 # 端口配置
 MIHOMO_HTTP_PORT="7890"
@@ -51,6 +51,7 @@ MIHOMO_EXTERNAL_CONTROLLER_PORT="9090"
 PROXY_HTTP="http://127.0.0.1:${MIHOMO_HTTP_PORT}"
 PROXY_SOCKS5="socks5://127.0.0.1:${MIHOMO_SOCKS_PORT}"
 IMAGE_PROXY_PREFIX=""
+MIHOMO_BINARY_URL=""
 
 # --- 函数定义 ---
 
@@ -103,23 +104,23 @@ get_user_input() {
 # 选择镜像代理
 select_image_proxy() {
   echo_info "请选择 Docker 镜像拉取方式:"
-  echo " 1. 直接拉取 (默认)"
-  echo " 2. 使用 hubproxy.739999.xyz 加速"
+  echo " 1. 直接拉取"
+  echo " 2. 使用 hubproxy.739999.xyz 加速 (默认)"
   echo " 3. 使用 demo.52013120.xyz 加速"
-  read -p "请输入选项 [1-3, 默认 1]: " proxy_choice
+  read -p "请输入选项 [1-3, 默认 2]: " proxy_choice
   
   case $proxy_choice in
-    2)
-      IMAGE_PROXY_PREFIX="hubproxy.739999.xyz/"
-      echo_info "已选择使用 hubproxy.739999.xyz 加速。"
+    1)
+      IMAGE_PROXY_PREFIX=""
+      echo_info "已选择直接拉取镜像。"
       ;;
     3)
       IMAGE_PROXY_PREFIX="demo.52013120.xyz/"
       echo_info "已选择使用 demo.52013120.xyz 加速。"
       ;;
-    *)
-      IMAGE_PROXY_PREFIX=""
-      echo_info "已选择直接拉取镜像。"
+    *) # 默认 2
+      IMAGE_PROXY_PREFIX="hubproxy.739999.xyz/"
+      echo_info "已选择使用 hubproxy.739999.xyz 加速。"
       ;;
   esac
 }
@@ -134,15 +135,15 @@ select_binary_url() {
 
   case $binary_choice in
     1)
-      MIHOMO_BINARY_URL="$MIHOMO_BINARY_URL_1"
+      MIHOMO_BINARY_URL="$MIHOMO_BINARY_BASE_URL"
       echo_info "已选择 GitHub (直连) 作为下载源。"
       ;;
     3)
-      MIHOMO_BINARY_URL="$MIHOMO_BINARY_URL_3"
+      MIHOMO_BINARY_URL="${PROXY_URL_DEMO}/${MIHOMO_BINARY_BASE_URL}"
       echo_info "已选择 GitHub (通过 demo.52013120.xyz 加速) 作为下载源。"
       ;;
-    *)
-      MIHOMO_BINARY_URL="$MIHOMO_BINARY_URL_2"
+    *) # 默认 2
+      MIHOMO_BINARY_URL="${PROXY_URL_HUBPROXY}/${MIHOMO_BINARY_BASE_URL}"
       echo_info "已选择 GitHub (通过 hubproxy.739999.xyz 加速) 作为下载源。"
       ;;
   esac
