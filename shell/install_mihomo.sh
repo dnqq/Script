@@ -1425,14 +1425,24 @@ configure_tun_gateway_rules() {
     lan_if=$(ip -o -f inet addr show | awk '/scope global/ {print $2}' | head -n 1)
     local wan_if
     wan_if=$(ip route | grep default | awk '{print $5}' | head -n 1)
-    # 动态查找 TUN 接口，优先使用 'utun'，否则使用第一个 'tun' 开头的接口
+    # 动态查找活动的 TUN 接口，优先查找 'Meta'，然后是 'utun' 和 'tun'
+    # 关键在于检查接口状态是否为 UP 或 UNKNOWN，并排除已知的非目标接口如 ip6tnl
     local tun_if
-    tun_if=$(ip -o link show | awk -F': ' '/utun/ {print $2; exit}')
+    # 优先查找 Mihomo 默认的 'Meta' 接口
+    tun_if=$(ip -o link show | awk -F': ' '/Meta/ && /state (UP|UNKNOWN)/ {print $2; exit}')
     if [ -z "$tun_if" ]; then
-        tun_if=$(ip -o link show | awk -F': ' '/tun/ {print $2; exit}')
+        tun_if=$(ip -o link show | awk -F': ' '/utun/ && /state (UP|UNKNOWN)/ {print $2; exit}')
     fi
     if [ -z "$tun_if" ]; then
-        echo_error "未找到活动的 TUN 接口 (如 utun, tun0)。请确保 Mihomo 已在 TUN 模式下成功启动。"
+        # 排除 ip6tnl，因为它是一个常见的、非 mihomo 使用的隧道
+        tun_if=$(ip -o link show | awk -F': ' '/tun/ && !/ip6tnl/ && /state (UP|UNKNOWN)/ {print $2; exit}')
+    fi
+    if [ -z "$tun_if" ]; then
+        # 作为最后的备用方案，通过 Mihomo 默认的 TUN IP 地址来查找接口
+        tun_if=$(ip -o -f inet addr show | awk '/198.18.0.1/ {print $2}' | head -n 1)
+    fi
+    if [ -z "$tun_if" ]; then
+        echo_error "未找到活动的 TUN 接口 (如 utun, tun, Meta)。请确保 Mihomo 已在 TUN 模式下成功启动，并且接口状态为 UP 或 UNKNOWN。"
         return 1
     fi
     echo_info "检测到 TUN 接口: $tun_if"
