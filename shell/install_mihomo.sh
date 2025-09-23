@@ -293,7 +293,6 @@ services:
     image: ${IMAGE_PROXY_PREFIX}${MIHOMO_IMAGE}
     container_name: mihomo
     restart: always
-    privileged: true
     cap_add:
       - NET_ADMIN
     devices:
@@ -623,6 +622,9 @@ install_mihomo_docker() {
     fi
     stop_mihomo_service
     stop_binary_service
+    # 在重新安装前，主动清理旧的网关规则，确保一个干净的状态
+    echo_info "检测到重装操作，正在强制清理旧的网关规则..."
+    clear_gateway
   fi
 
   select_image_proxy
@@ -644,7 +646,11 @@ install_mihomo_docker() {
     echo_info "Mihomo 服务已成功启动！"
     
     if [[ "$SETUP_GATEWAY" =~ ^[Yy]$ ]]; then
-        setup_standard_gateway
+        if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]]; then
+            setup_tun_gateway
+        else
+            setup_standard_gateway
+        fi
     fi
 
     echo_info ""
@@ -708,6 +714,9 @@ install_mihomo_binary() {
         fi
         stop_mihomo_service
         stop_binary_service
+        # 在重新安装前，主动清理旧的网关规则，确保一个干净的状态
+        echo_info "检测到重装操作，正在强制清理旧的网关规则..."
+        clear_gateway
     fi
 
     prepare_directory
@@ -764,7 +773,11 @@ install_mihomo_binary() {
         echo_info "Mihomo 服务已成功启动！"
 
         if [[ "$SETUP_GATEWAY" =~ ^[Yy]$ ]]; then
-            setup_standard_gateway
+            if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]]; then
+                setup_tun_gateway
+            else
+                setup_standard_gateway
+            fi
         fi
 
         echo_info ""
@@ -1282,12 +1295,46 @@ install_package() {
     esac
 }
 
-# 设置透明网关 (标准和TUN模式共用)
+# 设置透明网关 (标准 REDIR-HOST 模式)
 setup_standard_gateway() {
     check_root
-    echo_info "正在配置透明网关..."
+    echo_info "正在配置透明网关 (标准 REDIR-HOST 模式)..."
 
     # 1. 开启 IP 转发
+    enable_ip_forwarding
+
+    # 2. 确保 iptables 已安装
+    ensure_iptables_installed
+
+    # 3. 配置 iptables 规则
+    configure_standard_gateway_rules
+}
+
+# 设置透明网关 (TUN 模式)
+setup_tun_gateway() {
+    check_root
+    echo_info "正在配置透明网关 (TUN 模式)..."
+
+    # 1. 开启 IP 转发
+    enable_ip_forwarding
+
+    # 2. 确保 iptables 和 iproute2 已安装
+    ensure_iptables_installed
+    if ! command -v ip &> /dev/null; then
+        echo_warn "'ip' 命令未找到。正在尝试安装 'iproute2'..."
+        install_package "iproute2"
+        if ! command -v ip &> /dev/null; then
+            echo_error "'iproute2' 安装失败。TUN 网关配置需要 'ip' 命令。"
+            exit 1
+        fi
+    fi
+
+    # 3. 配置 iptables 规则
+    configure_tun_gateway_rules
+}
+
+# 开启IP转发
+enable_ip_forwarding() {
     echo_info "正在开启内核 IP 转发并持久化..."
     if ! grep -q "^net.ipv4.ip_forward=1" /etc/sysctl.conf; then
         echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
@@ -1297,8 +1344,10 @@ setup_standard_gateway() {
         echo_error "开启 IP 转发失败！"
         exit 1
     fi
+}
 
-    # 2. 确保 iptables 已安装
+# 确保iptables已安装
+ensure_iptables_installed() {
     if ! command -v iptables &> /dev/null; then
         echo_warn "iptables 命令未找到。正在尝试自动安装..."
         install_package "iptables"
@@ -1307,14 +1356,11 @@ setup_standard_gateway() {
             exit 1
         fi
     fi
-    
-    # 3. 配置 iptables 规则
-    configure_gateway_rules
 }
 
-# 配置网关的iptables规则和其他设置
-configure_gateway_rules() {
-    echo_info "正在配置 iptables 规则 (使用 MIHOMO 自定义链)..."
+# 配置标准网关的iptables规则
+configure_standard_gateway_rules() {
+    echo_info "正在配置 iptables 规则 (标准 REDIR-HOST 模式)..."
     # 自动获取 LAN 和 WAN 接口
     local lan_ip_range
     lan_ip_range=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1)
@@ -1327,38 +1373,14 @@ configure_gateway_rules() {
     
     # 设置默认端口
     local mihomo_redir_port=${MIHOMO_REDIR_PORT:-7892}
-    local mihomo_tproxy_port=${MIHOMO_TPROXY_PORT:-7893}
     local mihomo_dns_port=${MIHOMO_DNS_PORT:-1053}
     
     # 清理旧规则
-    iptables -t nat -F MIHOMO &>/dev/null
-    iptables -t nat -F PREROUTING &>/dev/null
-    iptables -t nat -F POSTROUTING &>/dev/null
-    iptables -t mangle -F PREROUTING &>/dev/null
-    iptables -t mangle -F MIHOMO_MARK &>/dev/null
-    iptables -t nat -X MIHOMO &>/dev/null
-    iptables -t mangle -X MIHOMO_MARK &>/dev/null
-    ip rule del fwmark 1 &>/dev/null
-    ip route del local default dev lo table 100 &>/dev/null
+    clear_gateway_rules
 
-    # 1. 策略路由：让内核知道如何处理被标记的流量
-    ip rule add fwmark 1 table 100
-    ip route add local default dev lo table 100
-
-    # 2. Mangle 表 (处理 UDP): 给非局域网的 UDP 流量打上标记 "1"
-    iptables -t mangle -N MIHOMO_MARK
-    iptables -t mangle -A MIHOMO_MARK -d 0.0.0.0/8 -j RETURN
-    iptables -t mangle -A MIHOMO_MARK -d 10.0.0.0/8 -j RETURN
-    iptables -t mangle -A MIHOMO_MARK -d 127.0.0.0/8 -j RETURN
-    iptables -t mangle -A MIHOMO_MARK -d 169.254.0.0/16 -j RETURN
-    iptables -t mangle -A MIHOMO_MARK -d 172.16.0.0/12 -j RETURN
-    iptables -t mangle -A MIHOMO_MARK -d 192.168.0.0/16 -j RETURN
-    iptables -t mangle -A MIHOMO_MARK -d "$server_ip" -j RETURN
-    iptables -t mangle -A MIHOMO_MARK -p udp -j MARK --set-mark 1
-    iptables -t mangle -A PREROUTING -i "$lan_if" -p udp -j MIHOMO_MARK
-
-    # 3. Nat 表 (处理 TCP): 重定向 TCP 流量
+    # --- 配置 NAT 表 ---
     iptables -t nat -N MIHOMO
+    # 绕过局域网和保留地址
     iptables -t nat -A MIHOMO -d 0.0.0.0/8 -j RETURN
     iptables -t nat -A MIHOMO -d 10.0.0.0/8 -j RETURN
     iptables -t nat -A MIHOMO -d 127.0.0.0/8 -j RETURN
@@ -1366,36 +1388,105 @@ configure_gateway_rules() {
     iptables -t nat -A MIHOMO -d 172.16.0.0/12 -j RETURN
     iptables -t nat -A MIHOMO -d 192.168.0.0/16 -j RETURN
     iptables -t nat -A MIHOMO -d "$server_ip" -j RETURN
+    # 重定向所有 TCP 流量到 redir-port
     iptables -t nat -A MIHOMO -p tcp -j REDIRECT --to-port "$mihomo_redir_port"
 
-    # 4. PREROUTING 链：将流量引导至我们的自定义链
-    # 将 TCP 流量引导至 MIHOMO 链 (在 Nat 表)
+    # 将局域网接口的 TCP 流量引导至 MIHOMO 链
     iptables -t nat -A PREROUTING -i "$lan_if" -p tcp -j MIHOMO
-    # 将带标记的 UDP 流量交给 TPROXY 处理 (在 Mangle 表)
-    iptables -t mangle -A PREROUTING -i "$lan_if" -p udp -m mark --mark 1 -j TPROXY --on-port "$mihomo_tproxy_port" --tproxy-mark 0x1/0x1
 
-    # 5. DNS 劫持：将所有 DNS 请求重定向到 Mihomo
+    # DNS 劫持：将所有 DNS 请求重定向到 Mihomo
     iptables -t nat -A PREROUTING -i "$lan_if" -p udp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port"
     iptables -t nat -A PREROUTING -i "$lan_if" -p tcp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port"
 
-    # 6. SNAT：为局域网设备提供网络地址转换
+    # SNAT：为局域网设备提供网络地址转换
     iptables -t nat -A POSTROUTING -o "$wan_if" -j MASQUERADE
 
-    echo_info "IPv4 透明代理规则已应用 (TCP Redirect + UDP TProxy)"
-
+    echo_info "IPv4 透明代理规则已应用 (TCP Redirect)"
+    
     # --- IPv6 设置 ---
-    # 清理旧规则
-    ip6tables -t mangle -F PREROUTING &>/dev/null
-    ip6tables -F FORWARD &>/dev/null
-
-    # 阻止所有来自局域网的IPv6转发请求，防止泄露
-    ip6tables -A FORWARD -i "$lan_if" -j DROP
-
-    echo_info "IPv6 规则已应用"
+    block_ipv6_forwarding "$lan_if"
 
     echo_info "iptables 规则配置完成。正在持久化规则..."
+    persist_iptables_rules
     
-    # 持久化 iptables 规则
+    echo_info "标准透明网关配置完成。"
+}
+
+# 配置TUN网关的iptables规则
+configure_tun_gateway_rules() {
+    echo_info "正在配置 iptables 规则 (TUN 模式)..."
+    # 自动获取接口信息
+    local lan_ip_range
+    lan_ip_range=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1)
+    local server_ip
+    server_ip=$(echo "$lan_ip_range" | cut -d'/' -f1)
+    local lan_if
+    lan_if=$(ip -o -f inet addr show | awk '/scope global/ {print $2}' | head -n 1)
+    local wan_if
+    wan_if=$(ip route | grep default | awk '{print $5}' | head -n 1)
+    # 动态查找 TUN 接口，优先使用 'utun'，否则使用第一个 'tun' 开头的接口
+    local tun_if
+    tun_if=$(ip -o link show | awk -F': ' '/utun/ {print $2; exit}')
+    if [ -z "$tun_if" ]; then
+        tun_if=$(ip -o link show | awk -F': ' '/tun/ {print $2; exit}')
+    fi
+    if [ -z "$tun_if" ]; then
+        echo_error "未找到活动的 TUN 接口 (如 utun, tun0)。请确保 Mihomo 已在 TUN 模式下成功启动。"
+        return 1
+    fi
+    echo_info "检测到 TUN 接口: $tun_if"
+
+    # 清理旧规则
+    clear_gateway_rules
+
+    # --- 配置 Mangle 表和策略路由 ---
+    # 1. 创建自定义链用于标记流量
+    iptables -t mangle -N MIHOMO_TUN
+    # 绕过局域网和保留地址
+    iptables -t mangle -A MIHOMO_TUN -d 0.0.0.0/8 -j RETURN
+    iptables -t mangle -A MIHOMO_TUN -d 10.0.0.0/8 -j RETURN
+    iptables -t mangle -A MIHOMO_TUN -d 127.0.0.0/8 -j RETURN
+    iptables -t mangle -A MIHOMO_TUN -d 169.254.0.0/16 -j RETURN
+    iptables -t mangle -A MIHOMO_TUN -d 172.16.0.0/12 -j RETURN
+    iptables -t mangle -A MIHOMO_TUN -d 192.168.0.0/16 -j RETURN
+    iptables -t mangle -A MIHOMO_TUN -d "$server_ip" -j RETURN
+    # 标记所有其他流量 (TCP 和 UDP)
+    iptables -t mangle -A MIHOMO_TUN -j MARK --set-mark 1
+
+    # 2. 将来自局域网的流量引导至标记链
+    iptables -t mangle -A PREROUTING -i "$lan_if" -j MIHOMO_TUN
+
+    # 3. 设置策略路由，将标记过的流量路由到 TUN 接口
+    ip rule add fwmark 1 table 100
+    ip route add default dev "$tun_if" table 100
+
+    # 4. SNAT: 为局域网设备提供网络地址转换
+    iptables -t nat -A POSTROUTING -o "$wan_if" -j MASQUERADE
+
+    echo_info "IPv4 透明代理规则已应用 (TUN 策略路由)"
+
+    # --- IPv6 设置 ---
+    block_ipv6_forwarding "$lan_if"
+
+    echo_info "iptables 规则配置完成。正在持久化规则..."
+    persist_iptables_rules
+
+    echo_info "TUN 透明网关配置完成。"
+}
+
+# 阻止IPv6转发
+block_ipv6_forwarding() {
+    local lan_if="$1"
+    if command -v ip6tables &> /dev/null; then
+        ip6tables -F FORWARD &>/dev/null
+        ip6tables -D FORWARD -i "$lan_if" -j DROP &>/dev/null # 确保旧规则被移除
+        ip6tables -A FORWARD -i "$lan_if" -j DROP
+        echo_info "IPv6 转发已被阻止，防止流量泄露。"
+    fi
+}
+
+# 持久化iptables规则
+persist_iptables_rules() {
     local os_name
     os_name=$(detect_os)
     case "$os_name" in
@@ -1420,10 +1511,55 @@ configure_gateway_rules() {
             echo_warn "无法为 $os_name 自动持久化 iptables 规则。请手动操作。"
             ;;
     esac
-    
-    echo_info "透明网关配置完成。"
 }
 
+# 清除所有网关规则的通用函数
+clear_gateway_rules() {
+    echo_info "正在安全地清除所有现存的网关规则..."
+
+    # 动态获取接口信息，用于精确删除规则
+    local lan_if
+    lan_if=$(ip -o -f inet addr show | awk '/scope global/ {print $2}' | head -n 1)
+    local wan_if
+    wan_if=$(ip route | grep default | awk '{print $5}' | head -n 1)
+    local mihomo_dns_port=${MIHOMO_DNS_PORT:-1053}
+
+    # 1. 清理策略路由和相关路由表
+    ip rule del fwmark 1 table 100 &>/dev/null
+    ip route flush table 100 &>/dev/null
+
+    # 2. 从内置链中精确删除本脚本添加的规则
+    if [ -n "$lan_if" ]; then
+        # 删除标准网关的 TCP 跳转和 DNS 劫持规则
+        iptables -t nat -D PREROUTING -i "$lan_if" -p tcp -j MIHOMO &>/dev/null
+        iptables -t nat -D PREROUTING -i "$lan_if" -p udp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port" &>/dev/null
+        iptables -t nat -D PREROUTING -i "$lan_if" -p tcp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port" &>/dev/null
+        
+        # 删除 TUN 网关的流量标记规则
+        iptables -t mangle -D PREROUTING -i "$lan_if" -j MIHOMO_TUN &>/dev/null
+    fi
+    if [ -n "$wan_if" ]; then
+        # 删除 SNAT 规则 (两种模式共用)
+        iptables -t nat -D POSTROUTING -o "$wan_if" -j MASQUERADE &>/dev/null
+    fi
+
+    # 3. 清空并删除所有本脚本创建的自定义链
+    # -- nat table
+    iptables -t nat -F MIHOMO &>/dev/null
+    iptables -t nat -X MIHOMO &>/dev/null
+    # -- mangle table (MIHOMO_MARK 是旧版规则链，保留以实现兼容清理)
+    iptables -t mangle -F MIHOMO_MARK &>/dev/null
+    iptables -t mangle -X MIHOMO_MARK &>/dev/null
+    iptables -t mangle -F MIHOMO_TUN &>/dev/null
+    iptables -t mangle -X MIHOMO_TUN &>/dev/null
+
+    # 4. 清理 IPv6 规则
+    if command -v ip6tables &> /dev/null && [ -n "$lan_if" ]; then
+        ip6tables -D FORWARD -i "$lan_if" -j DROP &>/dev/null
+    fi
+    
+    echo_info "网关规则清理完毕。"
+}
 
 # 清除局域网网关设置
 clear_gateway() {
@@ -1435,50 +1571,8 @@ clear_gateway() {
     fi
 
     if command -v iptables &> /dev/null; then
-        echo_info "正在清除 iptables 网关规则..."
-
-        # 清理策略路由和相关路由表
-        ip rule del fwmark 1 &>/dev/null
-        ip route del local default dev lo table 100 &>/dev/null
-
-        # 动态获取接口和端口信息，以确保能删除正确的规则
-        local lan_if
-        lan_if=$(ip -o -f inet addr show | awk '/scope global/ {print $2}' | head -n 1)
-        local wan_if
-        wan_if=$(ip route | grep default | awk '{print $5}' | head -n 1)
-        local mihomo_redir_port=${MIHOMO_REDIR_PORT:-7892}
-        local mihomo_tproxy_port=${MIHOMO_TPROXY_PORT:-7893}
-        local mihomo_dns_port=${MIHOMO_DNS_PORT:-1053}
-
-        # 从 PREROUTING 链中删除规则 (nat 表)
-        if [ -n "$lan_if" ]; then
-            iptables -t nat -D PREROUTING -i "$lan_if" -p tcp -j MIHOMO &>/dev/null
-            iptables -t nat -D PREROUTING -i "$lan_if" -p udp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port" &>/dev/null
-            iptables -t nat -D PREROUTING -i "$lan_if" -p tcp --dport 53 -j REDIRECT --to-port "$mihomo_dns_port" &>/dev/null
-        fi
-
-        # 从 PREROUTING 链中删除规则 (mangle 表)
-        if [ -n "$lan_if" ]; then
-            iptables -t mangle -D PREROUTING -i "$lan_if" -p udp -j MIHOMO_MARK &>/dev/null
-            iptables -t mangle -D PREROUTING -i "$lan_if" -p udp -m mark --mark 1 -j TPROXY --on-port "$mihomo_tproxy_port" --tproxy-mark 0x1/0x1 &>/dev/null
-        fi
-
-        # 从 POSTROUTING 链中删除 MASQUERADE 规则
-        if [ -n "$wan_if" ]; then
-            iptables -t nat -D POSTROUTING -o "$wan_if" -j MASQUERADE &>/dev/null
-        fi
-
-        # 清空并删除自定义链
-        iptables -t nat -F MIHOMO &>/dev/null
-        iptables -t nat -X MIHOMO &>/dev/null
-        iptables -t mangle -F MIHOMO_MARK &>/dev/null
-        iptables -t mangle -X MIHOMO_MARK &>/dev/null
-
-        # 清理 IPv6 规则
-        if command -v ip6tables &> /dev/null && [ -n "$lan_if" ]; then
-            ip6tables -D FORWARD -i "$lan_if" -j DROP &>/dev/null
-        fi
-
+        clear_gateway_rules
+        
         # 尝试保存规则
         local os_name
         os_name=$(detect_os)
