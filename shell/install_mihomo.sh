@@ -35,6 +35,8 @@ COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 MIHOMO_IMAGE="metacubex/mihomo:latest"
 # Mihomo 二进制文件基础下载链接
 MIHOMO_BINARY_BASE_URL="https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
+# GeoIP 数据库下载链接
+GEOIP_METADB_URL="https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb"
 # 加速代理地址
 PROXY_URL_HUBPROXY="https://hubproxy.739999.xyz"
 PROXY_URL_DEMO="https://demo.52013120.xyz"
@@ -157,6 +159,24 @@ prepare_directory() {
     echo_error "创建目录 $INSTALL_DIR 失败。"
     exit 1
   fi
+}
+
+# 下载 GeoIP 数据库
+download_geoip_database() {
+  echo_info "正在下载 GeoIP 数据库 (geoip.metadb)..."
+  # 默认使用 hubproxy 加速
+  local download_url="${PROXY_URL_HUBPROXY}/${GEOIP_METADB_URL}"
+  
+  if ! curl -L -o "$INSTALL_DIR/data/geoip.metadb" "$download_url"; then
+    echo_warn "通过代理下载 GeoIP 数据库失败，尝试直连下载..."
+    if ! curl -L -o "$INSTALL_DIR/data/geoip.metadb" "$GEOIP_METADB_URL"; then
+      echo_error "下载 GeoIP 数据库失败！"
+      echo_warn "您可以稍后手动下载 ${GEOIP_METADB_URL} 到 ${INSTALL_DIR}/data/ 目录。"
+      return 1
+    fi
+  fi
+  echo_info "GeoIP 数据库下载成功。"
+  return 0
 }
 
 # 应用服务器特定的配置修改
@@ -332,6 +352,42 @@ is_mihomo_running() {
         return 0 # true
     fi
     return 1 # false
+}
+
+# 等待 Mihomo 服务启动并准备就绪
+wait_for_mihomo() {
+    echo_info "正在等待 Mihomo 服务完全启动..."
+    local max_retries=10
+    local retry_count=0
+    local retry_sleep=3 # 每3秒检查一次
+
+    # 首先，确保服务在 systemd 或 Docker 中被报告为“正在运行”
+    if ! is_mihomo_running; then
+        echo_error "Mihomo 服务未能启动。"
+        return 1
+    fi
+
+    echo_info "服务已启动，正在等待 API 接口就绪..."
+    while [ $retry_count -lt $max_retries ]; do
+        # 检查 external-controller 端口是否可访问
+        if curl --silent --max-time 2 "http://127.0.0.1:${MIHOMO_EXTERNAL_CONTROLLER_PORT}/" > /dev/null; then
+            echo_info "Mihomo API 接口已响应。"
+            echo_info "等待 5 秒以确保代理链和规则完全加载..."
+            sleep 5
+            echo_info "Mihomo 服务已准备就绪。"
+            return 0
+        fi
+        
+        retry_count=$((retry_count + 1))
+        if [ $retry_count -lt $max_retries ]; then
+            echo_info "等待 API 接口... (${retry_count}/${max_retries})，将在 ${retry_sleep} 秒后重试。"
+            sleep $retry_sleep
+        fi
+    done
+
+    echo_error "在 $(($max_retries * $retry_sleep + 5)) 秒内 Mihomo API 未能响应。"
+    echo_warn "将继续执行后续步骤，但可能会失败。"
+    return 1
 }
 
 # 从现有配置和系统状态推断出当前的运行模式
@@ -549,8 +605,10 @@ update_subscription() {
         fi
         (cd "$INSTALL_DIR" && $compose_cmd up -d --force-recreate)
 
-        sleep 3
+        echo_info "等待容器重启..."
+        sleep 5 # Give container time to be created
         if [ -n "$(docker ps -q -f name=mihomo)" ]; then
+            wait_for_mihomo
             echo_info "Mihomo (Docker) 服务已成功启动/重启。"
         else
             echo_error "Mihomo (Docker) 服务未能启动。请使用 'cd ${INSTALL_DIR} && $compose_cmd logs' 查看日志。"
@@ -558,8 +616,8 @@ update_subscription() {
     elif [ -f "/etc/systemd/system/mihomo.service" ]; then
         echo_info "检测到二进制安装。正在启动/重启服务以应用新配置..."
         systemctl restart mihomo
-        sleep 3
         if systemctl is-active --quiet mihomo; then
+            wait_for_mihomo
             echo_info "Mihomo (二进制) 服务已成功启动/重启。"
         else
             echo_error "Mihomo (二进制) 服务未能启动。请使用 'journalctl -u mihomo' 查看日志。"
@@ -639,12 +697,15 @@ install_mihomo_docker() {
   ENABLE_TUN=${ENABLE_TUN:-n}
 
   setup_config
+  download_geoip_database
   create_compose_file
   start_mihomo_service
 
   # 检查启动结果
-  sleep 3 # 等待容器启动
-  if [ $? -eq 0 ] && [ -n "$(docker ps -q -f name=mihomo)" ]; then
+  echo_info "等待容器启动..."
+  sleep 5 # 等待容器有足够时间创建
+  if [ -n "$(docker ps -q -f name=mihomo)" ]; then
+    wait_for_mihomo
     echo_info "============================================================"
     echo_info "Mihomo 服务已成功启动！"
     
@@ -735,6 +796,7 @@ install_mihomo_binary() {
     fi
 
     setup_config
+    download_geoip_database
 
     local should_download_binary=true
     if [ -f "$INSTALL_DIR/mihomo" ]; then
@@ -770,8 +832,8 @@ install_mihomo_binary() {
     systemctl start mihomo
     systemctl enable mihomo
 
-    sleep 3
     if systemctl is-active --quiet mihomo; then
+        wait_for_mihomo
         echo_info "============================================================"
         echo_info "Mihomo 服务已成功启动！"
 
@@ -1226,18 +1288,31 @@ test_docker_proxy() {
 
 # 检查TUN模式是否已启用
 is_tun_enabled() {
-    # 检查 Docker 安装的 TUN 模式
-    if [ -f "$COMPOSE_FILE" ] && (grep -q "NET_ADMIN" "$COMPOSE_FILE" || grep -q "/dev/net/tun" "$COMPOSE_FILE"); then
-        return 0 # Docker TUN is enabled
+    # 优先：直接检查活动的 TUN 网络接口，这是最可靠的方法
+    if command -v ip &> /dev/null; then
+        local tun_if
+        tun_if=$(ip -o link show | awk -F': ' '/(clash|Meta|utun|tun)/ && !/ip6tnl/ && /state (UP|UNKNOWN)/ {print $2; exit}')
+        if [ -z "$tun_if" ]; then
+            # 某些系统下 TUN 接口可能没有特殊名称，通过 IP 地址回退查找
+            tun_if=$(ip -o -f inet addr show | awk '/198.18.0.1/ {print $2}' | head -n 1)
+        fi
+        if [ -n "$tun_if" ]; then
+            return 0 # Found active TUN interface
+        fi
     fi
 
-    # 检查二进制安装的 TUN 模式
+    # 其次：检查 Docker 配置文件
+    if [ -f "$COMPOSE_FILE" ] && (grep -q "NET_ADMIN" "$COMPOSE_FILE" || grep -q "/dev/net/tun" "$COMPOSE_FILE"); then
+        return 0 # Docker TUN is configured
+    fi
+
+    # 再次：检查二进制安装的 systemd 服务文件
     local service_file="/etc/systemd/system/mihomo.service"
     if [ -f "$service_file" ] && grep -q "CAP_NET_ADMIN" "$service_file"; then
-        return 0 # Binary TUN is enabled
+        return 0 # Binary TUN is configured
     fi
 
-    # 作为后备，直接检查配置文件
+    # 最后：作为后备，直接检查 Mihomo 配置文件
     if [ -f "$CONFIG_FILE" ]; then
         if grep -q -E "^\s*tun:" "$CONFIG_FILE"; then
             if sed -n '/^\s*tun:/,/^[^[:space:]]/p' "$CONFIG_FILE" | grep -q '^\s*enable:\s*true'; then
