@@ -300,7 +300,7 @@ services:
       - /dev/net/tun:/dev/net/tun
     network_mode: "host"
     volumes:
-      - ${INSTALL_DIR}/data:/data
+      - ${INSTALL_DIR}/data:/root/.config/mihomo
 EOF
 )
   else
@@ -312,7 +312,7 @@ services:
     restart: always
     network_mode: "host"
     volumes:
-      - ${INSTALL_DIR}/data:/data
+      - ${INSTALL_DIR}/data:/root/.config/mihomo
 EOF
 )
   fi
