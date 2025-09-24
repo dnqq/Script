@@ -28,19 +28,19 @@ NC='\033[0m' # No Color
 
 # --- Log Functions ---
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    echo -e "${BLUE}[INFO]${NC} $1" >&2
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    echo -e "${GREEN}[SUCCESS]${NC} $1" >&2
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    echo -e "${YELLOW}[WARNING]${NC} $1" >&2
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
 # --- Dependency and System Functions ---
@@ -166,19 +166,41 @@ cf_api_request() {
     echo "$response"
 }
 
-# 获取tunnels列表
+# 获取tunnels列表并显示
+# Usage: get_tunnels tunnel_ids_array
 get_tunnels() {
+    local -n tunnel_ids_ref=$1 # Use a nameref
+    tunnel_ids_ref=() # Clear the array
+
     log_info "正在获取Cloudflare tunnels列表..."
-    local response=$(cf_api_request "GET" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel")
+    local response=$(cf_api_request "GET" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel?is_deleted=false")
     
-    if echo "$response" | jq -e '.success' > /dev/null; then
-        echo "$response" | jq -r '.result[] | "ID: \(.id) | Name: \(.name) | Status: \(.status)"'
-        return 0
-    else
+    if ! echo "$response" | jq -e '.success' > /dev/null; then
         log_error "获取tunnels列表失败"
         echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"'
         return 1
     fi
+
+    local tunnels_count=$(echo "$response" | jq -r '.result | length')
+    if [[ "$tunnels_count" -eq 0 ]]; then
+        log_warning "未找到任何活动的tunnels。"
+        return 0
+    fi
+
+    log_info "发现以下tunnels:"
+    local i=0
+    while [ $i -lt $tunnels_count ]; do
+        local tunnel_info=$(echo "$response" | jq -r ".result[$i]")
+        local id=$(echo "$tunnel_info" | jq -r '.id')
+        local name=$(echo "$tunnel_info" | jq -r '.name')
+        local status=$(echo "$tunnel_info" | jq -r '.status')
+        
+        echo "$((i+1))) Name: $name | Status: $status | ID: $id"
+        tunnel_ids_ref+=("$id")
+        i=$((i+1))
+    done
+    
+    return 0
 }
 
 # 创建新tunnel
@@ -528,19 +550,33 @@ main() {
         # 获取tunnels列表
         echo
         log_info "=== 获取Cloudflare tunnels列表 ==="
-        get_tunnels
+        declare -a tunnel_ids
+        get_tunnels tunnel_ids
+        if [[ $? -ne 0 ]]; then
+            log_error "获取tunnels列表时发生错误，退出脚本"
+            exit 1
+        fi
         
         # 选择或创建tunnel
         echo
         echo "请选择操作："
-        echo "1) 使用现有tunnel"
+        if [[ ${#tunnel_ids[@]} -gt 0 ]]; then
+            echo "1) 使用现有tunnel"
+        fi
         echo "2) 创建新tunnel"
-        echo -n "输入选项 (1 或 2): "
+        echo -n "输入选项: "
         read -r choice
         
-        if [[ "$choice" == "1" ]]; then
-            echo -n "请输入要使用的tunnel ID: "
-            read -r tunnel_id
+        if [[ "$choice" == "1" && ${#tunnel_ids[@]} -gt 0 ]]; then
+            echo -n "请输入要使用的tunnel编号 (1-${#tunnel_ids[@]}): "
+            read -r selection
+            if [[ "$selection" =~ ^[0-9]+$ && "$selection" -ge 1 && "$selection" -le ${#tunnel_ids[@]} ]]; then
+                tunnel_id=${tunnel_ids[$((selection-1))]}
+                log_info "已选择tunnel ID: $tunnel_id"
+            else
+                log_error "无效的编号，退出脚本"
+                exit 1
+            fi
         elif [[ "$choice" == "2" ]]; then
             echo -n "请输入新tunnel名称: "
             read -r tunnel_name
