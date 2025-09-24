@@ -267,7 +267,8 @@ set_application_routes() {
         else
             log_info "  - 添加新路由: $domain -> $service"
             local new_rule=$(jq -n --arg hostname "$domain" --arg service "$service" '{hostname: $hostname, service: $service}')
-            updated_ingress=$(echo "$updated_ingress" | jq --argjson rule "$new_rule" '. + [$rule]')
+            # 使用更健壮的方式合并JSON，避免潜在的echo/pipe问题
+            updated_ingress=$(jq -n --argjson current "${updated_ingress:-[]}" --argjson rule "$new_rule" '$current + [$rule]')
             new_rule_added=true
         fi
     done
@@ -277,10 +278,10 @@ set_application_routes() {
     fi
 
     # 3. 添加回最后的404规则
-    updated_ingress=$(echo "$updated_ingress" | jq '. + [{service: "http_status:404"}]')
+    updated_ingress=$(jq -n --argjson current "${updated_ingress:-[]}" '$current + [{service: "http_status:404"}]')
 
     # 4. 构建最终的完整配置并上传
-    local updated_config=$(echo "$existing_config" | jq --argjson ingress "$updated_ingress" '.ingress = $ingress')
+    local updated_config=$(jq -n --argjson config "${existing_config:-'{}'}" --argjson ingress "${updated_ingress:-[]}" '$config | .ingress = $ingress')
     local data=$(jq -n --argjson config "$updated_config" '{config: $config}')
     
     log_info "--- DEBUG: 更新前的配置 ---"
