@@ -226,35 +226,36 @@ create_tunnel() {
     fi
 }
 
-# 为tunnel添加应用程序路由
-add_application_route() {
+# 为tunnel设置应用程序路由（一次性全部设置）
+set_application_routes() {
     local tunnel_id="$1"
-    local domain="$2"
-    local service="$3"
-    
-    log_info "正在为tunnel $tunnel_id 添加应用程序路由: $domain -> $service"
-    
-    local data=$(jq -n --arg hostname "$domain" --arg service "$service" '{
-        config: {
-            ingress: [
-                {
-                    hostname: $hostname,
-                    service: $service
-                },
-                {
-                    service: "http_status:404"
-                }
-            ]
-        }
-    }')
-    
+    local service="$2"
+    shift 2 # Remove tunnel_id and service from args
+    local domains=("$@") # The rest are domains
+
+    log_info "正在为tunnel $tunnel_id 设置应用程序路由..."
+
+    # Build the ingress rules array in jq
+    local ingress_rules="[]"
+    for domain in "${domains[@]}"; do
+        log_info "  - 添加路由: $domain -> $service"
+        local rule=$(jq -n --arg hostname "$domain" --arg service "$service" '{hostname: $hostname, service: $service}')
+        ingress_rules=$(echo "$ingress_rules" | jq --argjson rule "$rule" '. + [$rule]')
+    done
+
+    # Add the final 404 rule
+    ingress_rules=$(echo "$ingress_rules" | jq '. + [{service: "http_status:404"}]')
+
+    # Build the final data payload
+    local data=$(jq -n --argjson ingress "$ingress_rules" '{config: {ingress: $ingress}}')
+
     local response=$(cf_api_request "PUT" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${tunnel_id}/config" "$data")
-    
+
     if echo "$response" | jq -e '.success' > /dev/null; then
-        log_success "成功添加应用程序路由: $domain -> $service"
+        log_success "成功为tunnel $tunnel_id 设置所有应用程序路由"
         return 0
     else
-        log_error "添加应用程序路由失败"
+        log_error "设置应用程序路由失败"
         echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
         return 1
     fi
@@ -360,36 +361,50 @@ set_custom_hostname() {
     fi
 }
 
-# 获取DCV UUID
+# 获取DCV UUID (带重试机制)
 get_dcv_uuid() {
     local hostname_id="$1"
-    local zone_id="$2" # zone_id is required for the API endpoint
-    log_info "正在获取自定义主机名 $hostname_id 的DCV UUID"
+    local zone_id="$2"
+    local retries=5
+    local delay=10
+
+    log_info "正在获取自定义主机名 $hostname_id 的DCV UUID (最多尝试 ${retries} 次)"
 
     if [[ -z "$zone_id" ]]; then
         log_error "获取DCV UUID时缺少zone_id"
         return 1
     fi
-    
-    local response=$(cf_api_request "GET" "/zones/${zone_id}/custom_hostnames/${hostname_id}")
-    
-    if echo "$response" | jq -e '.success' > /dev/null; then
-        # 从ssl_validation_records中提取DCV UUID
-        # txt_value is in the format: <uuid>.dcv.cloudflare.com
-        local dcv_uuid=$(echo "$response" | jq -r '.result.ssl_validation_records[0].txt_value' | cut -d'.' -f1)
-        if [[ -n "$dcv_uuid" && "$dcv_uuid" != "null" ]]; then
-            log_success "获取DCV UUID成功: $dcv_uuid"
-            echo "$dcv_uuid"
-            return 0
-        else
-            log_error "未找到自定义主机名 $hostname_id 的DCV UUID"
+
+    for ((i=1; i<=retries; i++)); do
+        log_info "尝试第 $i 次..."
+        local response=$(cf_api_request "GET" "/zones/${zone_id}/custom_hostnames/${hostname_id}")
+
+        if ! echo "$response" | jq -e '.success' > /dev/null; then
+            log_error "获取DCV UUID失败 (API请求错误)"
+            echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
             return 1
         fi
-    else
-        log_error "获取DCV UUID失败"
-        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
-        return 1
-    fi
+
+        # Check if ssl_validation_records exists and is not empty
+        local validation_record_exists=$(echo "$response" | jq -r '.result.ssl_validation_records | if . and length > 0 then "true" else "false" end')
+
+        if [[ "$validation_record_exists" == "true" ]]; then
+            local dcv_uuid=$(echo "$response" | jq -r '.result.ssl_validation_records[0].txt_value' | cut -d'.' -f1)
+            if [[ -n "$dcv_uuid" && "$dcv_uuid" != "null" ]]; then
+                log_success "获取DCV UUID成功: $dcv_uuid"
+                echo "$dcv_uuid"
+                return 0
+            fi
+        fi
+
+        if [[ $i -lt $retries ]]; then
+            log_warning "DCV记录尚未生成，将在 ${delay} 秒后重试..."
+            sleep $delay
+        fi
+    done
+
+    log_error "在 ${retries} 次尝试后，仍未找到自定义主机名 $hostname_id 的DCV UUID"
+    return 1
 }
 
 # 设置DNS记录
@@ -616,8 +631,11 @@ main() {
     
     # 为tunnel添加应用程序路由
     log_info "=== 为tunnel添加应用程序路由 ==="
-    add_application_route "$tunnel_id" "$PRIMARY_DOMAIN" "$SERVICE_ADDRESS"
-    add_application_route "$tunnel_id" "$ORIGIN_DOMAIN" "$SERVICE_ADDRESS"
+    set_application_routes "$tunnel_id" "$SERVICE_ADDRESS" "$PRIMARY_DOMAIN" "$ORIGIN_DOMAIN"
+    if [[ $? -ne 0 ]]; then
+        log_error "设置应用程序路由失败，退出脚本"
+        exit 1
+    fi
 
     # 设置回源域名SAAS自定义主机名
     log_info "=== 设置回源域名SAAS自定义主机名 ==="
