@@ -1,11 +1,9 @@
 #!/bin/bash
 
-# Cloudflare Tunnel优选IP配置脚本
+# Cloudflare优选IP域名配置脚本
 # 功能：
-# 1. 获取Cloudflare tunnels列表
-# 2. 为tunnels添加应用程序路由
-# 3. 设置SAAS自定义主机名
-# 4. 配置DNS记录
+# 1. 设置SAAS自定义主机名
+# 2. 配置DNS记录以实现优选IP
 
 # Cloudflare API配置
 CF_API_TOKEN=""      # Cloudflare API令牌，用于身份验证
@@ -16,8 +14,6 @@ PRIMARY_DOMAIN=""    # 主域名 (例如: demo.aaa.com)
 ORIGIN_DOMAIN=""     # 回源域名 (例如: demo.bbb.com)
 DCV_UUID=""          # DCV UUID，需要用户手动输入
 
-# 服务配置
-SERVICE_ADDRESS=""   # 本地服务地址 (例如: http://192.168.1.3:5244)
 
 # 颜色定义
 RED='\033[0;31m'
@@ -166,162 +162,7 @@ cf_api_request() {
     echo "$response"
 }
 
-# 获取tunnels列表并显示
-# Usage: get_tunnels tunnel_ids_array
-get_tunnels() {
-    local -n tunnel_ids_ref=$1 # Use a nameref
-    tunnel_ids_ref=() # Clear the array
 
-    log_info "正在获取Cloudflare tunnels列表..."
-    local response=$(cf_api_request "GET" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel?is_deleted=false")
-    
-    if ! echo "$response" | jq -e '.success' > /dev/null; then
-        log_error "获取tunnels列表失败"
-        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
-        return 1
-    fi
-
-    local tunnels_count=$(echo "$response" | jq -r '.result | length')
-    if [[ "$tunnels_count" -eq 0 ]]; then
-        log_warning "未找到任何活动的tunnels。"
-        return 0
-    fi
-
-    log_info "发现以下tunnels:"
-    local i=0
-    while [ $i -lt $tunnels_count ]; do
-        local tunnel_info=$(echo "$response" | jq -r ".result[$i]")
-        local id=$(echo "$tunnel_info" | jq -r '.id')
-        local name=$(echo "$tunnel_info" | jq -r '.name')
-        local status=$(echo "$tunnel_info" | jq -r '.status')
-        
-        echo "$((i+1))) Name: $name | Status: $status | ID: $id"
-        tunnel_ids_ref+=("$id")
-        i=$((i+1))
-    done
-    
-    return 0
-}
-
-# 创建新tunnel
-create_tunnel() {
-    local tunnel_name="$1"
-    log_info "正在创建新的tunnel: $tunnel_name"
-    
-    local data=$(jq -n --arg name "$tunnel_name" '{
-        name: $name
-    }')
-    
-    local response=$(cf_api_request "POST" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel" "$data")
-    
-    if echo "$response" | jq -e '.success' > /dev/null; then
-        local tunnel_id=$(echo "$response" | jq -r '.result.id')
-        log_success "成功创建tunnel: $tunnel_name (ID: $tunnel_id)"
-        echo "$tunnel_id"
-        return 0
-    else
-        log_error "创建tunnel失败"
-        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
-        return 1
-    fi
-}
-
-# 为tunnel设置应用程序路由（增量更新）
-set_application_routes() {
-    local tunnel_id="$1"
-    local service="$2"
-    shift 2 # Remove tunnel_id and service from args
-    local domains=("$@") # The rest are domains
-
-    log_info "正在为tunnel $tunnel_id 更新应用程序路由..."
-
-    # 1. 获取当前配置
-    log_info "正在获取tunnel $tunnel_id 的现有配置..."
-    local config_response=$(cf_api_request "GET" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${tunnel_id}/config")
-    
-    log_info "--- DEBUG: Raw config response from API ---"
-    echo "${config_response:-<empty>}"
-    log_info "----------------------------------------"
-
-    # 检查API响应是否成功。注意：一个空的成功响应也是可能的
-    if [[ -n "$config_response" ]] && ! echo "$config_response" | jq -e '.success' > /dev/null; then
-        log_error "获取tunnel配置失败"
-        echo "$config_response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
-        return 1
-    fi
-
-    # 提取现有配置。如果配置不存在或为空，则初始化为空JSON对象 '{}'
-    local existing_config=$(echo "$config_response" | jq -r '.result.config')
-    if [[ -z "$existing_config" || "$existing_config" == "null" ]]; then
-        existing_config='{}'
-    fi
-
-    if [[ $(echo "$existing_config" | jq 'length') -eq 0 ]]; then
-        log_warning "从API获取的现有隧道配置为空或无 Ingress 规则。将创建新配置。"
-    else
-        log_info "已成功获取现有的Ingress规则配置。"
-    fi
-    
-    log_info "--- DEBUG: Parsed existing config ---"
-    echo "$existing_config"
-    log_info "-------------------------------------"
-
-    # 提取现有的ingress规则，并排除404规则
-    local existing_ingress=$(echo "$existing_config" | jq '.ingress // [] | map(select(.service != "http_status:404"))')
-    if [[ -z "$existing_ingress" || "$existing_ingress" == "null" ]]; then
-        existing_ingress="[]"
-    fi
-
-    # 2. 合并新旧规则
-    local updated_ingress="$existing_ingress"
-    local new_rule_added=false
-    for domain in "${domains[@]}"; do
-        # 检查域名是否已存在
-        local is_existing=$(echo "$updated_ingress" | jq -e --arg hostname "$domain" '.[] | select(.hostname == $hostname)')
-        if [[ -n "$is_existing" ]]; then
-            log_warning "路由 $domain -> $service 已存在，跳过添加"
-        else
-            log_info "  - 添加新路由: $domain -> $service"
-            local new_rule=$(jq -n --arg hostname "$domain" --arg service "$service" '{hostname: $hostname, service: $service}')
-            updated_ingress=$(jq -n --argjson current "$updated_ingress" --argjson rule "$new_rule" '$current + [$rule]')
-            new_rule_added=true
-        fi
-    done
-
-    if ! $new_rule_added; then
-        log_info "没有新的路由需要添加。"
-        # 如果没有新规则且已有规则存在，则无需更新
-        if [[ $(echo "$existing_ingress" | jq 'length') -gt 0 ]]; then
-            return 0
-        fi
-    fi
-
-    # 3. 添加回最后的404规则
-    updated_ingress=$(jq -n --argjson current "$updated_ingress" '$current + [{service: "http_status:404"}]')
-
-    # 4. 构建最终的完整配置并上传
-    local updated_config=$(jq -n --argjson config "$existing_config" --argjson ingress "$updated_ingress" '$config | .ingress = $ingress')
-    local data=$(jq -n --argjson config "$updated_config" '{config: $config}')
-    
-    log_info "--- DEBUG: Final JSON payload to be sent ---"
-    echo "$data" | jq .
-    log_info "--------------------------------------------"
-
-    log_info "正在上传更新后的配置..."
-    local response=$(cf_api_request "PUT" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${tunnel_id}/config" "$data")
-
-    log_info "--- DEBUG: API response from PUT ---"
-    echo "$response" | jq .
-    log_info "------------------------------------"
-
-    if echo "$response" | jq -e '.success' > /dev/null; then
-        log_success "成功为tunnel $tunnel_id 更新了应用程序路由"
-        return 0
-    else
-        log_error "更新应用程序路由失败"
-        return 1
-    fi
-}
 
 # 获取zone ID
 get_zone_id() {
@@ -431,16 +272,22 @@ set_dns_record() {
     local record_type="$3"
     local record_content="$4"
     
-    log_info "正在设置DNS记录: $record_name ($record_type) -> $record_content"
+    log_info "正在设置或更新DNS记录: $record_name ($record_type) -> $record_content"
     
-    # 首先检查是否已存在相同的记录
+    # 检查记录是否已存在
     local existing_response=$(cf_api_request "GET" "/zones/${zone_id}/dns_records?name=${record_name}&type=${record_type}")
     
     if echo "$existing_response" | jq -e '.success' > /dev/null; then
-        local count=$(echo "$existing_response" | jq -r '.result_info.count')
-        if [[ "$count" -gt 0 ]]; then
-            log_warning "DNS记录 $record_name ($record_type) 已存在，跳过创建"
-            return 0
+        local record_id=$(echo "$existing_response" | jq -r '.result[0].id')
+        if [[ -n "$record_id" && "$record_id" != "null" ]]; then
+            log_warning "DNS记录 $record_name ($record_type) 已存在，将删除后重建..."
+            local delete_response=$(cf_api_request "DELETE" "/zones/${zone_id}/dns_records/${record_id}")
+            if ! echo "$delete_response" | jq -e '.success' > /dev/null; then
+                log_error "删除旧的DNS记录失败"
+                echo "$delete_response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
+                return 1
+            fi
+            log_success "成功删除旧的DNS记录"
         fi
     fi
     
@@ -503,24 +350,12 @@ parse_args() {
                 ORIGIN_DOMAIN="$2"
                 shift 2
                 ;;
-            --service-address)
-                SERVICE_ADDRESS="$2"
-                shift 2
-                ;;
-            --tunnel-id)
-                TUNNEL_ID="$2"
-                shift 2
-                ;;
             --dcv-uuid)
                 DCV_UUID="$2"
                 shift 2
                 ;;
-            --tunnel-name)
-                TUNNEL_NAME="$2"
-                shift 2
-                ;;
             -h|--help)
-                echo "Cloudflare Tunnel优选IP配置脚本"
+                echo "Cloudflare优选IP域名配置脚本"
                 echo "使用方法: $0 [选项]"
                 echo ""
                 echo "选项:"
@@ -528,14 +363,11 @@ parse_args() {
                 echo "  --account-id ID          Cloudflare账户ID"
                 echo "  --primary-domain DOMAIN  主域名 (例如: demo.aaa.com)"
                 echo "  --origin-domain DOMAIN   回源域名 (例如: demo.bbb.com)"
-                echo "  --service-address ADDR   本地服务地址 (例如: http://192.168.1.3:5244)"
-                echo "  --tunnel-id ID           直接指定tunnel ID（可选）"
-                echo "  --tunnel-name NAME       新tunnel名称（可选）"
                 echo "  --dcv-uuid UUID          DCV UUID"
                 echo "  -h, --help               显示帮助信息"
                 echo ""
                 echo "示例:"
-                echo "  $0 --api-token xxx --account-id yyy --primary-domain demo.aaa.com --origin-domain demo.bbb.com --service-address http://192.168.1.3:5244"
+                echo "  $0 --api-token xxx --account-id yyy --primary-domain demo.aaa.com --origin-domain demo.bbb.com --dcv-uuid zzz"
                 exit 0
                 ;;
             *)
@@ -573,74 +405,12 @@ main() {
         read -r ORIGIN_DOMAIN
     fi
     
-    if [[ -z "$SERVICE_ADDRESS" ]]; then
-        echo -n "请输入本地服务地址 (例如 http://192.168.1.3:5244): "
-        read -r SERVICE_ADDRESS
-    fi
 
     if [[ -z "$DCV_UUID" ]]; then
         echo -n "请输入DCV UUID: "
         read -r DCV_UUID
     fi
 
-    # 获取或创建tunnel
-    local tunnel_id=""
-    
-    # 如果通过参数指定了tunnel ID，则直接使用
-    if [[ -n "$TUNNEL_ID" ]]; then
-        tunnel_id="$TUNNEL_ID"
-        log_info "使用指定的tunnel ID: $tunnel_id"
-    # 如果通过参数指定了tunnel名称，则创建新tunnel
-    elif [[ -n "$TUNNEL_NAME" ]]; then
-        tunnel_id=$(create_tunnel "$TUNNEL_NAME")
-        if [[ $? -ne 0 ]]; then
-            log_error "创建tunnel失败，退出脚本"
-            exit 1
-        fi
-    else
-        # 获取tunnels列表
-        echo
-        log_info "=== 获取Cloudflare tunnels列表 ==="
-        declare -a tunnel_ids
-        get_tunnels tunnel_ids
-        if [[ $? -ne 0 ]]; then
-            log_error "获取tunnels列表时发生错误，退出脚本"
-            exit 1
-        fi
-        
-        # 选择或创建tunnel
-        echo
-        echo "请选择操作："
-        if [[ ${#tunnel_ids[@]} -gt 0 ]]; then
-            echo "1) 使用现有tunnel"
-        fi
-        echo "2) 创建新tunnel"
-        echo -n "输入选项: "
-        read -r choice
-        
-        if [[ "$choice" == "1" && ${#tunnel_ids[@]} -gt 0 ]]; then
-            echo -n "请输入要使用的tunnel编号 (1-${#tunnel_ids[@]}): "
-            read -r selection
-            if [[ "$selection" =~ ^[0-9]+$ && "$selection" -ge 1 && "$selection" -le ${#tunnel_ids[@]} ]]; then
-                tunnel_id=${tunnel_ids[$((selection-1))]}
-                log_info "已选择tunnel ID: $tunnel_id"
-            else
-                log_error "无效的编号，退出脚本"
-                exit 1
-            fi
-        elif [[ "$choice" == "2" ]]; then
-            echo -n "请输入新tunnel名称: "
-            read -r tunnel_name
-            tunnel_id=$(create_tunnel "$tunnel_name")
-            if [[ $? -ne 0 ]]; then
-                log_error "创建tunnel失败，退出脚本"
-                exit 1
-            fi
-        else
-            log_error "无效选项，退出脚本"
-            exit 1
-        fi
-    fi
     
     # 获取zone IDs
     log_info "=== 获取域名zone IDs ==="
@@ -669,13 +439,6 @@ main() {
     set_dcv_delegation "$primary_zone_id" "$PRIMARY_DOMAIN" "$ORIGIN_DOMAIN" "$DCV_UUID"
     
 
-    # 为tunnel添加应用程序路由
-    log_info "=== 为tunnel添加应用程序路由 ==="
-    set_application_routes "$tunnel_id" "$SERVICE_ADDRESS" "$PRIMARY_DOMAIN" "$ORIGIN_DOMAIN"
-    if [[ $? -ne 0 ]]; then
-        log_error "设置应用程序路由失败，退出脚本"
-        exit 1
-    fi
 
     # 设置回源域名SAAS自定义主机名
     log_info "=== 设置回源域名SAAS自定义主机名 ==="
