@@ -226,36 +226,65 @@ create_tunnel() {
     fi
 }
 
-# 为tunnel设置应用程序路由（一次性全部设置）
+# 为tunnel设置应用程序路由（增量更新）
 set_application_routes() {
     local tunnel_id="$1"
     local service="$2"
     shift 2 # Remove tunnel_id and service from args
     local domains=("$@") # The rest are domains
 
-    log_info "正在为tunnel $tunnel_id 设置应用程序路由..."
+    log_info "正在为tunnel $tunnel_id 更新应用程序路由..."
 
-    # Build the ingress rules array in jq
-    local ingress_rules="[]"
+    # 1. 获取当前配置
+    log_info "正在获取tunnel $tunnel_id 的现有配置..."
+    local config_response=$(cf_api_request "GET" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${tunnel_id}/config")
+    if ! echo "$config_response" | jq -e '.success' > /dev/null; then
+        log_error "获取tunnel配置失败"
+        echo "$config_response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
+        return 1
+    fi
+
+    # 提取现有的ingress规则，移除最后的404规则（如果存在）
+    local existing_ingress=$(echo "$config_response" | jq -r '.result.config.ingress | fromjson | map(select(.service != "http_status:404"))')
+    if [[ -z "$existing_ingress" ]]; then
+        existing_ingress="[]"
+    fi
+
+    # 2. 合并新旧规则
+    local updated_ingress="$existing_ingress"
+    local new_rule_added=false
     for domain in "${domains[@]}"; do
-        log_info "  - 添加路由: $domain -> $service"
-        local rule=$(jq -n --arg hostname "$domain" --arg service "$service" '{hostname: $hostname, service: $service}')
-        ingress_rules=$(echo "$ingress_rules" | jq --argjson rule "$rule" '. + [$rule]')
+        # 检查域名是否已存在
+        local is_existing=$(echo "$updated_ingress" | jq -e --arg hostname "$domain" '.[] | select(.hostname == $hostname)')
+        if [[ -n "$is_existing" ]]; then
+            log_warning "路由 $domain -> $service 已存在，跳过添加"
+        else
+            log_info "  - 添加新路由: $domain -> $service"
+            local new_rule=$(jq -n --arg hostname "$domain" --arg service "$service" '{hostname: $hostname, service: $service}')
+            updated_ingress=$(echo "$updated_ingress" | jq --argjson rule "$new_rule" '. + [$rule]')
+            new_rule_added=true
+        fi
     done
 
-    # Add the final 404 rule
-    ingress_rules=$(echo "$ingress_rules" | jq '. + [{service: "http_status:404"}]')
+    if ! $new_rule_added; then
+        log_info "没有新的路由需要添加。"
+        # 即使没有新路由，也确保配置是完整的
+    fi
 
-    # Build the final data payload
-    local data=$(jq -n --argjson ingress "$ingress_rules" '{config: {ingress: $ingress}}')
+    # 3. 添加回最后的404规则
+    updated_ingress=$(echo "$updated_ingress" | jq '. + [{service: "http_status:404"}]')
 
+    # 4. 构建最终数据并上传
+    local data=$(jq -n --argjson ingress "$updated_ingress" '{config: {ingress: $ingress}}')
+    
+    log_info "正在上传更新后的配置..."
     local response=$(cf_api_request "PUT" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${tunnel_id}/config" "$data")
 
     if echo "$response" | jq -e '.success' > /dev/null; then
-        log_success "成功为tunnel $tunnel_id 设置所有应用程序路由"
+        log_success "成功为tunnel $tunnel_id 更新了应用程序路由"
         return 0
     else
-        log_error "设置应用程序路由失败"
+        log_error "更新应用程序路由失败"
         echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
         return 1
     fi
