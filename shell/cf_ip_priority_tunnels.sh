@@ -459,7 +459,7 @@ set_dcv_delegation() {
     log_info "正在设置主域名的DCV委派记录"
     
     # 构造DCV委派记录的目标值
-    local dcv_target="${origin_domain}.${dcv_uuid}.dcv.cloudflare.com"
+    local dcv_target="${primary_domain}.${dcv_uuid}.dcv.cloudflare.com"
     
     # 设置_acme-challenge记录指向回源域名的DCV验证端点
     set_dns_record "$zone_id" "_acme-challenge.${primary_domain}" "CNAME" "$dcv_target"
@@ -640,6 +640,19 @@ main() {
         exit 1
     fi
     
+    # 检查DCV UUID
+    log_info "=== 检查DCV UUID ==="
+    if [[ -z "$DCV_UUID" ]]; then
+        log_error "DCV UUID未设置，退出脚本"
+        exit 1
+    fi
+    log_success "使用DCV UUID: $DCV_UUID"
+
+    # 设置主域名的DCV委派记录
+    log_info "=== 设置主域名DCV委派记录 ==="
+    set_dcv_delegation "$primary_zone_id" "$PRIMARY_DOMAIN" "$ORIGIN_DOMAIN" "$DCV_UUID"
+    
+
     # 为tunnel添加应用程序路由
     log_info "=== 为tunnel添加应用程序路由 ==="
     set_application_routes "$tunnel_id" "$SERVICE_ADDRESS" "$PRIMARY_DOMAIN" "$ORIGIN_DOMAIN"
@@ -650,31 +663,11 @@ main() {
 
     # 设置回源域名SAAS自定义主机名
     log_info "=== 设置回源域名SAAS自定义主机名 ==="
-    local origin_hostname_id=$(set_custom_hostname "$ORIGIN_DOMAIN" "$origin_zone_id" "$PRIMARY_DOMAIN")
+    local origin_hostname_id=$(set_custom_hostname "$PRIMARY_DOMAIN" "$origin_zone_id" "$ORIGIN_DOMAIN")
     if [[ $? -ne 0 ]]; then
         log_error "设置回源域名SAAS自定义主机名失败，退出脚本"
         exit 1
     fi
-    
-    # 检查DCV UUID
-    log_info "=== 检查DCV UUID ==="
-    if [[ -z "$DCV_UUID" ]]; then
-        log_error "DCV UUID未设置，退出脚本"
-        exit 1
-    fi
-    log_success "使用DCV UUID: $DCV_UUID"
-    
-    # 设置主域名自定义主机名
-    log_info "=== 设置主域名自定义主机名 ==="
-    set_custom_hostname "$PRIMARY_DOMAIN" "$primary_zone_id"
-    if [[ $? -ne 0 ]]; then
-        log_error "设置主域名自定义主机名失败，退出脚本"
-        exit 1
-    fi
-    
-    # 设置主域名的DCV委派记录
-    log_info "=== 设置主域名DCV委派记录 ==="
-    set_dcv_delegation "$primary_zone_id" "$PRIMARY_DOMAIN" "$ORIGIN_DOMAIN" "$DCV_UUID"
     
     # 设置speed子域名CNAME记录 (speed.主域名 -> cf.090227.xyz)
     log_info "=== 设置speed子域名CNAME记录 ==="
