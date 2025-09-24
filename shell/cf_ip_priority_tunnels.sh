@@ -244,8 +244,15 @@ set_application_routes() {
         return 1
     fi
 
-    # 提取完整的现有配置和ingress规则
-    local existing_config=$(echo "$config_response" | jq '.result.config')
+    # 提取完整的现有配置和ingress规则，如果配置为null，则视为空对象{}
+    local existing_config=$(echo "$config_response" | jq '.result.config // {}')
+    
+    if [[ $(echo "$existing_config" | jq 'length') -eq 0 ]]; then
+        log_warning "从API获取的现有隧道配置为空。这可能是因为此隧道之前是通过DNS CNAME记录进行路由，而不是通过Ingress规则配置的。"
+    else
+        log_info "已成功获取现有的Ingress规则配置。"
+    fi
+
     # 如果ingress不存在，则初始化为空数组
     local existing_ingress=$(echo "$existing_config" | jq '.ingress // [] | map(select(.service != "http_status:404"))')
 
