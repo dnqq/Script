@@ -14,7 +14,7 @@ CF_ACCOUNT_ID=""     # Cloudflare账户ID
 # 域名配置
 PRIMARY_DOMAIN=""    # 主域名 (例如: demo.aaa.com)
 ORIGIN_DOMAIN=""     # 回源域名 (例如: demo.bbb.com)
-# DCV UUID将从API获取，不再需要手动输入
+DCV_UUID=""          # DCV UUID，需要用户手动输入
 
 # 服务配置
 SERVICE_ADDRESS=""   # 本地服务地址 (例如: http://192.168.1.3:5244)
@@ -390,51 +390,6 @@ set_custom_hostname() {
     fi
 }
 
-# 获取DCV UUID (带重试机制)
-get_dcv_uuid() {
-    local hostname_id="$1"
-    local zone_id="$2"
-    local retries=5
-    local delay=10
-
-    log_info "正在获取自定义主机名 $hostname_id 的DCV UUID (最多尝试 ${retries} 次)"
-
-    if [[ -z "$zone_id" ]]; then
-        log_error "获取DCV UUID时缺少zone_id"
-        return 1
-    fi
-
-    for ((i=1; i<=retries; i++)); do
-        log_info "尝试第 $i 次..."
-        local response=$(cf_api_request "GET" "/zones/${zone_id}/custom_hostnames/${hostname_id}")
-
-        if ! echo "$response" | jq -e '.success' > /dev/null; then
-            log_error "获取DCV UUID失败 (API请求错误)"
-            echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
-            return 1
-        fi
-
-        # Check if ssl_validation_records exists and is not empty
-        local validation_record_exists=$(echo "$response" | jq -r '.result.ssl_validation_records | if . and length > 0 then "true" else "false" end')
-
-        if [[ "$validation_record_exists" == "true" ]]; then
-            local dcv_uuid=$(echo "$response" | jq -r '.result.ssl_validation_records[0].txt_value' | cut -d'.' -f1)
-            if [[ -n "$dcv_uuid" && "$dcv_uuid" != "null" ]]; then
-                log_success "获取DCV UUID成功: $dcv_uuid"
-                echo "$dcv_uuid"
-                return 0
-            fi
-        fi
-
-        if [[ $i -lt $retries ]]; then
-            log_warning "DCV记录尚未生成，将在 ${delay} 秒后重试..."
-            sleep $delay
-        fi
-    done
-
-    log_error "在 ${retries} 次尝试后，仍未找到自定义主机名 $hostname_id 的DCV UUID"
-    return 1
-}
 
 # 设置DNS记录
 set_dns_record() {
@@ -523,6 +478,10 @@ parse_args() {
                 TUNNEL_ID="$2"
                 shift 2
                 ;;
+            --dcv-uuid)
+                DCV_UUID="$2"
+                shift 2
+                ;;
             --tunnel-name)
                 TUNNEL_NAME="$2"
                 shift 2
@@ -539,6 +498,7 @@ parse_args() {
                 echo "  --service-address ADDR   本地服务地址 (例如: http://192.168.1.3:5244)"
                 echo "  --tunnel-id ID           直接指定tunnel ID（可选）"
                 echo "  --tunnel-name NAME       新tunnel名称（可选）"
+                echo "  --dcv-uuid UUID          DCV UUID"
                 echo "  -h, --help               显示帮助信息"
                 echo ""
                 echo "示例:"
@@ -583,6 +543,11 @@ main() {
     if [[ -z "$SERVICE_ADDRESS" ]]; then
         echo -n "请输入本地服务地址 (例如 http://192.168.1.3:5244): "
         read -r SERVICE_ADDRESS
+    fi
+
+    if [[ -z "$DCV_UUID" ]]; then
+        echo -n "请输入DCV UUID: "
+        read -r DCV_UUID
     fi
 
     # 获取或创建tunnel
@@ -674,15 +639,13 @@ main() {
         exit 1
     fi
     
-    # 获取DCV UUID
-    log_info "=== 获取DCV UUID ==="
-    # DCV UUID总是从回源域名的自定义主机名中获取
-    local DCV_UUID=$(get_dcv_uuid "$origin_hostname_id" "$origin_zone_id")
-    if [[ $? -ne 0 || -z "$DCV_UUID" ]]; then
-        log_error "获取DCV UUID失败，退出脚本"
+    # 检查DCV UUID
+    log_info "=== 检查DCV UUID ==="
+    if [[ -z "$DCV_UUID" ]]; then
+        log_error "DCV UUID未设置，退出脚本"
         exit 1
     fi
-    log_success "获取DCV UUID成功: $DCV_UUID"
+    log_success "使用DCV UUID: $DCV_UUID"
     
     # 设置主域名自定义主机名
     log_info "=== 设置主域名自定义主机名 ==="
