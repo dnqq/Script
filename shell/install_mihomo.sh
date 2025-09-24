@@ -35,8 +35,10 @@ COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 MIHOMO_IMAGE="metacubex/mihomo:latest"
 # Mihomo 二进制文件基础下载链接
 MIHOMO_BINARY_BASE_URL="https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
+MIHOMO_BINARY_ALIST_URL="https://alist.739999.xyz/d/%E8%AE%BF%E5%AE%A2/%E8%BD%AF%E4%BB%B6/%E4%BB%A3%E7%90%86%E8%BD%AF%E4%BB%B6_Mihomo/mihomo-linux-amd64-v1-v1.19.13.gz"
 # GeoIP 数据库下载链接
 GEOIP_METADB_URL="https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb"
+GEOIP_METADB_ALIST_URL="https://alist.739999.xyz/d/%E8%AE%BF%E5%AE%A2/%E8%BD%AF%E4%BB%B6/%E4%BB%A3%E7%90%86%E8%BD%AF%E4%BB%B6_Mihomo/geoip.metadb"
 # 加速代理地址
 PROXY_URL_HUBPROXY="https://hubproxy.739999.xyz"
 PROXY_URL_DEMO="https://demo.52013120.xyz"
@@ -130,23 +132,28 @@ select_image_proxy() {
 # 选择二进制文件下载链接
 select_binary_url() {
   echo_info "请选择 Mihomo 二进制文件下载源:"
-  echo " 1. GitHub (直连)"
-  echo " 2. GitHub (通过 hubproxy.739999.xyz 加速) (默认)"
-  echo " 3. GitHub (通过 demo.52013120.xyz 加速)"
-  read -p "请输入选项 [1-3, 默认 2]: " binary_choice
+  echo " 1. Alist (推荐, 默认)"
+  echo " 2. GitHub (直连)"
+  echo " 3. GitHub (通过 hubproxy.739999.xyz 加速)"
+  echo " 4. GitHub (通过 demo.52013120.xyz 加速)"
+  read -p "请输入选项 [1-4, 默认 1]: " binary_choice
 
   case $binary_choice in
-    1)
+    2)
       MIHOMO_BINARY_URL="$MIHOMO_BINARY_BASE_URL"
       echo_info "已选择 GitHub (直连) 作为下载源。"
       ;;
     3)
+      MIHOMO_BINARY_URL="${PROXY_URL_HUBPROXY}/${MIHOMO_BINARY_BASE_URL}"
+      echo_info "已选择 GitHub (通过 hubproxy.739999.xyz 加速) 作为下载源。"
+      ;;
+    4)
       MIHOMO_BINARY_URL="${PROXY_URL_DEMO}/${MIHOMO_BINARY_BASE_URL}"
       echo_info "已选择 GitHub (通过 demo.52013120.xyz 加速) 作为下载源。"
       ;;
-    *) # 默认 2
-      MIHOMO_BINARY_URL="${PROXY_URL_HUBPROXY}/${MIHOMO_BINARY_BASE_URL}"
-      echo_info "已选择 GitHub (通过 hubproxy.739999.xyz 加速) 作为下载源。"
+    *) # 默认 1
+      MIHOMO_BINARY_URL="$MIHOMO_BINARY_ALIST_URL"
+      echo_info "已选择 Alist 作为下载源。"
       ;;
   esac
 }
@@ -163,16 +170,40 @@ prepare_directory() {
 
 # 下载 GeoIP 数据库
 download_geoip_database() {
+  echo_info "请选择 GeoIP 数据库 (geoip.metadb) 下载源:"
+  echo " 1. Alist (推荐, 默认)"
+  echo " 2. GitHub (直连)"
+  echo " 3. GitHub (通过 hubproxy.739999.xyz 加速)"
+  read -p "请输入选项 [1-3, 默认 1]: " geoip_choice
+
+  local download_url
+  case $geoip_choice in
+    2)
+      download_url="$GEOIP_METADB_URL"
+      echo_info "已选择 GitHub (直连) 作为下载源。"
+      ;;
+    3)
+      download_url="${PROXY_URL_HUBPROXY}/${GEOIP_METADB_URL}"
+      echo_info "已选择 GitHub (通过 hubproxy.739999.xyz 加速) 作为下载源。"
+      ;;
+    *) # 默认 1
+      download_url="$GEOIP_METADB_ALIST_URL"
+      echo_info "已选择 Alist 作为下载源。"
+      ;;
+  esac
+
   echo_info "正在下载 GeoIP 数据库 (geoip.metadb)..."
-  # 默认使用 hubproxy 加速
-  local download_url="${PROXY_URL_HUBPROXY}/${GEOIP_METADB_URL}"
-  
   if ! curl -L -o "$INSTALL_DIR/data/geoip.metadb" "$download_url"; then
-    echo_warn "通过代理下载 GeoIP 数据库失败，尝试直连下载..."
-    if ! curl -L -o "$INSTALL_DIR/data/geoip.metadb" "$GEOIP_METADB_URL"; then
-      echo_error "下载 GeoIP 数据库失败！"
-      echo_warn "您可以稍后手动下载 ${GEOIP_METADB_URL} 到 ${INSTALL_DIR}/data/ 目录。"
-      return 1
+    echo_warn "下载 GeoIP 数据库失败，尝试备用下载..."
+    # Fallback logic
+    if [ "$geoip_choice" != "1" ] && curl -L -o "$INSTALL_DIR/data/geoip.metadb" "$GEOIP_METADB_ALIST_URL"; then
+        echo_info "通过 Alist 备用源下载成功。"
+    elif [ "$geoip_choice" != "2" ] && curl -L -o "$INSTALL_DIR/data/geoip.metadb" "$GEOIP_METADB_URL"; then
+        echo_info "通过 GitHub 直连备用源下载成功。"
+    else
+        echo_error "所有下载源均尝试失败！"
+        echo_warn "您可以稍后手动下载 GeoIP 数据库到 ${INSTALL_DIR}/data/ 目录。"
+        return 1
     fi
   fi
   echo_info "GeoIP 数据库下载成功。"
