@@ -14,7 +14,7 @@ CF_ACCOUNT_ID=""     # Cloudflare账户ID
 # 域名配置
 PRIMARY_DOMAIN=""    # 主域名 (例如: demo.aaa.com)
 ORIGIN_DOMAIN=""     # 回源域名 (例如: demo.bbb.com)
-DCV_UUID=""          # DCV UUID，用于设置主域名的DCV委派记录
+# DCV UUID将从API获取，不再需要手动输入
 
 # 服务配置
 SERVICE_ADDRESS=""   # 本地服务地址 (例如: http://192.168.1.3:5244)
@@ -50,11 +50,65 @@ check_dependencies() {
         if ! command -v "$dep" &> /dev/null; then
             log_error "缺少必要依赖: $dep"
             if [[ "$dep" == "jq" ]]; then
-                log_info "请安装jq来处理JSON数据"
+                log_info "正在尝试自动安装jq..."
+                install_jq
+            else
+                exit 1
             fi
-            exit 1
         fi
     done
+}
+
+# 自动安装jq
+install_jq() {
+    # 检测操作系统类型
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux系统
+        if command -v apt &> /dev/null; then
+            # Debian/Ubuntu系统
+            log_info "检测到Debian/Ubuntu系统，使用apt安装jq"
+            apt update && apt install -y jq
+        elif command -v yum &> /dev/null; then
+            # CentOS/RHEL系统
+            log_info "检测到CentOS/RHEL系统，使用yum安装jq"
+            yum install -y jq
+        elif command -v dnf &> /dev/null; then
+            # Fedora系统
+            log_info "检测到Fedora系统，使用dnf安装jq"
+            dnf install -y jq
+        elif command -v pacman &> /dev/null; then
+            # Arch Linux系统
+            log_info "检测到Arch Linux系统，使用pacman安装jq"
+            pacman -Sy jq --noconfirm
+        elif command -v apk &> /dev/null; then
+            # Alpine Linux系统
+            log_info "检测到Alpine Linux系统，使用apk安装jq"
+            apk add jq
+        else
+            log_error "不支持的Linux包管理器，请手动安装jq"
+            exit 1
+        fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS系统
+        if command -v brew &> /dev/null; then
+            log_info "检测到Homebrew，使用brew安装jq"
+            brew install jq
+        else
+            log_error "请先安装Homebrew，然后安装jq"
+            exit 1
+        fi
+    else
+        log_error "不支持的操作系统，请手动安装jq"
+        exit 1
+    fi
+
+    # 验证安装是否成功
+    if command -v jq &> /dev/null; then
+        log_success "jq安装成功"
+    else
+        log_error "jq安装失败，请手动安装"
+        exit 1
+    fi
 }
 
 # Cloudflare API请求函数
@@ -329,10 +383,6 @@ main() {
         read -r SERVICE_ADDRESS
     fi
 
-    if [[ -z "$DCV_UUID" ]]; then
-        echo -n "请输入DCV UUID (如果不知道可留空，稍后会显示): "
-        read -r DCV_UUID
-    fi
 
     
     # 获取或创建tunnel
@@ -409,16 +459,13 @@ main() {
     
     # 获取DCV UUID
     log_info "=== 获取DCV UUID ==="
-    if [[ -z "$DCV_UUID" ]]; then
-        # 如果用户没有提供DCV_UUID，则从回源域名的自定义主机名中获取
-        DCV_UUID=$(get_dcv_uuid "$origin_hostname_id")
-        if [[ $? -ne 0 || -z "$DCV_UUID" ]]; then
-            log_error "获取DCV UUID失败，退出脚本"
-            exit 1
-        fi
-        log_success "获取DCV UUID成功: $DCV_UUID"
-        echo "请复制上面的DCV UUID，以便后续使用"
+    # DCV UUID总是从回源域名的自定义主机名中获取
+    DCV_UUID=$(get_dcv_uuid "$origin_hostname_id")
+    if [[ $? -ne 0 || -z "$DCV_UUID" ]]; then
+        log_error "获取DCV UUID失败，退出脚本"
+        exit 1
     fi
+    log_success "获取DCV UUID成功: $DCV_UUID"
     
     # 设置主域名自定义主机名
     log_info "=== 设置主域名自定义主机名 ==="
@@ -505,10 +552,6 @@ parse_args() {
                 ORIGIN_DOMAIN="$2"
                 shift 2
                 ;;
-            --dcv-uuid)
-                DCV_UUID="$2"
-                shift 2
-                ;;
             --service-address)
                 SERVICE_ADDRESS="$2"
                 shift 2
@@ -530,7 +573,6 @@ parse_args() {
                 echo "  --account-id ID          Cloudflare账户ID"
                 echo "  --primary-domain DOMAIN  主域名 (例如: demo.aaa.com)"
                 echo "  --origin-domain DOMAIN   回源域名 (例如: demo.bbb.com)"
-                echo "  --dcv-uuid UUID          DCV UUID，用于设置主域名的DCV委派记录"
                 echo "  --service-address ADDR   本地服务地址 (例如: http://192.168.1.3:5244)"
                 echo "  --tunnel-id ID           直接指定tunnel ID（可选）"
                 echo "  --tunnel-name NAME       新tunnel名称（可选）"
