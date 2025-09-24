@@ -244,11 +244,10 @@ set_application_routes() {
         return 1
     fi
 
-    # 提取现有的ingress规则，移除最后的404规则（如果存在）
-    local existing_ingress=$(echo "$config_response" | jq -r '.result.config.ingress | fromjson | map(select(.service != "http_status:404"))')
-    if [[ -z "$existing_ingress" ]]; then
-        existing_ingress="[]"
-    fi
+    # 提取完整的现有配置和ingress规则
+    local existing_config=$(echo "$config_response" | jq '.result.config')
+    # 如果ingress不存在，则初始化为空数组
+    local existing_ingress=$(echo "$existing_config" | jq '.ingress // [] | map(select(.service != "http_status:404"))')
 
     # 2. 合并新旧规则
     local updated_ingress="$existing_ingress"
@@ -268,24 +267,34 @@ set_application_routes() {
 
     if ! $new_rule_added; then
         log_info "没有新的路由需要添加。"
-        # 即使没有新路由，也确保配置是完整的
     fi
 
     # 3. 添加回最后的404规则
     updated_ingress=$(echo "$updated_ingress" | jq '. + [{service: "http_status:404"}]')
 
-    # 4. 构建最终数据并上传
-    local data=$(jq -n --argjson ingress "$updated_ingress" '{config: {ingress: $ingress}}')
+    # 4. 构建最终的完整配置并上传
+    local updated_config=$(echo "$existing_config" | jq --argjson ingress "$updated_ingress" '.ingress = $ingress')
+    local data=$(jq -n --argjson config "$updated_config" '{config: $config}')
     
+    log_info "--- DEBUG: 更新前的配置 ---"
+    echo "$existing_config" | jq .
+    log_info "--- DEBUG: 更新后的完整配置 ---"
+    echo "$data" | jq .
+    log_info "--------------------------"
+
     log_info "正在上传更新后的配置..."
     local response=$(cf_api_request "PUT" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${tunnel_id}/config" "$data")
+
+    log_info "--- DEBUG: API响应 ---"
+    echo "$response" | jq .
+    log_info "----------------------"
 
     if echo "$response" | jq -e '.success' > /dev/null; then
         log_success "成功为tunnel $tunnel_id 更新了应用程序路由"
         return 0
     else
         log_error "更新应用程序路由失败"
-        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
+        # The full response is already printed above
         return 1
     fi
 }
