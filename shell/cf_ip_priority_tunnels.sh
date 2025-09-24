@@ -177,7 +177,7 @@ get_tunnels() {
     
     if ! echo "$response" | jq -e '.success' > /dev/null; then
         log_error "获取tunnels列表失败"
-        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"'
+        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
         return 1
     fi
 
@@ -221,7 +221,7 @@ create_tunnel() {
         return 0
     else
         log_error "创建tunnel失败"
-        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"'
+        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
         return 1
     fi
 }
@@ -255,7 +255,7 @@ add_application_route() {
         return 0
     else
         log_error "添加应用程序路由失败"
-        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"'
+        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
         return 1
     fi
 }
@@ -263,25 +263,34 @@ add_application_route() {
 # 获取zone ID
 get_zone_id() {
     local domain="$1"
+    local temp_domain="$domain"
     log_info "正在获取域名 $domain 的zone ID"
-    
-    local response=$(cf_api_request "GET" "/zones?name=${domain}")
-    
-    if echo "$response" | jq -e '.success' > /dev/null; then
+
+    while true; do
+        local response=$(cf_api_request "GET" "/zones?name=${temp_domain}")
+        
+        if ! echo "$response" | jq -e '.success' > /dev/null; then
+            log_error "获取zone ID时API请求失败 (查询域名: ${temp_domain})"
+            echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
+            return 1 # Exit on real API error
+        fi
+
         local zone_id=$(echo "$response" | jq -r '.result[0].id')
         if [[ -n "$zone_id" && "$zone_id" != "null" ]]; then
-            log_success "获取zone ID成功: $zone_id"
+            log_success "为 $domain 找到Zone ID: $zone_id (匹配域名: $temp_domain)"
             echo "$zone_id"
             return 0
-        else
-            log_error "未找到域名 $domain 的zone ID"
-            return 1
         fi
-    else
-        log_error "获取zone ID失败"
-        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"'
-        return 1
-    fi
+
+        if ! echo "$temp_domain" | grep -q '\.'; then
+            break
+        fi
+        
+        temp_domain="${temp_domain#*.}"
+    done
+
+    log_error "未找到域名 $domain 的zone ID"
+    return 1
 }
 
 # 设置自定义主机名
@@ -346,7 +355,7 @@ set_custom_hostname() {
         return 0
     else
         log_error "设置自定义主机名失败"
-        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"'
+        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
         return 1
     fi
 }
@@ -378,7 +387,7 @@ get_dcv_uuid() {
         fi
     else
         log_error "获取DCV UUID失败"
-        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"'
+        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
         return 1
     fi
 }
@@ -419,7 +428,7 @@ set_dns_record() {
         return 0
     else
         log_error "设置DNS记录失败"
-        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"'
+        echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
         return 1
     fi
 }
