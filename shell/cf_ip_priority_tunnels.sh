@@ -232,11 +232,6 @@ set_application_routes() {
     local service="$2"
     shift 2 # Remove tunnel_id and service from args
     local domains=("$@") # The rest are domains
-    local ret_val=0
-    
-    # 开启调试模式，打印执行的每条命令
-    log_info "--- DEBUG: Entering set_application_routes ---"
-    set -x
 
     log_info "正在为tunnel $tunnel_id 更新应用程序路由..."
 
@@ -244,102 +239,88 @@ set_application_routes() {
     log_info "正在获取tunnel $tunnel_id 的现有配置..."
     local config_response=$(cf_api_request "GET" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${tunnel_id}/config")
     
-    # 打印原始API响应
     log_info "--- DEBUG: Raw config response from API ---"
-    echo "$config_response"
+    echo "${config_response:-<empty>}"
     log_info "----------------------------------------"
 
-    if ! echo "$config_response" | jq -e '.success' > /dev/null; then
+    # 检查API响应是否成功。注意：一个空的成功响应也是可能的
+    if [[ -n "$config_response" ]] && ! echo "$config_response" | jq -e '.success' > /dev/null; then
         log_error "获取tunnel配置失败"
         echo "$config_response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
-        ret_val=1
+        return 1
+    fi
+
+    # 提取现有配置。如果配置不存在或为空，则初始化为空JSON对象 '{}'
+    local existing_config=$(echo "$config_response" | jq -r '.result.config')
+    if [[ -z "$existing_config" || "$existing_config" == "null" ]]; then
+        existing_config='{}'
+    fi
+
+    if [[ $(echo "$existing_config" | jq 'length') -eq 0 ]]; then
+        log_warning "从API获取的现有隧道配置为空或无 Ingress 规则。将创建新配置。"
     else
-        # 提取完整的现有配置和ingress规则，如果配置为null，则视为空对象{}
-        local existing_config=$(echo "$config_response" | jq '.result.config // {}')
-        
-        if [[ $(echo "$existing_config" | jq 'length') -eq 0 ]]; then
-            log_warning "从API获取的现有隧道配置为空。这可能是因为此隧道之前是通过DNS CNAME记录进行路由，而不是通过Ingress规则配置的。"
-        else
-            log_info "已成功获取现有的Ingress规则配置。"
-        fi
-
-        log_info "--- DEBUG: Existing config ---"
-        echo "$existing_config"
-        log_info "----------------------------"
-
-        # 如果ingress不存在，则初始化为空数组
-        local existing_ingress=$(echo "$existing_config" | jq '.ingress // [] | map(select(.service != "http_status:404"))')
-        
-        log_info "--- DEBUG: Existing ingress rules (before update) ---"
-        echo "$existing_ingress"
-        log_info "---------------------------------------------------"
-
-        # 2. 合并新旧规则
-        local updated_ingress="$existing_ingress"
-        local new_rule_added=false
-        for domain in "${domains[@]}"; do
-            # 检查域名是否已存在
-            local is_existing=$(echo "$updated_ingress" | jq -e --arg hostname "$domain" '.[] | select(.hostname == $hostname)')
-            if [[ -n "$is_existing" ]]; then
-                log_warning "路由 $domain -> $service 已存在，跳过添加"
-            else
-                log_info "  - 添加新路由: $domain -> $service"
-                local new_rule=$(jq -n --arg hostname "$domain" --arg service "$service" '{hostname: $hostname, service: $service}')
-                
-                log_info "--- DEBUG: New rule to add ---"
-                echo "$new_rule"
-                log_info "--- DEBUG: updated_ingress before merge ---"
-                echo "$updated_ingress"
-                log_info "--------------------------------"
-
-                # 使用更健壮的方式合并JSON，避免潜在的echo/pipe问题
-                updated_ingress=$(jq -n --argjson current "${updated_ingress:-[]}" --argjson rule "$new_rule" '$current + [$rule]')
-                new_rule_added=true
-                
-                log_info "--- DEBUG: updated_ingress after merge ---"
-                echo "$updated_ingress"
-                log_info "-------------------------------"
-            fi
-        done
-
-        if ! $new_rule_added; then
-            log_info "没有新的路由需要添加。"
-        fi
-
-        # 3. 添加回最后的404规则
-        updated_ingress=$(jq -n --argjson current "${updated_ingress:-[]}" '$current + [{service: "http_status:404"}]')
-
-        # 4. 构建最终的完整配置并上传
-        local updated_config=$(jq -n --argjson config "${existing_config:-'{}'}" --argjson ingress "${updated_ingress:-[]}" '$config | .ingress = $ingress')
-        local data=$(jq -n --argjson config "$updated_config" '{config: $config}')
-        
-        log_info "--- DEBUG: 更新前的配置 (existing_config) ---"
-        echo "$existing_config" | jq .
-        log_info "--- DEBUG: 更新后的完整配置 (data) ---"
-        echo "$data" | jq .
-        log_info "--------------------------"
-
-        log_info "正在上传更新后的配置..."
-        local response=$(cf_api_request "PUT" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${tunnel_id}/config" "$data")
-
-        log_info "--- DEBUG: API响应 ---"
-        echo "$response" | jq .
-        log_info "----------------------"
-
-        if echo "$response" | jq -e '.success' > /dev/null; then
-            log_success "成功为tunnel $tunnel_id 更新了应用程序路由"
-            ret_val=0
-        else
-            log_error "更新应用程序路由失败"
-            # The full response is already printed above
-            ret_val=1
-        fi
+        log_info "已成功获取现有的Ingress规则配置。"
     fi
     
-    # 关闭调试模式
-    set +x
-    log_info "--- DEBUG: Exiting set_application_routes ---"
-    return $ret_val
+    log_info "--- DEBUG: Parsed existing config ---"
+    echo "$existing_config"
+    log_info "-------------------------------------"
+
+    # 提取现有的ingress规则，并排除404规则
+    local existing_ingress=$(echo "$existing_config" | jq '.ingress // [] | map(select(.service != "http_status:404"))')
+    if [[ -z "$existing_ingress" || "$existing_ingress" == "null" ]]; then
+        existing_ingress="[]"
+    fi
+
+    # 2. 合并新旧规则
+    local updated_ingress="$existing_ingress"
+    local new_rule_added=false
+    for domain in "${domains[@]}"; do
+        # 检查域名是否已存在
+        local is_existing=$(echo "$updated_ingress" | jq -e --arg hostname "$domain" '.[] | select(.hostname == $hostname)')
+        if [[ -n "$is_existing" ]]; then
+            log_warning "路由 $domain -> $service 已存在，跳过添加"
+        else
+            log_info "  - 添加新路由: $domain -> $service"
+            local new_rule=$(jq -n --arg hostname "$domain" --arg service "$service" '{hostname: $hostname, service: $service}')
+            updated_ingress=$(jq -n --argjson current "$updated_ingress" --argjson rule "$new_rule" '$current + [$rule]')
+            new_rule_added=true
+        fi
+    done
+
+    if ! $new_rule_added; then
+        log_info "没有新的路由需要添加。"
+        # 如果没有新规则且已有规则存在，则无需更新
+        if [[ $(echo "$existing_ingress" | jq 'length') -gt 0 ]]; then
+            return 0
+        fi
+    fi
+
+    # 3. 添加回最后的404规则
+    updated_ingress=$(jq -n --argjson current "$updated_ingress" '$current + [{service: "http_status:404"}]')
+
+    # 4. 构建最终的完整配置并上传
+    local updated_config=$(jq -n --argjson config "$existing_config" --argjson ingress "$updated_ingress" '$config | .ingress = $ingress')
+    local data=$(jq -n --argjson config "$updated_config" '{config: $config}')
+    
+    log_info "--- DEBUG: Final JSON payload to be sent ---"
+    echo "$data" | jq .
+    log_info "--------------------------------------------"
+
+    log_info "正在上传更新后的配置..."
+    local response=$(cf_api_request "PUT" "/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${tunnel_id}/config" "$data")
+
+    log_info "--- DEBUG: API response from PUT ---"
+    echo "$response" | jq .
+    log_info "------------------------------------"
+
+    if echo "$response" | jq -e '.success' > /dev/null; then
+        log_success "成功为tunnel $tunnel_id 更新了应用程序路由"
+        return 0
+    else
+        log_error "更新应用程序路由失败"
+        return 1
+    fi
 }
 
 # 获取zone ID
@@ -407,7 +388,7 @@ set_custom_hostname() {
         data=$(jq -n --arg hostname "$domain" --arg origin "$origin_domain" '{
             hostname: $hostname,
             ssl: {
-                method: "http",
+                method: "txt",
                 type: "dv"
             },
             custom_origin_server: $origin
@@ -417,7 +398,7 @@ set_custom_hostname() {
         data=$(jq -n --arg hostname "$domain" '{
             hostname: $hostname,
             ssl: {
-                method: "http",
+                method: "txt",
                 type: "dv"
             }
         }')
