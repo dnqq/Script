@@ -164,17 +164,17 @@ cf_api_request() {
 
 
 
-# 获取zone ID
-get_zone_id() {
+# 获取zone信息 (ID和托管域名)
+get_zone_info() {
     local domain="$1"
     local temp_domain="$domain"
-    log_info "正在获取域名 $domain 的zone ID"
+    log_info "正在获取域名 $domain 的zone信息"
 
     while true; do
         local response=$(cf_api_request "GET" "/zones?name=${temp_domain}")
         
         if ! echo "$response" | jq -e '.success' > /dev/null; then
-            log_error "获取zone ID时API请求失败 (查询域名: ${temp_domain})"
+            log_error "获取zone信息时API请求失败 (查询域名: ${temp_domain})"
             echo "$response" | jq -r '.errors[] | "Error: \(.code) - \(.message)"' >&2
             return 1 # Exit on real API error
         fi
@@ -182,7 +182,7 @@ get_zone_id() {
         local zone_id=$(echo "$response" | jq -r '.result[0].id')
         if [[ -n "$zone_id" && "$zone_id" != "null" ]]; then
             log_success "为 $domain 找到Zone ID: $zone_id (匹配域名: $temp_domain)"
-            echo "$zone_id"
+            echo "$zone_id $temp_domain"
             return 0
         fi
 
@@ -193,7 +193,7 @@ get_zone_id() {
         temp_domain="${temp_domain#*.}"
     done
 
-    log_error "未找到域名 $domain 的zone ID"
+    log_error "未找到域名 $domain 的zone信息"
     return 1
 }
 
@@ -412,19 +412,25 @@ main() {
     fi
 
     
-    # 获取zone IDs
-    log_info "=== 获取域名zone IDs ==="
-    local primary_zone_id=$(get_zone_id "$PRIMARY_DOMAIN")
+    # 获取zone信息
+    log_info "=== 获取域名zone信息 ==="
+    local primary_zone_info
+    primary_zone_info=$(get_zone_info "$PRIMARY_DOMAIN")
     if [[ $? -ne 0 ]]; then
-        log_error "获取主域名zone ID失败，退出脚本"
+        log_error "获取主域名zone信息失败，退出脚本"
         exit 1
     fi
+    local primary_zone_id
+    read -r primary_zone_id _ <<< "$primary_zone_info"
     
-    local origin_zone_id=$(get_zone_id "$ORIGIN_DOMAIN")
+    local origin_zone_info
+    origin_zone_info=$(get_zone_info "$ORIGIN_DOMAIN")
     if [[ $? -ne 0 ]]; then
-        log_error "获取回源域名zone ID失败，退出脚本"
+        log_error "获取回源域名zone信息失败，退出脚本"
         exit 1
     fi
+    local origin_zone_id origin_cf_domain
+    read -r origin_zone_id origin_cf_domain <<< "$origin_zone_info"
     
     # 检查DCV UUID
     log_info "=== 检查DCV UUID ==="
@@ -448,13 +454,13 @@ main() {
         exit 1
     fi
     
-    # 设置speed子域名CNAME记录 (speed.主域名 -> cf.090227.xyz)
+    # 设置speed子域名CNAME记录 (speed.托管域名 -> cf.090227.xyz)
     log_info "=== 设置speed子域名CNAME记录 ==="
-    set_dns_record "$primary_zone_id" "speed.$PRIMARY_DOMAIN" "CNAME" "cf.090227.xyz"
+    set_dns_record "$primary_zone_id" "speed.$origin_cf_domain" "CNAME" "cf.090227.xyz"
     
-    # 设置主域名CNAME记录 (主域名 -> speed.主域名)
+    # 设置主域名CNAME记录 (主域名 -> speed.托管域名)
     log_info "=== 设置主域名CNAME记录 ==="
-    set_dns_record "$primary_zone_id" "$PRIMARY_DOMAIN" "CNAME" "speed.$PRIMARY_DOMAIN"
+    set_dns_record "$primary_zone_id" "$PRIMARY_DOMAIN" "CNAME" "speed.$origin_cf_domain"
 
     log_success "所有配置已完成！"
 }
