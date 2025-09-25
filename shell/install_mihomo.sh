@@ -35,10 +35,10 @@ COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 MIHOMO_IMAGE="metacubex/mihomo:latest"
 # Mihomo 二进制文件基础下载链接
 MIHOMO_BINARY_BASE_URL="https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
-MIHOMO_BINARY_ALIST_URL="https://alist.739999.xyz/d/%E8%AE%BF%E5%AE%A2/%E8%BD%AF%E4%BB%B6/%E4%BB%A3%E7%90%86%E8%BD%AF%E4%BB%B6_Mihomo/mihomo-linux-amd64-v1-v1.19.13.gz"
+MIHOMO_BINARY_ALIST_URL="https://file.739999.xyz/d/%E8%BD%AF%E4%BB%B6/%E4%BB%A3%E7%90%86%E8%BD%AF%E4%BB%B6_Mihomo/mihomo-linux-amd64-v1-v1.19.13.gz"
 # GeoIP 数据库下载链接
 GEOIP_METADB_URL="https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb"
-GEOIP_METADB_ALIST_URL="https://alist.739999.xyz/d/%E8%AE%BF%E5%AE%A2/%E8%BD%AF%E4%BB%B6/%E4%BB%A3%E7%90%86%E8%BD%AF%E4%BB%B6_Mihomo/geoip.metadb"
+GEOIP_METADB_ALIST_URL="https://file.739999.xyz/d/%E8%BD%AF%E4%BB%B6/%E4%BB%A3%E7%90%86%E8%BD%AF%E4%BB%B6_Mihomo/geoip.metadb"
 # 加速代理地址
 PROXY_URL_HUBPROXY="https://hubproxy.739999.xyz"
 PROXY_URL_DEMO="https://demo.52013120.xyz"
