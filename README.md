@@ -271,7 +271,7 @@
 
     - **推荐用法 (显示菜单)**:
       ```bash
-      curl -LO https://script.739999.xyz/shell/install_mihomo.sh && chmod +x install_mihomo.sh && sudo ./install_mihomo.sh
+      curl -LO https://script.739999.xyz/shell/install_mihomo.sh && chmod +x install_mihomo.sh && ./install_mihomo.sh
       ```
 
     - **功能菜单选项**:
