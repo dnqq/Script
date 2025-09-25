@@ -170,44 +170,45 @@ prepare_directory() {
 
 # 下载 GeoIP 数据库
 download_geoip_database() {
-  echo_info "请选择 GeoIP 数据库 (geoip.metadb) 下载源:"
-  echo " 1. Alist (推荐, 默认)"
-  echo " 2. GitHub (直连)"
-  echo " 3. GitHub (通过 hubproxy.739999.xyz 加速)"
-  read -p "请输入选项 [1-3, 默认 1]: " geoip_choice
+    while true; do
+        echo_info "请选择 GeoIP 数据库 (geoip.metadb) 下载源:"
+        echo " 1. Alist (推荐, 默认)"
+        echo " 2. GitHub (直连)"
+        echo " 3. GitHub (通过 hubproxy.739999.xyz 加速)"
+        echo " 4. GitHub (通过 demo.52013120.xyz 加速)"
+        read -p "请输入选项 [1-4, 默认 1]: " geoip_choice
 
-  local download_url
-  case $geoip_choice in
-    2)
-      download_url="$GEOIP_METADB_URL"
-      echo_info "已选择 GitHub (直连) 作为下载源。"
-      ;;
-    3)
-      download_url="${PROXY_URL_HUBPROXY}/${GEOIP_METADB_URL}"
-      echo_info "已选择 GitHub (通过 hubproxy.739999.xyz 加速) 作为下载源。"
-      ;;
-    *) # 默认 1
-      download_url="$GEOIP_METADB_ALIST_URL"
-      echo_info "已选择 Alist 作为下载源。"
-      ;;
-  esac
+        local download_url
+        case $geoip_choice in
+            2)
+                download_url="$GEOIP_METADB_URL"
+                echo_info "已选择 GitHub (直连) 作为下载源。"
+                ;;
+            3)
+                download_url="${PROXY_URL_HUBPROXY}/${GEOIP_METADB_URL}"
+                echo_info "已选择 GitHub (通过 hubproxy.739999.xyz 加速) 作为下载源。"
+                ;;
+            4)
+                download_url="${PROXY_URL_DEMO}/${GEOIP_METADB_URL}"
+                echo_info "已选择 GitHub (通过 demo.52013120.xyz 加速) 作为下载源。"
+                ;;
+            *) # 默认 1
+                download_url="$GEOIP_METADB_ALIST_URL"
+                echo_info "已选择 Alist 作为下载源。"
+                ;;
+        esac
 
-  echo_info "正在下载 GeoIP 数据库 (geoip.metadb)..."
-  if ! curl -L -o "$INSTALL_DIR/data/geoip.metadb" "$download_url"; then
-    echo_warn "下载 GeoIP 数据库失败，尝试备用下载..."
-    # Fallback logic
-    if [ "$geoip_choice" != "1" ] && curl -L -o "$INSTALL_DIR/data/geoip.metadb" "$GEOIP_METADB_ALIST_URL"; then
-        echo_info "通过 Alist 备用源下载成功。"
-    elif [ "$geoip_choice" != "2" ] && curl -L -o "$INSTALL_DIR/data/geoip.metadb" "$GEOIP_METADB_URL"; then
-        echo_info "通过 GitHub 直连备用源下载成功。"
-    else
-        echo_error "所有下载源均尝试失败！"
-        echo_warn "您可以稍后手动下载 GeoIP 数据库到 ${INSTALL_DIR}/data/ 目录。"
-        return 1
-    fi
-  fi
-  echo_info "GeoIP 数据库下载成功。"
-  return 0
+        echo_info "正在下载 GeoIP 数据库 (geoip.metadb)..."
+        if curl -L -o "$INSTALL_DIR/data/geoip.metadb" "$download_url"; then
+            echo_info "GeoIP 数据库下载成功。"
+            return 0
+        else
+            echo_error "从 $download_url 下载失败！"
+            echo_warn "请检查网络连接或尝试其他下载源。"
+            read -p "按任意键返回选择菜单..." -n 1 -r -s
+            echo
+        fi
+    done
 }
 
 # 应用服务器特定的配置修改
@@ -796,6 +797,34 @@ EOF
     systemctl daemon-reload
 }
 
+# 下载并解压 Mihomo 二进制文件
+download_mihomo_binary() {
+    while true; do
+        select_binary_url # This function shows the menu and sets MIHOMO_BINARY_URL
+        
+        echo_info "正在下载 Mihomo 二进制文件: $MIHOMO_BINARY_URL"
+        if curl -L -o "$INSTALL_DIR/mihomo.gz" "$MIHOMO_BINARY_URL"; then
+            echo_info "Mihomo 二进制文件下载成功。"
+            
+            echo_info "正在解压二进制文件..."
+            if gunzip -c "$INSTALL_DIR/mihomo.gz" > "$INSTALL_DIR/mihomo"; then
+                echo_info "解压成功。"
+                rm -f "$INSTALL_DIR/mihomo.gz"
+                return 0
+            else
+                echo_error "解压失败！"
+                rm -f "$INSTALL_DIR/mihomo.gz"
+                return 1 # Failure
+            fi
+        else
+            echo_error "从 $MIHOMO_BINARY_URL 下载失败！"
+            echo_warn "请检查网络连接或尝试其他下载源。"
+            read -p "按任意键返回选择菜单..." -n 1 -r -s
+            echo
+        fi
+    done
+}
+
 # 自动安装 - 二进制
 install_mihomo_binary() {
     check_root
@@ -839,20 +868,10 @@ install_mihomo_binary() {
     fi
 
     if [ "$should_download_binary" = true ]; then
-        select_binary_url
-        echo_info "正在下载 Mihomo 二进制文件: $MIHOMO_BINARY_URL"
-        if ! curl -L -o "$INSTALL_DIR/mihomo.gz" "$MIHOMO_BINARY_URL"; then
-            echo_error "下载 Mihomo 二进制文件失败！"
+        if ! download_mihomo_binary; then
+            echo_error "Mihomo 二进制文件处理失败，安装中止。"
             exit 1
         fi
-
-        echo_info "正在解压二进制文件..."
-        if ! gunzip -c "$INSTALL_DIR/mihomo.gz" > "$INSTALL_DIR/mihomo"; then
-            echo_error "解压失败！"
-            rm -f "$INSTALL_DIR/mihomo.gz"
-            exit 1
-        fi
-        rm -f "$INSTALL_DIR/mihomo.gz"
     fi
     
     chmod +x "$INSTALL_DIR/mihomo"
