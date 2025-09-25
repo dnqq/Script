@@ -208,11 +208,11 @@ for SOURCE_FOLDER in "${SOURCE_FOLDERS[@]}"; do
     echo "备份文件名: $BACKUP_NAME"
 
     echo "2. 正在压缩文件夹: $SOURCE_FOLDER..."
-    # 使用数组来安全地传递 tar 参数，以防路径中包含空格
-    tar -czf "$BACKUP_NAME" "${EXCLUDE_OPTS[@]}" -C "$(dirname "$SOURCE_FOLDER")" "$(basename "$SOURCE_FOLDER")"
+    # 将备份文件创建在 /tmp 目录下，以避免在备份目录内创建导致 'file changed as we read it' 错误
+    tar -czf "/tmp/$BACKUP_NAME" "${EXCLUDE_OPTS[@]}" -C "$(dirname "$SOURCE_FOLDER")" "$(basename "$SOURCE_FOLDER")"
     if [ $? -ne 0 ]; then
         echo "错误：压缩文件夹 '$SOURCE_FOLDER' 失败。"
-        rm -f "$BACKUP_NAME"
+        rm -f "/tmp/$BACKUP_NAME"
         continue # 继续处理下一个文件夹
     fi
     echo "压缩完成。"
@@ -223,10 +223,10 @@ for SOURCE_FOLDER in "${SOURCE_FOLDERS[@]}"; do
     FULL_DEST_URL="$DESTINATION_URL/$UPLOAD_PATH_ENCODED"
 
     echo "3. 正在上传文件到: $FULL_DEST_URL"
-    curl -s -o /dev/null -w "上传状态: %{http_code}\n" -T "$BACKUP_NAME" "$FULL_DEST_URL" --user "$USER:$PASSWORD" --ftp-create-dirs
+    curl -s -o /dev/null -w "上传状态: %{http_code}\n" -T "/tmp/$BACKUP_NAME" "$FULL_DEST_URL" --user "$USER:$PASSWORD" --ftp-create-dirs
 
     echo "4. 删除本地临时文件: $BACKUP_NAME"
-    rm -f "$BACKUP_NAME"
+    rm -f "/tmp/$BACKUP_NAME"
     
     echo "--- 完成处理文件夹: $SOURCE_FOLDER ---"
 done
