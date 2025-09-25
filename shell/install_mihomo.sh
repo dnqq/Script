@@ -48,7 +48,7 @@ MIHOMO_HTTP_PORT="7890"
 MIHOMO_SOCKS_PORT="7891"
 MIHOMO_REDIR_PORT="7892"
 MIHOMO_TPROXY_PORT="7893"
-MIHOMO_DNS_PORT="1053"
+MIHOMO_DNS_PORT="53"
 MIHOMO_EXTERNAL_CONTROLLER_PORT="9090"
 
 # 代理地址
@@ -257,7 +257,7 @@ EOF
         sed -i '/^\s*dns:/a \  enable: true' "$CONFIG_FILE"
       fi
       
-      # 2. 确保 listen: 0.0.0.0:1053
+      # 2. 确保 listen: 0.0.0.0:53
       if sed -n '/^\s*dns:/,/^[^[:space:]]/p' "$CONFIG_FILE" | grep -q '^\s*listen:'; then
         sed -i -E "/^\s*dns:/,/^[^[:space:]]/s/^(\s*listen:).*/\1 0.0.0.0:${MIHOMO_DNS_PORT}/" "$CONFIG_FILE"
       else
@@ -1491,7 +1491,7 @@ configure_standard_gateway_rules() {
     
     # 设置默认端口
     local mihomo_redir_port=${MIHOMO_REDIR_PORT:-7892}
-    local mihomo_dns_port=${MIHOMO_DNS_PORT:-1053}
+    local mihomo_dns_port=${MIHOMO_DNS_PORT:-53}
     
     # 清理旧规则
     clear_all_rules
@@ -1655,7 +1655,7 @@ clear_all_rules() {
     lan_if=$(ip -o -f inet addr show | awk '/scope global/ {print $2}' | head -n 1)
     local wan_if
     wan_if=$(ip route | grep default | awk '{print $5}' | head -n 1)
-    local mihomo_dns_port=${MIHOMO_DNS_PORT:-1053}
+    local mihomo_dns_port=${MIHOMO_DNS_PORT:-53}
 
     # 1. 清理策略路由和相关路由表
     ip rule del fwmark 1 table 100 &>/dev/null
