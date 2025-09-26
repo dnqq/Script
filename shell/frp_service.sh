@@ -21,6 +21,9 @@
 # 3. 命令行参数运行脚本（可选参数）：
 #    sudo ./frp_service.sh -n "服务名称" -l 3000 -r 3000 -t tcp -i 127.0.0.1
 #
+# 4. 通过管道运行脚本（使用命名参数）：
+#    curl -s https://script.739999.xyz/shell/frp_service.sh | sudo bash -s -- -n "服务名称" -l 3000 -r 3000
+#
 #    参数说明：
 #    -n, --name      服务名称（必需）
 #    -l, --local     本地端口（必需）
@@ -130,28 +133,57 @@ get_service_config() {
         LOCAL_IP="127.0.0.1"
     fi
     
+    # 添加调试信息
+    echo "调试信息: 接收到的参数数量: $#"
+    echo "调试信息: 接收到的参数: $@"
+    
     # 解析命令行参数
     while [[ $# -gt 0 ]]; do
         case $1 in
             -n|--name)
-                PROXY_NAME="$2"
-                shift 2
+                if [[ -n "$2" && "$2" != -* ]]; then
+                    PROXY_NAME="$2"
+                    shift 2
+                else
+                    echo "错误: 服务名称参数缺失或格式不正确"
+                    exit 1
+                fi
                 ;;
             -t|--type)
-                PROXY_TYPE="$2"
-                shift 2
+                if [[ -n "$2" && "$2" != -* ]]; then
+                    PROXY_TYPE="$2"
+                    shift 2
+                else
+                    echo "错误: 服务类型参数缺失或格式不正确"
+                    exit 1
+                fi
                 ;;
             -i|--ip)
-                LOCAL_IP="$2"
-                shift 2
+                if [[ -n "$2" && "$2" != -* ]]; then
+                    LOCAL_IP="$2"
+                    shift 2
+                else
+                    echo "错误: 本地IP参数缺失或格式不正确"
+                    exit 1
+                fi
                 ;;
             -l|--local)
-                LOCAL_PORT="$2"
-                shift 2
+                if [[ -n "$2" && "$2" != -* ]]; then
+                    LOCAL_PORT="$2"
+                    shift 2
+                else
+                    echo "错误: 本地端口参数缺失或格式不正确"
+                    exit 1
+                fi
                 ;;
             -r|--remote)
-                REMOTE_PORT="$2"
-                shift 2
+                if [[ -n "$2" && "$2" != -* ]]; then
+                    REMOTE_PORT="$2"
+                    shift 2
+                else
+                    echo "错误: 远程端口参数缺失或格式不正确"
+                    exit 1
+                fi
                 ;;
             -h|--help)
                 echo "FRP 服务新增脚本"
@@ -235,15 +267,35 @@ validate_parameters() {
         exit 1
     fi
     
+    # 添加调试信息
+    echo "调试信息: 验证LOCAL_PORT: '$LOCAL_PORT'"
+    echo "调试信息: 验证REMOTE_PORT: '$REMOTE_PORT'"
+    
     # 验证端口是否为数字
-    if ! [[ "$LOCAL_PORT" =~ ^[0-9]+$ ]] || ! [[ "$REMOTE_PORT" =~ ^[0-9]+$ ]]; then
-        echo "错误：端口必须为数字"
+    if ! [[ "$LOCAL_PORT" =~ ^[0-9]+$ ]]; then
+        echo "错误：本地端口必须为数字，当前值: '$LOCAL_PORT'"
+        exit 1
+    fi
+    
+    if ! [[ "$REMOTE_PORT" =~ ^[0-9]+$ ]]; then
+        echo "错误：远程端口必须为数字，当前值: '$REMOTE_PORT'"
         exit 1
     fi
     
     # 验证服务类型是否有效
     if [ "$PROXY_TYPE" != "tcp" ] && [ "$PROXY_TYPE" != "udp" ] && [ "$PROXY_TYPE" != "http" ] && [ "$PROXY_TYPE" != "https" ]; then
         echo "错误：服务类型必须为 tcp/udp/http/https 之一"
+        exit 1
+    fi
+    
+    # 验证端口范围
+    if [ "$LOCAL_PORT" -lt 1 ] || [ "$LOCAL_PORT" -gt 65535 ]; then
+        echo "错误：本地端口必须在 1-65535 范围内"
+        exit 1
+    fi
+    
+    if [ "$REMOTE_PORT" -lt 1 ] || [ "$REMOTE_PORT" -gt 65535 ]; then
+        echo "错误：远程端口必须在 1-65535 范围内"
         exit 1
     fi
 }
