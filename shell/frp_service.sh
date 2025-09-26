@@ -90,6 +90,8 @@ restart_frp() {
         # 验证 FRP 客户端是否成功重启
         if systemctl is-active --quiet frpc; then
             echo "FRP 二进制服务重启成功！"
+            echo "FRP 运行日志:"
+            journalctl -u frpc -n 10 --no-pager
         else
             echo "FRP 二进制服务重启失败，请检查配置文件和日志。"
             exit 1
@@ -101,6 +103,8 @@ restart_frp() {
         # 验证 FRP 容器是否成功重启
         if docker ps --format "{{.Names}}" | grep -q "^frpc$"; then
             echo "FRP Docker 服务重启成功！"
+            echo "FRP 容器日志:"
+            docker logs frpc --tail 10
         else
             echo "FRP Docker 服务重启失败，请检查容器状态。"
             exit 1
@@ -110,6 +114,39 @@ restart_frp() {
 
 # 获取服务配置参数
 get_service_config() {
+    # 检查是否所有必需参数都已提供，实现完全非交互式运行
+    if [ $# -ge 5 ] && [ -n "$1" ] && [ -n "$4" ] && [ -n "$5" ]; then
+        PROXY_NAME="$1"
+        PROXY_TYPE="$2"
+        LOCAL_IP="$3"
+        LOCAL_PORT="$4"
+        REMOTE_PORT="$5"
+        
+        # 设置默认值（如果参数为空）
+        if [ -z "$PROXY_TYPE" ]; then
+            PROXY_TYPE="tcp"
+        fi
+        
+        if [ -z "$LOCAL_IP" ]; then
+            if [ "$INSTALL_TYPE" = "docker" ]; then
+                LOCAL_IP=$(get_host_ip)
+                echo "检测到 Docker 安装，自动获取宿主机IP: $LOCAL_IP"
+            else
+                LOCAL_IP="127.0.0.1"
+                echo "检测到二进制安装，本地IP: $LOCAL_IP"
+            fi
+        fi
+        
+        echo "使用命令行参数配置服务:"
+        echo "  服务名称: $PROXY_NAME"
+        echo "  服务类型: $PROXY_TYPE"
+        echo "  本地IP: $LOCAL_IP"
+        echo "  本地端口: $LOCAL_PORT"
+        echo "  远程端口: $REMOTE_PORT"
+        return
+    fi
+    
+    # 交互式输入参数
     if [ $# -ge 1 ]; then
         PROXY_NAME="$1"
     else
@@ -151,6 +188,7 @@ get_service_config() {
             echo "检测到 Docker 安装，自动获取宿主机IP: $LOCAL_IP"
         else
             LOCAL_IP="127.0.0.1"
+            echo "检测到二进制安装，本地IP: $LOCAL_IP"
         fi
     fi
 }
@@ -201,8 +239,16 @@ localPort = $LOCAL_PORT
 remotePort = $REMOTE_PORT
 
 EOF
-    
-    echo "服务 '$PROXY_NAME' 已添加到 FRP 配置文件中"
+       
+       echo "新增服务配置:"
+       echo "[[proxies]]"
+       echo "name = \"$PROXY_NAME\""
+       echo "type = \"$PROXY_TYPE\""
+       echo "localIP = \"$LOCAL_IP\""
+       echo "localPort = $LOCAL_PORT"
+       echo "remotePort = $REMOTE_PORT"
+       echo ""
+       echo "服务 '$PROXY_NAME' 已添加到 FRP 配置文件中"
 }
 
 # 主程序逻辑
