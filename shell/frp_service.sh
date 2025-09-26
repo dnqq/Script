@@ -13,17 +13,20 @@
 #
 # 使用方法：
 # 1. 交互式运行脚本：
-#    sudo ./frp_add_service.sh
+#    sudo ./frp_service.sh
 #
-# 2. 命令行参数运行脚本：
-#    sudo ./frp_add_service.sh "服务名称" "tcp" "127.0.0.1" 3000 3000
+# 2. 命令行参数运行脚本（使用命名参数）：
+#    sudo ./frp_service.sh -n "服务名称" -l 3000 -r 3000
+#
+# 3. 命令行参数运行脚本（可选参数）：
+#    sudo ./frp_service.sh -n "服务名称" -l 3000 -r 3000 -t tcp -i 127.0.0.1
 #
 #    参数说明：
-#    - 服务名称：必须提供
-#    - 服务类型：可选，默认为 tcp
-#    - 本地IP：可选，默认为 127.0.0.1（二进制安装）或宿主机IP（docker安装）
-#    - 本地端口：必须提供
-#    - 远程端口：必须提供
+#    -n, --name      服务名称（必需）
+#    -l, --local     本地端口（必需）
+#    -r, --remote    远程端口（必需）
+#    -t, --type      服务类型，默认为 tcp
+#    -i, --ip        本地IP，默认为 127.0.0.1（二进制安装）或宿主机IP（docker安装）
 #
 # ========================================================
 
@@ -114,83 +117,115 @@ restart_frp() {
 
 # 获取服务配置参数
 get_service_config() {
-    # 检查是否所有必需参数都已提供，实现完全非交互式运行
-    if [ $# -ge 5 ] && [ -n "$1" ] && [ -n "$4" ] && [ -n "$5" ]; then
-        PROXY_NAME="$1"
-        PROXY_TYPE="$2"
-        LOCAL_IP="$3"
-        LOCAL_PORT="$4"
-        REMOTE_PORT="$5"
+    # 初始化变量
+    PROXY_NAME=""
+    PROXY_TYPE="tcp"
+    LOCAL_PORT=""
+    REMOTE_PORT=""
+    
+    # 设置默认本地IP
+    if [ "$INSTALL_TYPE" = "docker" ]; then
+        LOCAL_IP=$(get_host_ip)
+    else
+        LOCAL_IP="127.0.0.1"
+    fi
+    
+    # 解析命令行参数
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -n|--name)
+                PROXY_NAME="$2"
+                shift 2
+                ;;
+            -t|--type)
+                PROXY_TYPE="$2"
+                shift 2
+                ;;
+            -i|--ip)
+                LOCAL_IP="$2"
+                shift 2
+                ;;
+            -l|--local)
+                LOCAL_PORT="$2"
+                shift 2
+                ;;
+            -r|--remote)
+                REMOTE_PORT="$2"
+                shift 2
+                ;;
+            -h|--help)
+                echo "FRP 服务新增脚本"
+                echo "=================="
+                echo "使用方法："
+                echo "  交互式运行脚本："
+                echo "    sudo ./frp_service.sh"
+                echo ""
+                echo "  命令行参数运行脚本（使用命名参数）："
+                echo "    sudo ./frp_service.sh -n \"服务名称\" -l 3000 -r 3000"
+                echo ""
+                echo "  命令行参数运行脚本（可选参数）："
+                echo "    sudo ./frp_service.sh -n \"服务名称\" -l 3000 -r 3000 -t tcp -i 127.0.0.1"
+                echo ""
+                echo "参数说明："
+                echo "  -n, --name      服务名称（必需）"
+                echo "  -l, --local     本地端口（必需）"
+                echo "  -r, --remote    远程端口（必需）"
+                echo "  -t, --type      服务类型，默认为 tcp"
+                echo "  -i, --ip        本地IP，默认为 127.0.0.1（二进制安装）或宿主机IP（docker安装）"
+                echo ""
+                exit 0
+                ;;
+            *)
+                echo "未知参数: $1"
+                echo "使用 -h 或 --help 查看帮助信息"
+                exit 1
+                ;;
+        esac
+    done
+    
+    # 如果没有提供必需参数，则进行交互式输入
+    if [ -z "$PROXY_NAME" ] || [ -z "$LOCAL_PORT" ] || [ -z "$REMOTE_PORT" ]; then
+        echo "部分参数未通过命令行提供，将进行交互式输入..."
         
-        # 设置默认值（如果参数为空）
-        if [ -z "$PROXY_TYPE" ]; then
-            PROXY_TYPE="tcp"
+        if [ -z "$PROXY_NAME" ]; then
+            read -p "服务名称: " PROXY_NAME
         fi
         
-        if [ -z "$LOCAL_IP" ]; then
-            if [ "$INSTALL_TYPE" = "docker" ]; then
-                LOCAL_IP=$(get_host_ip)
-                echo "检测到 Docker 安装，自动获取宿主机IP: $LOCAL_IP"
-            else
-                LOCAL_IP="127.0.0.1"
-                echo "检测到二进制安装，本地IP: $LOCAL_IP"
+        if [ -z "$PROXY_TYPE" ]; then
+            read -p "服务类型 (tcp/udp/http/https，默认tcp): " PROXY_TYPE
+            if [ -z "$PROXY_TYPE" ]; then
+                PROXY_TYPE="tcp"
             fi
         fi
         
-        echo "使用命令行参数配置服务:"
-        echo "  服务名称: $PROXY_NAME"
-        echo "  服务类型: $PROXY_TYPE"
-        echo "  本地IP: $LOCAL_IP"
-        echo "  本地端口: $LOCAL_PORT"
-        echo "  远程端口: $REMOTE_PORT"
-        return
-    fi
-    
-    # 交互式输入参数
-    if [ $# -ge 1 ]; then
-        PROXY_NAME="$1"
-    else
-        read -p "服务名称: " PROXY_NAME
-    fi
-    
-    if [ $# -ge 2 ]; then
-        PROXY_TYPE="$2"
-    else
-        read -p "服务类型 (tcp/udp/http/https，默认tcp): " PROXY_TYPE
-    fi
-    
-    if [ $# -ge 3 ]; then
-        LOCAL_IP="$3"
-    else
-        read -p "本地IP (默认自动获取): " LOCAL_IP
-    fi
-    
-    if [ $# -ge 4 ]; then
-        LOCAL_PORT="$4"
-    else
-        read -p "本地端口: " LOCAL_PORT
-    fi
-    
-    if [ $# -ge 5 ]; then
-        REMOTE_PORT="$5"
-    else
-        read -p "远程端口: " REMOTE_PORT
-    fi
-    
-    # 设置默认值
-    if [ -z "$PROXY_TYPE" ]; then
-        PROXY_TYPE="tcp"
-    fi
-    
-    if [ -z "$LOCAL_IP" ]; then
-        if [ "$INSTALL_TYPE" = "docker" ]; then
-            LOCAL_IP=$(get_host_ip)
-            echo "检测到 Docker 安装，自动获取宿主机IP: $LOCAL_IP"
-        else
-            LOCAL_IP="127.0.0.1"
-            echo "检测到二进制安装，本地IP: $LOCAL_IP"
+        if [ -z "$LOCAL_IP" ]; then
+            read -p "本地IP (默认自动获取): " LOCAL_IP
+            if [ -z "$LOCAL_IP" ]; then
+                if [ "$INSTALL_TYPE" = "docker" ]; then
+                    LOCAL_IP=$(get_host_ip)
+                    echo "检测到 Docker 安装，自动获取宿主机IP: $LOCAL_IP"
+                else
+                    LOCAL_IP="127.0.0.1"
+                    echo "检测到二进制安装，本地IP: $LOCAL_IP"
+                fi
+            fi
+        fi
+        
+        if [ -z "$LOCAL_PORT" ]; then
+            read -p "本地端口: " LOCAL_PORT
+        fi
+        
+        if [ -z "$REMOTE_PORT" ]; then
+            read -p "远程端口: " REMOTE_PORT
         fi
     fi
+    
+    echo "使用配置:"
+    echo "  服务名称: $PROXY_NAME"
+    echo "  服务类型: $PROXY_TYPE"
+    echo "  本地IP: $LOCAL_IP"
+    echo "  本地端口: $LOCAL_PORT"
+    echo "  远程端口: $REMOTE_PORT"
 }
 
 # 验证参数
