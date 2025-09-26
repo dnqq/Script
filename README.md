@@ -18,9 +18,7 @@
 <h3 id="shell-脚本-总览">Shell 脚本</h3>
 
 - **文件管理**
-  - [`delete_empty_folders.sh`](#delete_empty_folders.sh) - 删除空文件夹
-  - [`clean_empty_dirs.sh`](#clean_empty_dirs.sh) - 清理空目录
-  - [`find_empty_dirs.sh`](#find_empty_dirs.sh) - 查找空目录
+  - [`manage_empty_dirs.sh`](#manage_empty_dirs.sh) - 管理空目录（查找、删除、安全清理）
   - [`enable_swap.sh`](#enable_swap.sh) - 一键为 Debian 系统创建并启用 Swap 分区
 - **备份工具**
   - [`upload_backup.sh`](#upload_backup.sh) - 备份文件夹到 WebDAV
@@ -67,33 +65,42 @@
 ## Shell 脚本
 
 ### 文件管理
-<a id="delete_empty_folders.sh"></a>
-1. **delete_empty_folders.sh** - 删除空文件夹
-   
-   指定目标文件夹参数（必须）:
+<a id="manage_empty_dirs.sh"></a>
+1. **manage_empty_dirs.sh** - 管理空目录
+
+   一个多功能脚本，用于查找、删除和安全地清理空目录。
+
+   **用法:**
    ```bash
-   curl -s https://script.739999.xyz/shell/delete_empty_folders.sh | bash -s /path/to/your/folder
-   ```
-   
-   在当前目录运行:
-   ```bash
-   curl -s https://script.739999.xyz/shell/delete_empty_folders.sh | bash -s .
+   curl -s https://script.739999.xyz/shell/manage_empty_dirs.sh | bash -s [action] [path]
    ```
 
-<a id="clean_empty_dirs.sh"></a>
-2. **clean_empty_dirs.sh** - 清理空目录
+   **参数说明:**
+   - `action`: 操作类型 (必需)
+     - `find`: 查找并列出指定路径下的所有空目录。
+     - `delete`: 查找并删除空目录，执行前有简单的确认提示。
+     - `clean`: 安全地清理空目录，提供倒计时确认和详细的删除结果统计，防止误操作。
+   - `path`: 目标路径 (可选, 默认为当前目录)
+
+   **示例:**
+
+   查找当前目录下的空目录:
    ```bash
-   curl -s https://script.739999.xyz/shell/clean_empty_dirs.sh | bash
+   curl -s https://script.739999.xyz/shell/manage_empty_dirs.sh | bash -s find
    ```
 
-<a id="find_empty_dirs.sh"></a>
-3. **find_empty_dirs.sh** - 查找空目录
+   删除 `/path/to/your/folder` 下的空目录:
    ```bash
-   curl -s https://script.739999.xyz/shell/find_empty_dirs.sh | bash
+   curl -s https://script.739999.xyz/shell/manage_empty_dirs.sh | bash -s delete /path/to/your/folder
+   ```
+
+   安全清理 `/path/to/your/folder` 下的空目录:
+   ```bash
+   curl -s https://script.739999.xyz/shell/manage_empty_dirs.sh | bash -s clean /path/to/your/folder
    ```
 
 <a id="enable_swap.sh"></a>
-4. **enable_swap.sh** - 一键为 Debian 系统创建并启用 Swap 分区
+2. **enable_swap.sh** - 一键为 Debian 系统创建并启用 Swap 分区
    
    默认创建 2G Swap:
    ```bash
@@ -113,7 +120,7 @@
 
 ### 备份工具
 <a id="upload_backup.sh"></a>
-5. **upload_backup.sh** - 备份文件夹到 WebDAV
+3. **upload_backup.sh** - 备份文件夹到 WebDAV
    
    功能强大的备份脚本，支持多文件夹备份、文件排除和自动清理远程旧备份。
 
@@ -147,7 +154,7 @@
 
 ### 网络工具
 <a id="iptables_redirect.sh"></a>
-6. **iptables_redirect.sh** - iptables 端口转发
+4. **iptables_redirect.sh** - iptables 端口转发
    
    所有参数都是必需的：
    - transfer_port - 本地端口  
@@ -159,21 +166,21 @@
    ```
 
 <a id="iptables_reset.sh"></a>
-7. **iptables_reset.sh** - iptables 清除所有规则
+5. **iptables_reset.sh** - iptables 清除所有规则
    ```bash
    curl -s https://script.739999.xyz/shell/iptables_reset.sh | bash
    ```
 
 ### Docker 安装工具
 <a id="install_docker.sh"></a>
-8. **install_docker.sh** - 一键安装 Docker
+6. **install_docker.sh** - 一键安装 Docker
    ```bash
    curl -s https://script.739999.xyz/shell/install_docker.sh | bash
    ```
 
 ### 应用程序安装脚本
 <a id="install_alist.sh"></a>
-9. **install_alist.sh** - 一键部署 Alist 文件列表程序
+7. **install_alist.sh** - 一键部署 Alist 文件列表程序
    ```bash
    curl -s https://script.739999.xyz/shell/install_alist.sh | bash
    ```
@@ -182,7 +189,7 @@
    - Web界面: `5244` - 访问地址：http://localhost:5244
 
 <a id="install_freshrss.sh"></a>
-10. **install_freshrss.sh** - 一键部署 FreshRSS 阅读器
+8. **install_freshrss.sh** - 一键部署 FreshRSS 阅读器
     ```bash
     curl -s https://script.739999.xyz/shell/install_freshrss.sh | bash
     ```
@@ -191,7 +198,7 @@
     - Web界面: `8080` - 访问地址：http://localhost:8080
 
 <a id="install_frpc.sh"></a>
-11. **install_frpc.sh** - 一键安装 frp 客户端
+9. **install_frpc.sh** - 一键安装 frp 客户端
     
     无参数运行，使用最新版本:
     ```bash
@@ -213,7 +220,7 @@
     - 密码: 安装过程中随机生成（执行脚本时会显示）
 
 <a id="install_frps.sh"></a>
-12. **install_frps.sh** - 一键安装 frp 服务端
+10. **install_frps.sh** - 一键安装 frp 服务端
     
     无参数运行，使用最新版本:
     ```bash
@@ -233,7 +240,7 @@
     - 认证Token: 安装过程中随机生成（执行脚本时会显示）
 
 <a id="install_memos.sh"></a>
-13. **install_memos.sh** - 一键部署 Memos 笔记应用
+11. **install_memos.sh** - 一键部署 Memos 笔记应用
     ```bash
     curl -s https://script.739999.xyz/shell/install_memos.sh | bash
     ```
@@ -242,7 +249,7 @@
     - Web界面: `5230` - 访问地址：http://localhost:5230
 
 <a id="install_new_api.sh"></a>
-14. **install_new_api.sh** - 一键部署 new-api 服务
+12. **install_new_api.sh** - 一键部署 new-api 服务
     
     直接执行：
     ```bash
@@ -253,7 +260,7 @@
     - Web界面: `3000` - 访问地址：http://localhost:3000
 
 <a id="install_nginx_proxy_manager.sh"></a>
-15. **install_nginx_proxy_manager.sh** - 一键部署 nginx_proxy_manager
+13. **install_nginx_proxy_manager.sh** - 一键部署 nginx_proxy_manager
     ```bash
     curl -s https://script.739999.xyz/shell/install_nginx_proxy_manager.sh | bash
     ```
@@ -267,7 +274,7 @@
       - 密码: `changeme`
 
 <a id="install_rsshub.sh"></a>
-16. **install_rsshub.sh** - 一键部署 RSSHub RSS生成器
+14. **install_rsshub.sh** - 一键部署 RSSHub RSS生成器
     ```bash
     curl -s https://script.739999.xyz/shell/install_rsshub.sh | bash
     ```
@@ -276,7 +283,7 @@
     - Web界面: `1200` - 访问地址：http://localhost:1200
 
 <a id="install_syncthing.sh"></a>
-17. **install_syncthing.sh** - 一键部署 Syncthing 文件同步工具
+15. **install_syncthing.sh** - 一键部署 Syncthing 文件同步工具
     ```bash
     curl -s https://script.739999.xyz/shell/install_syncthing.sh | bash
     ```
@@ -287,13 +294,13 @@
     - 本地发现端口: `21027` (UDP)
 
 <a id="install_tools.sh"></a>
-18. **install_tools.sh** - Debian/Ubuntu 一键安装常用工具
+16. **install_tools.sh** - Debian/Ubuntu 一键安装常用工具
     ```bash
     curl -s https://script.739999.xyz/shell/install_tools.sh | bash
     ```
 
 <a id="install_vaultwarden.sh"></a>
-19. **install_vaultwarden.sh** - 一键部署 Vaultwarden 密码管理器
+17. **install_vaultwarden.sh** - 一键部署 Vaultwarden 密码管理器
     ```bash
     curl -s https://script.739999.xyz/shell/install_vaultwarden.sh | bash
     ```
@@ -304,7 +311,7 @@
     - 管理员Token: 安装时自动生成（请妥善保管，用于访问管理界面）
 
 <a id="install_XrayR.sh"></a>
-20. **install_XrayR.sh** - 一键部署 XrayR 代理服务
+18. **install_XrayR.sh** - 一键部署 XrayR 代理服务
     
     带参数安装：
     ```bash
@@ -322,7 +329,7 @@
     配置文件路径：`/opt/XrayR/config/config.yml`
 
 <a id="install_mihomo.sh"></a>
-21. **install_mihomo.sh** - 一键部署 Mihomo 代理服务
+19. **install_mihomo.sh** - 一键部署 Mihomo 代理服务
 
     功能全面的 Mihomo 管理脚本，支持 Docker 或二进制文件部署，提供菜单式交互，极大简化在服务器上配置和使用代理的过程。
 
@@ -351,7 +358,7 @@
 
 ### 特定用途脚本
 <a id="frp_service.sh"></a>
-22. **frp_service.sh** - 一键新增 FRP 服务并重启 FRP 客户端
+20. **frp_service.sh** - 一键新增 FRP 服务并重启 FRP 客户端
 
     这个脚本用于向 FRP 客户端配置文件中添加新的服务代理，并重启 FRP 客户端服务。
 
@@ -386,7 +393,7 @@
     - `-i, --ip`        本地IP，默认为 127.0.0.1（二进制安装）或宿主机IP（docker安装）
 
 <a id="qb_move_guomang.sh"></a>
-23. **qb_move_guomang.sh** - 国漫整理与移动脚本
+21. **qb_move_guomang.sh** - 国漫整理与移动脚本
 
     该脚本专门用于整理从 qBittorrent 下载的国漫视频文件，并将其移动到指定的媒体库目录（如 OneDrive）。
 
@@ -413,7 +420,7 @@
       ```
 
 <a id="qb_move_movies.sh"></a>
-24. **qb_move_movies.sh** - 移动电影文件
+22. **qb_move_movies.sh** - 移动电影文件
 
     该脚本用于将指定目录下的电影文件移动到目标目录。
 
@@ -437,7 +444,7 @@
       ```
 
 <a id="qb_move_tv_shows.sh"></a>
-25. **qb_move_tv_shows.sh** - 移动电视剧文件
+23. **qb_move_tv_shows.sh** - 移动电视剧文件
 
     该脚本用于将指定目录下的电视剧文件移动到目标目录。
 
