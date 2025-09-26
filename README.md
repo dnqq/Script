@@ -50,6 +50,7 @@
 
 - [`music_tag_processor.py`](#music_tag_processor.py) - 音乐标签处理工具
 - [`navidrome.py`](#navidrome.py) - Navidrome AI 音乐管理助手
+- [`moontv.py`](#moontv.py) - 视频源筛选与管理工具
 
 <h3 id="powershell-脚本-总览">PowerShell 脚本</h3>
 
@@ -521,6 +522,39 @@
       - `--debug`: 使用调试模式，仅处理少量数据。
       - `--no-cache`: 运行时强制从服务器获取最新数据，不使用本地缓存。
       - `--clear-cache`: 启动时清空所有本地缓存文件。
+
+<a id="moontv.py"></a>
+3. **moontv.py** - 视频源筛选与管理工具
+
+  这是一个用于处理和筛选 JSON 格式视频源列表的自动化脚本。它能合并新旧源、并发检查源的有效性，并通过用户交互来处理无法访问或内容可疑的源。
+
+  **核心功能**:
+  - **合并与去重**:
+    - 自动加载 `moontv.json` (新源) 和 `moontv_filtered.json` (已筛选过的源)。
+    - 基于 API URL 合并两个列表并移除重复项，优先保留已筛选过的数据。
+  - **并发有效性检查**:
+    - 使用多线程并发请求每个源的 API，快速检测其是否可访问。
+    - 自动舍弃返回 404 错误的源。
+  - **内容审查与交互式确认**:
+    - (可选) 可配置 AI 服务（如 OpenAI/Gemini）来分析源内容，识别并标记疑似成人内容的源。
+    - 对于无法访问或被标记的源，提供交互式命令行界面，由用户最终确认是否保留。
+  - **结果输出**:
+    - 将经过筛选和确认的有效源列表保存到 `moontv_filtered.json`，以备后续使用。
+
+  **如何使用**:
+  1. **安装依赖**:
+     ```bash
+     pip install requests python-dotenv
+     ```
+  2. **配置环境**:
+     - 复制 `.env.example` 文件为 `.env`。
+     - (可选) 如果需要使用 AI 内容审查功能，请在 `.env` 文件中填入你的 AI 服务 API 地址、密钥和模型名称。
+  3. **准备源文件**:
+     - 确保 `python/moontv.json` 文件存在且包含需要处理的视频源。
+  4. **运行脚本**:
+     ```bash
+     python python/moontv.py
+     ```
 
 ## PowerShell 脚本
 
