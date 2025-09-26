@@ -16,6 +16,7 @@
 <summary>详细目录</summary>
 
 <h3 id="shell-脚本-总览">Shell 脚本</h3>
+
 - **文件管理**
   - [`delete_empty_folders.sh`](#delete_empty_folders.sh) - 删除空文件夹
   - [`clean_empty_dirs.sh`](#clean_empty_dirs.sh) - 清理空目录
@@ -49,13 +50,16 @@
   - [`qb_move_tv_shows.sh`](#qb_move_tv_shows.sh) - 移动电视剧文件
 
 <h3 id="python-脚本-总览">Python 脚本</h3>
+
 - [`music_tag_processor.py`](#music_tag_processor.py) - 音乐标签处理工具
 - [`navidrome.py`](#navidrome.py) - Navidrome AI 音乐管理助手
 
 <h3 id="powershell-脚本-总览">PowerShell 脚本</h3>
+
 - [`SetNetwork.ps1`](#SetNetwork.ps1) - Windows网络配置管理工具
 
 <h3 id="tampermonkey-脚本-总览">Tampermonkey 脚本</h3>
+
 - [`ICVE课程资源下载.js`](#ICVE课程资源下载.js) - 职教云课程资源批量下载工具
 
 </details>
