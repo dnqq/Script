@@ -10,9 +10,60 @@
 - [Tampermonkey 脚本](#tampermonkey-脚本)
 - [批处理脚本](#批处理脚本)
 
+## 脚本总览
+
+<details>
+<summary>点击展开/折叠详细目录</summary>
+
+### Shell 脚本
+- **文件管理**
+  - [`delete_empty_folders.sh`](#delete_empty_folders.sh) - 删除空文件夹
+  - [`clean_empty_dirs.sh`](#clean_empty_dirs.sh) - 清理空目录
+  - [`find_empty_dirs.sh`](#find_empty_dirs.sh) - 查找空目录
+  - [`enable_swap.sh`](#enable_swap.sh) - 一键为 Debian 系统创建并启用 Swap 分区
+- **备份工具**
+  - [`upload_backup.sh`](#upload_backup.sh) - 备份文件夹到 WebDAV
+- **网络工具**
+  - [`iptables_redirect.sh`](#iptables_redirect.sh) - iptables 端口转发
+  - [`iptables_reset.sh`](#iptables_reset.sh) - iptables 清除所有规则
+- **Docker 安装工具**
+  - [`install_docker.sh`](#install_docker.sh) - 一键安装 Docker
+- **应用程序安装脚本**
+  - [`install_alist.sh`](#install_alist.sh) - 一键部署 Alist 文件列表程序
+  - [`install_freshrss.sh`](#install_freshrss.sh) - 一键部署 FreshRSS 阅读器
+  - [`install_frpc.sh`](#install_frpc.sh) - 一键安装 frp 客户端
+  - [`install_frps.sh`](#install_frps.sh) - 一键安装 frp 服务端
+  - [`install_memos.sh`](#install_memos.sh) - 一键部署 Memos 笔记应用
+  - [`install_new_api.sh`](#install_new_api.sh) - 一键部署 new-api 服务
+  - [`install_nginx_proxy_manager.sh`](#install_nginx_proxy_manager.sh) - 一键部署 nginx_proxy_manager
+  - [`install_rsshub.sh`](#install_rsshub.sh) - 一键部署 RSSHub RSS生成器
+  - [`install_syncthing.sh`](#install_syncthing.sh) - 一键部署 Syncthing 文件同步工具
+  - [`install_tools.sh`](#install_tools.sh) - Debian/Ubuntu 一键安装常用工具
+  - [`install_vaultwarden.sh`](#install_vaultwarden.sh) - 一键部署 Vaultwarden 密码管理器
+  - [`install_XrayR.sh`](#install_XrayR.sh) - 一键部署 XrayR 代理服务
+  - [`install_mihomo.sh`](#install_mihomo.sh) - 一键部署 Mihomo 代理服务
+- **特定用途脚本**
+  - [`frp_service.sh`](#frp_service.sh) - 一键新增 FRP 服务并重启 FRP 客户端
+  - [`qb_move_guomang.sh`](#qb_move_guomang.sh) - 国漫整理与移动脚本
+  - [`qb_move_movies.sh`](#qb_move_movies.sh) - 移动电影文件
+  - [`qb_move_tv_shows.sh`](#qb_move_tv_shows.sh) - 移动电视剧文件
+
+### Python 脚本
+- [`music_tag_processor.py`](#music_tag_processor.py) - 音乐标签处理工具
+- [`navidrome.py`](#navidrome.py) - Navidrome AI 音乐管理助手
+
+### PowerShell 脚本
+- [`SetNetwork.ps1`](#SetNetwork.ps1) - Windows网络配置管理工具
+
+### Tampermonkey 脚本
+- [`ICVE课程资源下载.js`](#ICVE课程资源下载.js) - 职教云课程资源批量下载工具
+
+</details>
+
 ## Shell 脚本
 
 ### 文件管理
+<a id="delete_empty_folders.sh"></a>
 1. **delete_empty_folders.sh** - 删除空文件夹
    
    指定目标文件夹参数（必须）:
@@ -25,16 +76,19 @@
    curl -s https://script.739999.xyz/shell/delete_empty_folders.sh | bash -s .
    ```
 
+<a id="clean_empty_dirs.sh"></a>
 2. **clean_empty_dirs.sh** - 清理空目录
    ```bash
    curl -s https://script.739999.xyz/shell/clean_empty_dirs.sh | bash
    ```
 
+<a id="find_empty_dirs.sh"></a>
 3. **find_empty_dirs.sh** - 查找空目录
    ```bash
    curl -s https://script.739999.xyz/shell/find_empty_dirs.sh | bash
    ```
 
+<a id="enable_swap.sh"></a>
 4. **enable_swap.sh** - 一键为 Debian 系统创建并启用 Swap 分区
    
    默认创建 2G Swap:
@@ -54,6 +108,7 @@
    - 系统重启后会自动启用
 
 ### 备份工具
+<a id="upload_backup.sh"></a>
 5. **upload_backup.sh** - 备份文件夹到 WebDAV
    
    功能强大的备份脚本，支持多文件夹备份、文件排除和自动清理远程旧备份。
@@ -87,6 +142,7 @@
    ```
 
 ### 网络工具
+<a id="iptables_redirect.sh"></a>
 6. **iptables_redirect.sh** - iptables 端口转发
    
    所有参数都是必需的：
@@ -98,18 +154,21 @@
    curl -s https://script.739999.xyz/shell/iptables_redirect.sh | bash -s <transfer_port> <target_domain_or_ip> <target_port>
    ```
 
+<a id="iptables_reset.sh"></a>
 7. **iptables_reset.sh** - iptables 清除所有规则
    ```bash
    curl -s https://script.739999.xyz/shell/iptables_reset.sh | bash
    ```
 
 ### Docker 安装工具
+<a id="install_docker.sh"></a>
 8. **install_docker.sh** - 一键安装 Docker
    ```bash
    curl -s https://script.739999.xyz/shell/install_docker.sh | bash
    ```
 
 ### 应用程序安装脚本
+<a id="install_alist.sh"></a>
 9. **install_alist.sh** - 一键部署 Alist 文件列表程序
    ```bash
    curl -s https://script.739999.xyz/shell/install_alist.sh | bash
@@ -118,6 +177,7 @@
    服务启动后，将监听以下端口:
    - Web界面: `5244` - 访问地址：http://localhost:5244
 
+<a id="install_freshrss.sh"></a>
 10. **install_freshrss.sh** - 一键部署 FreshRSS 阅读器
     ```bash
     curl -s https://script.739999.xyz/shell/install_freshrss.sh | bash
@@ -126,6 +186,7 @@
     服务启动后，将监听以下端口:
     - Web界面: `8080` - 访问地址：http://localhost:8080
 
+<a id="install_frpc.sh"></a>
 11. **install_frpc.sh** - 一键安装 frp 客户端
     
     无参数运行，使用最新版本:
@@ -147,6 +208,7 @@
     - 默认用户名: `admin`
     - 密码: 安装过程中随机生成（执行脚本时会显示）
 
+<a id="install_frps.sh"></a>
 12. **install_frps.sh** - 一键安装 frp 服务端
     
     无参数运行，使用最新版本:
@@ -166,6 +228,7 @@
     - 密码: 安装过程中随机生成（执行脚本时会显示）
     - 认证Token: 安装过程中随机生成（执行脚本时会显示）
 
+<a id="install_memos.sh"></a>
 13. **install_memos.sh** - 一键部署 Memos 笔记应用
     ```bash
     curl -s https://script.739999.xyz/shell/install_memos.sh | bash
@@ -174,14 +237,10 @@
     服务启动后，将监听以下端口:
     - Web界面: `5230` - 访问地址：http://localhost:5230
 
+<a id="install_new_api.sh"></a>
 14. **install_new_api.sh** - 一键部署 new-api 服务
     
-    方法1：下载后执行
-    ```bash
-    curl -O https://script.739999.xyz/shell/install_new_api.sh && chmod +x install_new_api.sh && ./install_new_api.sh
-    ```
-    
-    方法2：直接执行
+    直接执行：
     ```bash
     curl -s https://script.739999.xyz/shell/install_new_api.sh | bash
     ```
@@ -189,6 +248,7 @@
     服务启动后，将监听以下端口:
     - Web界面: `3000` - 访问地址：http://localhost:3000
 
+<a id="install_nginx_proxy_manager.sh"></a>
 15. **install_nginx_proxy_manager.sh** - 一键部署 nginx_proxy_manager
     ```bash
     curl -s https://script.739999.xyz/shell/install_nginx_proxy_manager.sh | bash
@@ -202,6 +262,7 @@
       - 用户名: `admin@example.com`
       - 密码: `changeme`
 
+<a id="install_rsshub.sh"></a>
 16. **install_rsshub.sh** - 一键部署 RSSHub RSS生成器
     ```bash
     curl -s https://script.739999.xyz/shell/install_rsshub.sh | bash
@@ -210,6 +271,7 @@
     服务启动后，将监听以下端口:
     - Web界面: `1200` - 访问地址：http://localhost:1200
 
+<a id="install_syncthing.sh"></a>
 17. **install_syncthing.sh** - 一键部署 Syncthing 文件同步工具
     ```bash
     curl -s https://script.739999.xyz/shell/install_syncthing.sh | bash
@@ -220,11 +282,13 @@
     - 数据传输端口: `22000` (TCP/UDP)
     - 本地发现端口: `21027` (UDP)
 
+<a id="install_tools.sh"></a>
 18. **install_tools.sh** - Debian/Ubuntu 一键安装常用工具
     ```bash
     curl -s https://script.739999.xyz/shell/install_tools.sh | bash
     ```
 
+<a id="install_vaultwarden.sh"></a>
 19. **install_vaultwarden.sh** - 一键部署 Vaultwarden 密码管理器
     ```bash
     curl -s https://script.739999.xyz/shell/install_vaultwarden.sh | bash
@@ -235,14 +299,10 @@
     - 数据存储路径: `/opt/vaultwarden/vw-data`
     - 管理员Token: 安装时自动生成（请妥善保管，用于访问管理界面）
 
+<a id="install_XrayR.sh"></a>
 20. **install_XrayR.sh** - 一键部署 XrayR 代理服务
     
-    方法1：交互式安装（推荐）
-    ```bash
-    curl -O https://script.739999.xyz/shell/install_XrayR.sh && chmod +x install_XrayR.sh && ./install_XrayR.sh
-    ```
-    
-    方法2：带参数安装
+    带参数安装：
     ```bash
     curl -s https://script.739999.xyz/shell/install_XrayR.sh | bash -s -- "api_host" "api_key" "node_id" "cert_domain" "email" "cf_token"
     ```
@@ -257,6 +317,7 @@
     
     配置文件路径：`/opt/XrayR/config/config.yml`
 
+<a id="install_mihomo.sh"></a>
 21. **install_mihomo.sh** - 一键部署 Mihomo 代理服务
 
     功能全面的 Mihomo 管理脚本，支持 Docker 或二进制文件部署，提供菜单式交互，极大简化在服务器上配置和使用代理的过程。
@@ -285,7 +346,43 @@
       0.  退出脚本
 
 ### 特定用途脚本
-22. **qb_move_guomang.sh** - 国漫整理与移动脚本
+<a id="frp_service.sh"></a>
+22. **frp_service.sh** - 一键新增 FRP 服务并重启 FRP 客户端
+
+    这个脚本用于向 FRP 客户端配置文件中添加新的服务代理，并重启 FRP 客户端服务。
+
+    **主要功能**:
+    - 接受服务配置参数（名称、类型、本地IP、本地端口、远程端口）
+    - 将新的服务配置添加到 frpc.toml 配置文件中
+    - 自动识别 FRP 是二进制安装还是 Docker 安装
+    - 根据安装方式重启相应的 FRP 客户端服务
+
+    **使用方法**:
+
+    1. 交互式运行脚本：
+    ```bash
+    curl -LO https://script.739999.xyz/shell/frp_service.sh && chmod +x frp_service.sh && ./frp_service.sh
+    ```
+
+    2. 命令行参数运行脚本（使用命名参数）：
+    ```bash
+    curl -s https://script.739999.xyz/shell/frp_service.sh | bash -s -- -n "服务名称" -l 3000 -r 3000
+    ```
+
+    3. 命令行参数运行脚本（可选参数）：
+    ```bash
+    curl -s https://script.739999.xyz/shell/frp_service.sh | bash -s -- -n "服务名称" -l 3000 -r 3000 -t tcp -i 127.0.0.1
+    ```
+
+    **参数说明**:
+    - `-n, --name`      服务名称（必需）
+    - `-l, --local`     本地端口（必需）
+    - `-r, --remote`    远程端口（必需）
+    - `-t, --type`      服务类型，默认为 tcp
+    - `-i, --ip`        本地IP，默认为 127.0.0.1（二进制安装）或宿主机IP（docker安装）
+
+<a id="qb_move_guomang.sh"></a>
+23. **qb_move_guomang.sh** - 国漫整理与移动脚本
 
     该脚本专门用于整理从 qBittorrent 下载的国漫视频文件，并将其移动到指定的媒体库目录（如 OneDrive）。
 
@@ -311,7 +408,8 @@
       curl -s https://script.739999.xyz/shell/qb_move_guomang.sh | bash -s "/path/to/source" "/path/to/target"
       ```
 
-22. **qb_move_movies.sh** - 移动电影文件
+<a id="qb_move_movies.sh"></a>
+24. **qb_move_movies.sh** - 移动电影文件
 
     该脚本用于将指定目录下的电影文件移动到目标目录。
 
@@ -334,7 +432,8 @@
       curl -s https://script.739999.xyz/shell/qb_move_movies.sh | bash -s "/path/to/source" "/path/to/target"
       ```
 
-23. **qb_move_tv_shows.sh** - 移动电视剧文件
+<a id="qb_move_tv_shows.sh"></a>
+25. **qb_move_tv_shows.sh** - 移动电视剧文件
 
     该脚本用于将指定目录下的电视剧文件移动到目标目录。
 
@@ -359,6 +458,7 @@
 
 ## Python 脚本
 
+<a id="music_tag_processor.py"></a>
 1. **music_tag_processor.py** - 音乐标签处理工具
    
    这个脚本可以批量处理音乐文件的标签，功能包括：
@@ -372,6 +472,7 @@
    python music_tag_processor.py
    ```
    
+<a id="navidrome.py"></a>
 2. **navidrome.py** - Navidrome AI 音乐管理助手
    
    这是一个强大的 Navidrome 辅助工具，利用 AI（如 GPT、Gemini 等）来自动化音乐管理任务。
@@ -414,6 +515,7 @@
 
 ## PowerShell 脚本
 
+<a id="SetNetwork.ps1"></a>
 1. **SetNetwork.ps1** - Windows网络配置管理工具
    
    这个脚本提供了一个交互式界面，用于快速切换Windows网络配置：
@@ -436,6 +538,7 @@
 
 ## Tampermonkey 脚本
 
+<a id="ICVE课程资源下载.js"></a>
 1. **ICVE课程资源下载.js** - 职教云课程资源批量下载工具
    
    这个脚本增强了职教云（ICVE）平台的功能，允许用户批量下载课程资源：
