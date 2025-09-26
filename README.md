@@ -25,14 +25,14 @@
 - **网络工具**
   - [`iptables_redirect.sh`](#iptables_redirect.sh) - iptables 端口转发
   - [`iptables_reset.sh`](#iptables_reset.sh) - iptables 清除所有规则
-- **Docker 安装工具**
-  - [`install_docker.sh`](#install_docker.sh) - 一键安装 Docker
 - **应用程序安装脚本**
   - [`install_alist.sh`](#install_alist.sh) - 一键部署 Alist 文件列表程序
+  - [`install_docker.sh`](#install_docker.sh) - 一键安装 Docker
   - [`install_freshrss.sh`](#install_freshrss.sh) - 一键部署 FreshRSS 阅读器
   - [`install_frpc.sh`](#install_frpc.sh) - 一键安装 frp 客户端
   - [`install_frps.sh`](#install_frps.sh) - 一键安装 frp 服务端
   - [`install_memos.sh`](#install_memos.sh) - 一键部署 Memos 笔记应用
+  - [`install_mihomo.sh`](#install_mihomo.sh) - 一键部署 Mihomo 代理服务
   - [`install_new_api.sh`](#install_new_api.sh) - 一键部署 new-api 服务
   - [`install_nginx_proxy_manager.sh`](#install_nginx_proxy_manager.sh) - 一键部署 nginx_proxy_manager
   - [`install_rsshub.sh`](#install_rsshub.sh) - 一键部署 RSSHub RSS生成器
@@ -40,7 +40,6 @@
   - [`install_tools.sh`](#install_tools.sh) - Debian/Ubuntu 一键安装常用工具
   - [`install_vaultwarden.sh`](#install_vaultwarden.sh) - 一键部署 Vaultwarden 密码管理器
   - [`install_XrayR.sh`](#install_XrayR.sh) - 一键部署 XrayR 代理服务
-  - [`install_mihomo.sh`](#install_mihomo.sh) - 一键部署 Mihomo 代理服务
 - **特定用途脚本**
   - [`frp_service.sh`](#frp_service.sh) - 一键新增 FRP 服务并重启 FRP 客户端
   - [`qb_move_guomang.sh`](#qb_move_guomang.sh) - 国漫整理与移动脚本
@@ -171,190 +170,189 @@
    curl -s https://script.739999.xyz/shell/iptables_reset.sh | bash
    ```
 
-### Docker 安装工具
+### 应用程序安装脚本
+<a id="install_alist.sh"></a>
+6. **install_alist.sh** - 一键部署 Alist 文件列表程序
+    ```bash
+    curl -s https://script.739999.xyz/shell/install_alist.sh | bash
+    ```
+    
+    服务启动后，将监听以下端口:
+    - Web界面: `5244` - 访问地址：http://localhost:5244
+
 <a id="install_docker.sh"></a>
-6. **install_docker.sh** - 一键安装 Docker
+7. **install_docker.sh** - 一键安装 Docker
    ```bash
    curl -s https://script.739999.xyz/shell/install_docker.sh | bash
    ```
 
-### 应用程序安装脚本
-<a id="install_alist.sh"></a>
-7. **install_alist.sh** - 一键部署 Alist 文件列表程序
-   ```bash
-   curl -s https://script.739999.xyz/shell/install_alist.sh | bash
-   ```
-   
-   服务启动后，将监听以下端口:
-   - Web界面: `5244` - 访问地址：http://localhost:5244
-
 <a id="install_freshrss.sh"></a>
 8. **install_freshrss.sh** - 一键部署 FreshRSS 阅读器
-    ```bash
-    curl -s https://script.739999.xyz/shell/install_freshrss.sh | bash
-    ```
-    
-    服务启动后，将监听以下端口:
-    - Web界面: `8080` - 访问地址：http://localhost:8080
+     ```bash
+     curl -s https://script.739999.xyz/shell/install_freshrss.sh | bash
+     ```
+     
+     服务启动后，将监听以下端口:
+     - Web界面: `8080` - 访问地址：http://localhost:8080
 
 <a id="install_frpc.sh"></a>
 9. **install_frpc.sh** - 一键安装 frp 客户端
-    
-    无参数运行，使用最新版本:
-    ```bash
-    curl -O https://script.739999.xyz/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh
-    ```
-    
-    指定版本（可选参数）:
-    ```bash
-    curl -O https://script.739999.xyz/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh 0.61.1
-    ```
-    
-    安装过程中会要求输入:
-    - FRP服务端IP地址
-    - FRP服务端认证Token
-    
-    服务启动后，将监听以下端口:
-    - Web管理界面: `7500` - 访问地址：http://localhost:7500
-    - 默认用户名: `admin`
-    - 密码: 安装过程中随机生成（执行脚本时会显示）
+     
+     无参数运行，使用最新版本:
+     ```bash
+     curl -O https://script.739999.xyz/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh
+     ```
+     
+     指定版本（可选参数）:
+     ```bash
+     curl -O https://script.739999.xyz/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh 0.61.1
+     ```
+     
+     安装过程中会要求输入:
+     - FRP服务端IP地址
+     - FRP服务端认证Token
+     
+     服务启动后，将监听以下端口:
+     - Web管理界面: `7500` - 访问地址：http://localhost:7500
+     - 默认用户名: `admin`
+     - 密码: 安装过程中随机生成（执行脚本时会显示）
 
 <a id="install_frps.sh"></a>
 10. **install_frps.sh** - 一键安装 frp 服务端
-    
-    无参数运行，使用最新版本:
-    ```bash
-    curl -s https://script.739999.xyz/shell/install_frps.sh | bash
-    ```
-    
-    指定版本（可选参数）:
-    ```bash
-    curl -s https://script.739999.xyz/shell/install_frps.sh | bash -s 0.61.1
-    ```
-    
-    服务启动后，将监听以下端口:
-    - FRP服务端口: `7000`
-    - Web管理界面: `7500` - 访问地址：http://localhost:7500
-    - 默认用户名: `admin`
-    - 密码: 安装过程中随机生成（执行脚本时会显示）
-    - 认证Token: 安装过程中随机生成（执行脚本时会显示）
+     
+     无参数运行，使用最新版本:
+     ```bash
+     curl -s https://script.739999.xyz/shell/install_frps.sh | bash
+     ```
+     
+     指定版本（可选参数）:
+     ```bash
+     curl -s https://script.739999.xyz/shell/install_frps.sh | bash -s 0.61.1
+     ```
+     
+     服务启动后，将监听以下端口:
+     - FRP服务端口: `7000`
+     - Web管理界面: `7500` - 访问地址：http://localhost:7500
+     - 默认用户名: `admin`
+     - 密码: 安装过程中随机生成（执行脚本时会显示）
+     - 认证Token: 安装过程中随机生成（执行脚本时会显示）
 
 <a id="install_memos.sh"></a>
 11. **install_memos.sh** - 一键部署 Memos 笔记应用
-    ```bash
-    curl -s https://script.739999.xyz/shell/install_memos.sh | bash
-    ```
-    
-    服务启动后，将监听以下端口:
-    - Web界面: `5230` - 访问地址：http://localhost:5230
-
-<a id="install_new_api.sh"></a>
-12. **install_new_api.sh** - 一键部署 new-api 服务
-    
-    直接执行：
-    ```bash
-    curl -s https://script.739999.xyz/shell/install_new_api.sh | bash
-    ```
-    
-    服务启动后，将监听以下端口:
-    - Web界面: `3000` - 访问地址：http://localhost:3000
-
-<a id="install_nginx_proxy_manager.sh"></a>
-13. **install_nginx_proxy_manager.sh** - 一键部署 nginx_proxy_manager
-    ```bash
-    curl -s https://script.739999.xyz/shell/install_nginx_proxy_manager.sh | bash
-    ```
-    
-    服务启动后，将监听以下端口:
-    - HTTP: `80`
-    - HTTPS: `443`
-    - 管理界面: `34999` - 访问地址：http://localhost:34999
-    - 默认登录信息:
-      - 用户名: `admin@example.com`
-      - 密码: `changeme`
-
-<a id="install_rsshub.sh"></a>
-14. **install_rsshub.sh** - 一键部署 RSSHub RSS生成器
-    ```bash
-    curl -s https://script.739999.xyz/shell/install_rsshub.sh | bash
-    ```
-    
-    服务启动后，将监听以下端口:
-    - Web界面: `1200` - 访问地址：http://localhost:1200
-
-<a id="install_syncthing.sh"></a>
-15. **install_syncthing.sh** - 一键部署 Syncthing 文件同步工具
-    ```bash
-    curl -s https://script.739999.xyz/shell/install_syncthing.sh | bash
-    ```
-    
-    服务启动后，将监听以下端口:
-    - Web管理界面: `8384` - 访问地址：http://localhost:8384
-    - 数据传输端口: `22000` (TCP/UDP)
-    - 本地发现端口: `21027` (UDP)
-
-<a id="install_tools.sh"></a>
-16. **install_tools.sh** - Debian/Ubuntu 一键安装常用工具
-    ```bash
-    curl -s https://script.739999.xyz/shell/install_tools.sh | bash
-    ```
-
-<a id="install_vaultwarden.sh"></a>
-17. **install_vaultwarden.sh** - 一键部署 Vaultwarden 密码管理器
-    ```bash
-    curl -s https://script.739999.xyz/shell/install_vaultwarden.sh | bash
-    ```
-    
-    服务启动后，将监听以下端口:
-    - Web界面: `8687` - 访问地址：http://localhost:8687
-    - 数据存储路径: `/opt/vaultwarden/vw-data`
-    - 管理员Token: 安装时自动生成（请妥善保管，用于访问管理界面）
-
-<a id="install_XrayR.sh"></a>
-18. **install_XrayR.sh** - 一键部署 XrayR 代理服务
-    
-    带参数安装：
-    ```bash
-    curl -s https://script.739999.xyz/shell/install_XrayR.sh | bash -s -- "api_host" "api_key" "node_id" "cert_domain" "email" "cf_token"
-    ```
-    
-    安装过程中需要提供以下信息：
-    - 面板地址 (ApiHost)
-    - 面板密钥 (ApiKey)
-    - 节点ID (NodeID)
-    - 域名 (CertDomain)
-    - 邮箱 (Email)
-    - Cloudflare API Token
-    
-    配置文件路径：`/opt/XrayR/config/config.yml`
+     ```bash
+     curl -s https://script.739999.xyz/shell/install_memos.sh | bash
+     ```
+     
+     服务启动后，将监听以下端口:
+     - Web界面: `5230` - 访问地址：http://localhost:5230
 
 <a id="install_mihomo.sh"></a>
-19. **install_mihomo.sh** - 一键部署 Mihomo 代理服务
+12. **install_mihomo.sh** - 一键部署 Mihomo 代理服务
 
-    功能全面的 Mihomo 管理脚本，支持 Docker 或二进制文件部署，提供菜单式交互，极大简化在服务器上配置和使用代理的过程。
+     功能全面的 Mihomo 管理脚本，支持 Docker 或二进制文件部署，提供菜单式交互，极大简化在服务器上配置和使用代理的过程。
 
-    - **核心功能**:
-      - **多种部署方式**: 支持 Docker 和 二进制文件 两种安装方式。
-      - **多种代理模式**: 支持标准代理、本机透明代理 (TUN)、局域网透明网关。
-      - **菜单驱动**: 提供清晰的菜单，用于安装、更新订阅、查看状态、测试、设置和清除代理、卸载等。
-      - **代理测试**: 内置连通性测试，可快速检查代理可用性。
-      - **系统代理设置**: 一键为 APT, Docker, 和当前系统环境设置或清除 HTTP 代理。
-      - **统一目录**: 所有相关文件（配置、Compose 文件）均存放在 `/opt/mihomo`。
+     - **核心功能**:
+       - **多种部署方式**: 支持 Docker 和 二进制文件 两种安装方式。
+       - **多种代理模式**: 支持标准代理、本机透明代理 (TUN)、局域网透明网关。
+       - **菜单驱动**: 提供清晰的菜单，用于安装、更新订阅、查看状态、测试、设置和清除代理、卸载等。
+       - **代理测试**: 内置连通性测试，可快速检查代理可用性。
+       - **系统代理设置**: 一键为 APT, Docker, 和当前系统环境设置或清除 HTTP 代理。
+       - **统一目录**: 所有相关文件（配置、Compose 文件）均存放在 `/opt/mihomo`。
 
-    - **推荐用法 (显示菜单)**:
-      ```bash
-      curl -LO https://script.739999.xyz/shell/install_mihomo.sh && chmod +x install_mihomo.sh && ./install_mihomo.sh
-      ```
+     - **推荐用法 (显示菜单)**:
+       ```bash
+       curl -LO https://script.739999.xyz/shell/install_mihomo.sh && chmod +x install_mihomo.sh && ./install_mihomo.sh
+       ```
 
-    - **功能菜单选项**:
-      1.  安装 Mihomo
-      2.  更新订阅
-      3.  查看当前 Mihomo 运行状态
-      4.  运行所有连接测试
-      5.  为软件/系统设置代理
-      6.  清除代理配置
-      7.  卸载 Mihomo
-      0.  退出脚本
+     - **功能菜单选项**:
+       1.  安装 Mihomo
+       2.  更新订阅
+       3.  查看当前 Mihomo 运行状态
+       4.  运行所有连接测试
+       5.  为软件/系统设置代理
+       6.  清除代理配置
+       7.  卸载 Mihomo
+       0.  退出脚本
+
+<a id="install_new_api.sh"></a>
+13. **install_new_api.sh** - 一键部署 new-api 服务
+     
+     直接执行：
+     ```bash
+     curl -s https://script.739999.xyz/shell/install_new_api.sh | bash
+     ```
+     
+     服务启动后，将监听以下端口:
+     - Web界面: `3000` - 访问地址：http://localhost:3000
+
+<a id="install_nginx_proxy_manager.sh"></a>
+14. **install_nginx_proxy_manager.sh** - 一键部署 nginx_proxy_manager
+     ```bash
+     curl -s https://script.739999.xyz/shell/install_nginx_proxy_manager.sh | bash
+     ```
+     
+     服务启动后，将监听以下端口:
+     - HTTP: `80`
+     - HTTPS: `443`
+     - 管理界面: `34999` - 访问地址：http://localhost:34999
+     - 默认登录信息:
+       - 用户名: `admin@example.com`
+       - 密码: `changeme`
+
+<a id="install_rsshub.sh"></a>
+15. **install_rsshub.sh** - 一键部署 RSSHub RSS生成器
+     ```bash
+     curl -s https://script.739999.xyz/shell/install_rsshub.sh | bash
+     ```
+     
+     服务启动后，将监听以下端口:
+     - Web界面: `1200` - 访问地址：http://localhost:1200
+
+<a id="install_syncthing.sh"></a>
+16. **install_syncthing.sh** - 一键部署 Syncthing 文件同步工具
+     ```bash
+     curl -s https://script.739999.xyz/shell/install_syncthing.sh | bash
+     ```
+     
+     服务启动后，将监听以下端口:
+     - Web管理界面: `8384` - 访问地址：http://localhost:8384
+     - 数据传输端口: `22000` (TCP/UDP)
+     - 本地发现端口: `21027` (UDP)
+
+<a id="install_tools.sh"></a>
+17. **install_tools.sh** - Debian/Ubuntu 一键安装常用工具
+     ```bash
+     curl -s https://script.739999.xyz/shell/install_tools.sh | bash
+     ```
+
+<a id="install_vaultwarden.sh"></a>
+18. **install_vaultwarden.sh** - 一键部署 Vaultwarden 密码管理器
+     ```bash
+     curl -s https://script.739999.xyz/shell/install_vaultwarden.sh | bash
+     ```
+     
+     服务启动后，将监听以下端口:
+     - Web界面: `8687` - 访问地址：http://localhost:8687
+     - 数据存储路径: `/opt/vaultwarden/vw-data`
+     - 管理员Token: 安装时自动生成（请妥善保管，用于访问管理界面）
+
+<a id="install_XrayR.sh"></a>
+19. **install_XrayR.sh** - 一键部署 XrayR 代理服务
+     
+     带参数安装：
+     ```bash
+     curl -s https://script.739999.xyz/shell/install_XrayR.sh | bash -s -- "api_host" "api_key" "node_id" "cert_domain" "email" "cf_token"
+     ```
+     
+     安装过程中需要提供以下信息：
+     - 面板地址 (ApiHost)
+     - 面板密钥 (ApiKey)
+     - 节点ID (NodeID)
+     - 域名 (CertDomain)
+     - 邮箱 (Email)
+     - Cloudflare API Token
+     
+     配置文件路径：`/opt/XrayR/config/config.yml`
 
 ### 特定用途脚本
 <a id="frp_service.sh"></a>
