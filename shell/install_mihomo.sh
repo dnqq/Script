@@ -241,7 +241,8 @@ download_geoip_database() {
 
 # 应用服务器特定的配置修改
 apply_server_mods_to_config() {
-  echo_info "正在为服务器环境优化配置文件..."
+  local install_type="$1"
+  echo_info "正在为服务器环境优化配置文件(安装方式: ${install_type:-未知})..."
   # 安全地删除我们想要控制的单行配置，避免冲突和破坏文件
   sed -i -e '/^port:/d' \
          -e '/^socks-port:/d' \
@@ -260,7 +261,10 @@ apply_server_mods_to_config() {
   fi
 
   # 追加一个完整的、正确的服务器配置块
-  cat <<EOF >> "$CONFIG_FILE"
+  # For binary install, we need it to point to the local UI directory.
+  # For Docker install, we don't want external-ui in the config, because we use metacubexd container.
+  if [ "$install_type" = "binary" ]; then
+    cat <<EOF >> "$CONFIG_FILE"
 
 # --- Appended by install_mihomo.sh for server environment (safe-append) ---
 # The following settings override any previous definitions in this file.
@@ -273,6 +277,20 @@ external-controller: "0.0.0.0:${MIHOMO_EXTERNAL_CONTROLLER_PORT}"
 external-ui: "${UI_DIR}"
 log-level: info
 EOF
+  else # docker or unknown
+    cat <<EOF >> "$CONFIG_FILE"
+
+# --- Appended by install_mihomo.sh for server environment (safe-append) ---
+# The following settings override any previous definitions in this file.
+port: ${MIHOMO_HTTP_PORT}
+socks-port: ${MIHOMO_SOCKS_PORT}
+redir-port: ${MIHOMO_REDIR_PORT}
+tproxy-port: ${MIHOMO_TPROXY_PORT}
+allow-lan: ${allow_lan_value}
+external-controller: "0.0.0.0:${MIHOMO_EXTERNAL_CONTROLLER_PORT}"
+log-level: info
+EOF
+  fi
 
   # 如果是网关模式，智能处理 DNS 配置
   if [[ "$SETUP_GATEWAY" =~ ^[Yy]$ ]]; then
@@ -340,12 +358,13 @@ EOF
 
 # 下载并修改配置
 setup_config() {
+  local install_type="$1"
   # 1. 检查是否已存在配置文件
   if [ -f "$CONFIG_FILE" ]; then
     read -p "检测到已存在的配置文件 (config.yaml)，是否要下载新配置并覆盖它？(y/N): " choice
     if [[ ! "$choice" =~ ^[Yy]$ ]]; then
       echo_info "已选择不下载新配置。将仅对现有配置文件进行二次处理..."
-      apply_server_mods_to_config
+      apply_server_mods_to_config "$install_type"
       return 0 # 任务完成
     fi
   fi
@@ -362,7 +381,7 @@ setup_config() {
   echo_info "订阅链接已保存，用于后续更新。"
 
   # 3. 调用统一的函数进行下载和处理
-  _fetch_and_process_config "$SUB_URL" || exit 1
+  _fetch_and_process_config "$SUB_URL" "$install_type" || exit 1
 }
 
 # 创建 Docker Compose 文件
@@ -491,6 +510,7 @@ _infer_current_state() {
 # 下载并处理配置文件 (下载 + 二次处理)
 _fetch_and_process_config() {
     local sub_url="$1"
+    local install_type="$2"
     
     echo_info "正在从订阅链接下载配置文件: $sub_url"
     if ! curl -L -A "clash" -o "$CONFIG_FILE" "$sub_url"; then
@@ -499,7 +519,7 @@ _fetch_and_process_config() {
     fi
 
     echo_info "下载完成，正在进行二次处理..."
-    apply_server_mods_to_config
+    apply_server_mods_to_config "$install_type"
     return 0
 }
 
@@ -666,8 +686,15 @@ update_subscription() {
     # 调用统一的函数来从系统状态推断出所有必要的模式变量
     _infer_current_state
     
+    local install_type="unknown"
+    if [ -f "$COMPOSE_FILE" ]; then
+        install_type="docker"
+    elif [ -f "/etc/systemd/system/mihomo.service" ]; then
+        install_type="binary"
+    fi
+    
     # 调用统一的函数进行下载和处理
-    if ! _fetch_and_process_config "$SUB_URL"; then
+    if ! _fetch_and_process_config "$SUB_URL" "$install_type"; then
         return 1 # 如果下载或处理失败，则中止
     fi
     
@@ -771,7 +798,7 @@ install_mihomo_docker() {
   ALLOW_LAN=${ALLOW_LAN:-n}
   ENABLE_TUN=${ENABLE_TUN:-n}
 
-  setup_config
+  setup_config "docker"
   download_geoip_database
   create_compose_file
   start_mihomo_service
@@ -923,7 +950,7 @@ install_mihomo_binary() {
         ENABLE_TUN='n'
     fi
 
-    setup_config
+    setup_config "binary"
 
     local should_download_binary=true
     if [ -f "$INSTALL_DIR/mihomo" ]; then
