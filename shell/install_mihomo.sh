@@ -29,6 +29,8 @@
 INSTALL_DIR="/opt/mihomo"
 # 配置文件路径
 CONFIG_FILE="$INSTALL_DIR/data/config.yaml"
+# UI 目录路径
+UI_DIR="$INSTALL_DIR/data/ui"
 # Docker Compose 文件路径
 COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 # Mihomo 镜像
@@ -232,6 +234,7 @@ apply_server_mods_to_config() {
          -e '/^tproxy-port:/d' \
          -e '/^allow-lan:/d' \
          -e '/^external-controller:/d' \
+         -e '/^external-ui:/d' \
          -e '/^log-level:/d' "$CONFIG_FILE"
 
   # 根据用户选择设置 allow-lan
@@ -251,6 +254,7 @@ redir-port: ${MIHOMO_REDIR_PORT}
 tproxy-port: ${MIHOMO_TPROXY_PORT}
 allow-lan: ${allow_lan_value}
 external-controller: "0.0.0.0:${MIHOMO_EXTERNAL_CONTROLLER_PORT}"
+external-ui: "${UI_DIR}"
 log-level: info
 EOF
 
@@ -761,9 +765,6 @@ install_mihomo_docker() {
   sleep 5 # 等待容器有足够时间创建
   if [ -n "$(docker ps -q -f name=mihomo)" ]; then
     wait_for_mihomo
-    echo_info "============================================================"
-    echo_info "Mihomo 服务已成功启动！"
-    
     if [[ "$SETUP_GATEWAY" =~ ^[Yy]$ ]]; then
         if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]]; then
             setup_tun_gateway
@@ -772,11 +773,8 @@ install_mihomo_docker() {
         fi
     fi
 
-    echo_info ""
-    echo_info "代理地址如下:"
-    echo_info "  - HTTP 代理: $PROXY_HTTP"
-    echo_info "  - SOCKS5 代理: $PROXY_SOCKS5"
-    echo_info "============================================================"
+    print_success_info
+    
     echo_info "正在进行自动代理测试..."
     test_proxy
   else
@@ -850,8 +848,6 @@ download_mihomo_binary() {
 
 # 下载并解压 METACUBEXD 文件
 download_metacubexd_binary() {
-    local ui_dir="$INSTALL_DIR/ui"
-    
     if [ -z "$METACUBEXD_BINARY_URL" ]; then
         echo_error "METACUBEXD 下载链接未设置。跳过下载。"
         return 1
@@ -861,12 +857,12 @@ download_metacubexd_binary() {
     if curl -L -o "$INSTALL_DIR/metacubexd.tgz" "$METACUBEXD_BINARY_URL"; then
         echo_info "METACUBEXD 文件下载成功。"
         
-        echo_info "正在创建并清空 UI 目录: $ui_dir"
-        rm -rf "$ui_dir"
-        mkdir -p "$ui_dir"
+        echo_info "正在创建并清空 UI 目录: $UI_DIR"
+        rm -rf "$UI_DIR"
+        mkdir -p "$UI_DIR"
         
-        echo_info "正在解压 METACUBEXD 文件到 $ui_dir..."
-        if tar -zxf "$INSTALL_DIR/metacubexd.tgz" -C "$ui_dir"; then
+        echo_info "正在解压 METACUBEXD 文件到 $UI_DIR..."
+        if tar -zxf "$INSTALL_DIR/metacubexd.tgz" -C "$UI_DIR"; then
             echo_info "解压成功。"
             rm -f "$INSTALL_DIR/metacubexd.tgz"
             return 0
@@ -931,7 +927,7 @@ install_mihomo_binary() {
     fi
 
     local should_download_dashboard=true
-    if [ -d "$INSTALL_DIR/ui" ] && [ -n "$(ls -A "$INSTALL_DIR/ui")" ]; then
+    if [ -d "$UI_DIR" ] && [ -n "$(ls -A "$UI_DIR")" ]; then
         read -p "检测到已存在的 Dashboard (UI) 文件，是否要重新下载并覆盖它？(y/N): " choice
         if [[ ! "$choice" =~ ^[Yy]$ ]]; then
             echo_info "已跳过下载 Dashboard。"
@@ -955,9 +951,6 @@ install_mihomo_binary() {
 
     if systemctl is-active --quiet mihomo; then
         wait_for_mihomo
-        echo_info "============================================================"
-        echo_info "Mihomo 服务已成功启动！"
-
         if [[ "$SETUP_GATEWAY" =~ ^[Yy]$ ]]; then
             if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]]; then
                 setup_tun_gateway
@@ -966,11 +959,8 @@ install_mihomo_binary() {
             fi
         fi
 
-        echo_info ""
-        echo_info "代理地址如下:"
-        echo_info "  - HTTP 代理: $PROXY_HTTP"
-        echo_info "  - SOCKS5 代理: $PROXY_SOCKS5"
-        echo_info "============================================================"
+        print_success_info
+
         echo_info "正在进行自动代理测试..."
         test_proxy
     else
@@ -1141,6 +1131,44 @@ test_proxy() {
             echo -e "\033[31m连接失败\033[0m"
         fi
     done
+}
+
+# 打印安装成功后的信息
+print_success_info() {
+    # 从配置文件读取端口和secret
+    local http_port
+    local socks_port
+    local secret
+    http_port=$(grep -E "^port:" "$CONFIG_FILE" | sed 's/port: *//' | tr -d '\r')
+    socks_port=$(grep -E "^socks-port:" "$CONFIG_FILE" | sed 's/socks-port: *//' | tr -d '\r')
+    secret=$(grep -E "^secret:" "$CONFIG_FILE" | sed "s/secret: *['\"]*//;s/['\"]*//" | tr -d '\r')
+
+    http_port=${http_port:-${MIHOMO_HTTP_PORT}}
+    socks_port=${socks_port:-${MIHOMO_SOCKS_PORT}}
+
+    echo_info "============================================================"
+    echo_info "Mihomo 服务已成功启动！"
+    echo_info ""
+    echo_info "代理地址如下:"
+    echo_info "  - HTTP 代理: http://127.0.0.1:${http_port}"
+    echo_info "  - SOCKS5 代理: socks5://127.0.0.1:${socks_port}"
+    
+    if [ -n "$secret" ]; then
+        echo_info "  - API 密钥 (secret): $secret"
+    fi
+
+    echo_info ""
+    echo_info "Web UI 面板地址:"
+    echo_info "  - 本机访问: http://127.0.0.1:${MIHOMO_EXTERNAL_CONTROLLER_PORT}/ui"
+
+    if [[ "$ALLOW_LAN" =~ ^[Yy]$ ]]; then
+        local server_ip
+        server_ip=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1 | cut -d'/' -f1)
+        if [ -n "$server_ip" ]; then
+            echo_info "  - 局域网访问: http://${server_ip}:${MIHOMO_EXTERNAL_CONTROLLER_PORT}/ui"
+        fi
+    fi
+    echo_info "============================================================"
 }
 
 # 运行所有连接测试
