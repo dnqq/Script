@@ -182,31 +182,41 @@ prepare_directory() {
 
 # 下载 GeoIP 数据库
 download_geoip_database() {
+    local geoip_choice
+    # 如果在二进制安装流程中已经选择了下载源，则复用该选择
+    if [ -n "$binary_choice" ]; then
+        geoip_choice=$binary_choice
+        echo_info "将使用与 Mihomo 二进制文件相同的下载源下载 GeoIP 数据库。"
+    fi
+
     while true; do
-        echo_info "请选择 GeoIP 数据库 (geoip.metadb) 下载源:"
-        echo " 1. Alist (推荐, 默认)"
-        echo " 2. GitHub (直连)"
-        echo " 3. GitHub (通过 hubproxy.739999.xyz 加速)"
-        echo " 4. GitHub (通过 demo.52013120.xyz 加速)"
-        read -p "请输入选项 [1-4, 默认 1]: " geoip_choice
+        # 如果 geoip_choice 未设置 (例如 Docker 安装流程，或二进制安装流程下载失败后)，则显示菜单
+        if [ -z "$geoip_choice" ]; then
+            echo_info "请选择 GeoIP 数据库 (geoip.metadb) 下载源:"
+            echo " 1. Alist (推荐, 默认)"
+            echo " 2. GitHub (直连)"
+            echo " 3. GitHub (通过 hubproxy.739999.xyz 加速)"
+            echo " 4. GitHub (通过 demo.52013120.xyz 加速)"
+            read -p "请输入选项 [1-4, 默认 1]: " geoip_choice
+        fi
 
         local download_url
-        case $geoip_choice in
+        case ${geoip_choice:-1} in
             2)
                 download_url="$GEOIP_METADB_URL"
-                echo_info "已选择 GitHub (直连) 作为下载源。"
+                echo_info "已为 GeoIP 选择 GitHub (直连) 作为下载源。"
                 ;;
             3)
                 download_url="${PROXY_URL_HUBPROXY}/${GEOIP_METADB_URL}"
-                echo_info "已选择 GitHub (通过 hubproxy.739999.xyz 加速) 作为下载源。"
+                echo_info "已为 GeoIP 选择 GitHub (通过 hubproxy.739999.xyz 加速) 作为下载源。"
                 ;;
             4)
                 download_url="${PROXY_URL_DEMO}/${GEOIP_METADB_URL}"
-                echo_info "已选择 GitHub (通过 demo.52013120.xyz 加速) 作为下载源。"
+                echo_info "已为 GeoIP 选择 GitHub (通过 demo.52013120.xyz 加速) 作为下载源。"
                 ;;
             *) # 默认 1
                 download_url="$GEOIP_METADB_ALIST_URL"
-                echo_info "已选择 Alist 作为下载源。"
+                echo_info "已为 GeoIP 选择 Alist 作为下载源。"
                 ;;
         esac
 
@@ -216,8 +226,14 @@ download_geoip_database() {
             return 0
         else
             echo_error "从 $download_url 下载失败！"
+            # 如果是继承的选择失败了，提示用户并清空选择，以便下次循环时显示菜单
+            if [ -n "$binary_choice" ]; then
+                echo_warn "自动选择的下载源失败，请手动选择一个。"
+                unset binary_choice # 不再尝试自动选择
+            fi
+            unset geoip_choice # 清空当前选择，以便显示菜单
             echo_warn "请检查网络连接或尝试其他下载源。"
-            read -p "按任意键返回选择菜单..." -n 1 -r -s
+            read -p "按任意键重试..." -n 1 -r -s
             echo
         fi
     done
@@ -908,7 +924,6 @@ install_mihomo_binary() {
     fi
 
     setup_config
-    download_geoip_database
 
     local should_download_binary=true
     if [ -f "$INSTALL_DIR/mihomo" ]; then
@@ -925,6 +940,8 @@ install_mihomo_binary() {
             exit 1
         fi
     fi
+
+    download_geoip_database
 
     local should_download_dashboard=true
     if [ -d "$UI_DIR" ] && [ -n "$(ls -A "$UI_DIR")" ]; then
