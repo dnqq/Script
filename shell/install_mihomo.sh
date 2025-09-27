@@ -369,19 +369,25 @@ setup_config() {
     fi
   fi
 
-  # 2. 如果需要下载 (文件不存在或用户选择覆盖)
-  get_user_input # 获取 SUB_URL
-  
-  # 保存订阅链接以备将来更新
-  echo "$SUB_URL" > "$INSTALL_DIR/.subscription_url"
-  if [ $? -ne 0 ]; then
-    echo_error "保存订阅链接失败。"
-    exit 1
-  fi
-  echo_info "订阅链接已保存，用于后续更新。"
-
-  # 3. 调用统一的函数进行下载和处理
-  _fetch_and_process_config "$SUB_URL" "$install_type" || exit 1
+  # 2. 如果需要下载 (文件不存在或用户选择覆盖)，循环直到成功
+  while true; do
+    get_user_input # 获取 SUB_URL
+    
+    # 尝试下载和处理，如果成功则跳出循环
+    if _fetch_and_process_config "$SUB_URL" "$install_type"; then
+      # 成功后保存订阅链接
+      echo "$SUB_URL" > "$INSTALL_DIR/.subscription_url"
+      if [ $? -ne 0 ]; then
+        echo_error "保存订阅链接失败。" # 非致命错误
+      else
+        echo_info "订阅链接已保存，用于后续更新。"
+      fi
+      break # 成功，退出循环
+    else
+      echo_warn "无法从该链接下载配置，请重新输入。"
+      # 循环将继续，再次调用 get_user_input
+    fi
+  done
 }
 
 # 创建 Docker Compose 文件
@@ -511,16 +517,27 @@ _infer_current_state() {
 _fetch_and_process_config() {
     local sub_url="$1"
     local install_type="$2"
-    
-    echo_info "正在从订阅链接下载配置文件: $sub_url"
-    if ! curl -L -A "clash" -o "$CONFIG_FILE" "$sub_url"; then
-        echo_error "下载订阅文件失败！请检查链接是否正确以及网络是否通畅。"
-        return 1
-    fi
+    local max_retries=5
+    local retry_count=0
 
-    echo_info "下载完成，正在进行二次处理..."
-    apply_server_mods_to_config "$install_type"
-    return 0
+    while [ $retry_count -lt $max_retries ]; do
+        echo_info "正在从订阅链接下载配置文件 (尝试 $((retry_count + 1))/${max_retries}): $sub_url"
+        if curl -L -A "clash" -o "$CONFIG_FILE" "$sub_url"; then
+            echo_info "下载成功。"
+            echo_info "下载完成，正在进行二次处理..."
+            apply_server_mods_to_config "$install_type"
+            return 0 # Success
+        fi
+        
+        retry_count=$((retry_count + 1))
+        if [ $retry_count -lt $max_retries ]; then
+            echo_warn "下载失败！将在 5 秒后重试..."
+            sleep 5
+        fi
+    done
+
+    echo_error "下载订阅文件失败！已重试 ${max_retries} 次。"
+    return 1 # Failure
 }
 
 # 智能重启 Docker 服务
@@ -816,7 +833,7 @@ install_mihomo_docker() {
         fi
     fi
 
-    print_success_info
+    print_success_info "docker"
     
     echo_info "正在进行自动代理测试..."
     test_proxy
@@ -1003,7 +1020,7 @@ install_mihomo_binary() {
             fi
         fi
 
-        print_success_info
+        print_success_info "binary"
 
         echo_info "正在进行自动代理测试..."
         test_proxy
@@ -1179,6 +1196,7 @@ test_proxy() {
 
 # 打印安装成功后的信息
 print_success_info() {
+    local install_type="$1"
     # 从配置文件读取端口和secret
     local http_port
     local socks_port
@@ -1189,6 +1207,9 @@ print_success_info() {
 
     http_port=${http_port:-${MIHOMO_HTTP_PORT}}
     socks_port=${socks_port:-${MIHOMO_SOCKS_PORT}}
+
+    local server_ip
+    server_ip=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1 | cut -d'/' -f1)
 
     echo_info "============================================================"
     echo_info "Mihomo 服务已成功启动！"
@@ -1203,14 +1224,23 @@ print_success_info() {
 
     echo_info ""
     echo_info "Web UI 面板地址:"
-    echo_info "  - 本机访问: http://127.0.0.1:${MIHOMO_EXTERNAL_CONTROLLER_PORT}/ui"
-
-    if [[ "$ALLOW_LAN" =~ ^[Yy]$ ]]; then
-        local server_ip
-        server_ip=$(ip -o -f inet addr show | awk '/scope global/ {print $4}' | head -n 1 | cut -d'/' -f1)
-        if [ -n "$server_ip" ]; then
+    if [ "$install_type" = "docker" ]; then
+        echo_info "  - 本机访问: http://127.0.0.1:9080"
+        if [[ "$ALLOW_LAN" =~ ^[Yy]$ ]] && [ -n "$server_ip" ]; then
+            echo_info "  - 局域网访问: http://${server_ip}:9080"
+        fi
+    else # binary
+        echo_info "  - 本机访问: http://127.0.0.1:${MIHOMO_EXTERNAL_CONTROLLER_PORT}/ui"
+        if [[ "$ALLOW_LAN" =~ ^[Yy]$ ]] && [ -n "$server_ip" ]; then
             echo_info "  - 局域网访问: http://${server_ip}:${MIHOMO_EXTERNAL_CONTROLLER_PORT}/ui"
         fi
+    fi
+
+    echo_info ""
+    echo_info "后端 API 地址 (用于连接其他控制面板):"
+    echo_info "  - 本机访问: http://127.0.0.1:${MIHOMO_EXTERNAL_CONTROLLER_PORT}"
+    if [[ "$ALLOW_LAN" =~ ^[Yy]$ ]] && [ -n "$server_ip" ]; then
+        echo_info "  - 局域网访问: http://${server_ip}:${MIHOMO_EXTERNAL_CONTROLLER_PORT}"
     fi
     echo_info "============================================================"
 }
