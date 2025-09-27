@@ -36,6 +36,11 @@ MIHOMO_IMAGE="metacubex/mihomo:latest"
 # Mihomo 二进制文件基础下载链接
 MIHOMO_BINARY_BASE_URL="https://github.com/MetaCubeX/mihomo/releases/download/v1.19.13/mihomo-linux-amd64-v1-v1.19.13.gz"
 MIHOMO_BINARY_ALIST_URL="https://file.739999.xyz/d/%E8%BD%AF%E4%BB%B6/%E4%BB%A3%E7%90%86%E8%BD%AF%E4%BB%B6_Mihomo/mihomo-linux-amd64-v1-v1.19.13.gz"
+# METACUBEXD 镜像
+METACUBEXD_IMAGE="ghcr.io/metacubex/metacubexd"
+# METACUBEXD 文件基础下载链接
+METACUBEXD_BINARY_BASE_URL="https://github.com/MetaCubeX/metacubexd/releases/download/v1.194.0/compressed-dist.tgz"
+METACUBEXDBINARY_ALIST_URL="https://file.739999.xyz/d/%E8%BD%AF%E4%BB%B6/%E4%BB%A3%E7%90%86%E8%BD%AF%E4%BB%B6_Mihomo/compressed-dist.tgz"
 # GeoIP 数据库下载链接
 GEOIP_METADB_URL="https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb"
 GEOIP_METADB_ALIST_URL="https://file.739999.xyz/d/%E8%BD%AF%E4%BB%B6/%E4%BB%A3%E7%90%86%E8%BD%AF%E4%BB%B6_Mihomo/geoip.metadb"
@@ -56,6 +61,7 @@ PROXY_HTTP="http://127.0.0.1:${MIHOMO_HTTP_PORT}"
 PROXY_SOCKS5="socks5://127.0.0.1:${MIHOMO_SOCKS_PORT}"
 IMAGE_PROXY_PREFIX=""
 MIHOMO_BINARY_URL=""
+METACUBEXD_BINARY_URL=""
 
 # --- 函数定义 ---
 
@@ -141,18 +147,22 @@ select_binary_url() {
   case $binary_choice in
     2)
       MIHOMO_BINARY_URL="$MIHOMO_BINARY_BASE_URL"
+      METACUBEXD_BINARY_URL="$METACUBEXD_BINARY_BASE_URL"
       echo_info "已选择 GitHub (直连) 作为下载源。"
       ;;
     3)
       MIHOMO_BINARY_URL="${PROXY_URL_HUBPROXY}/${MIHOMO_BINARY_BASE_URL}"
+      METACUBEXD_BINARY_URL="${PROXY_URL_HUBPROXY}/${METACUBEXD_BINARY_BASE_URL}"
       echo_info "已选择 GitHub (通过 hubproxy.739999.xyz 加速) 作为下载源。"
       ;;
     4)
       MIHOMO_BINARY_URL="${PROXY_URL_DEMO}/${MIHOMO_BINARY_BASE_URL}"
+      METACUBEXD_BINARY_URL="${PROXY_URL_DEMO}/${METACUBEXD_BINARY_BASE_URL}"
       echo_info "已选择 GitHub (通过 demo.52013120.xyz 加速) 作为下载源。"
       ;;
     *) # 默认 1
       MIHOMO_BINARY_URL="$MIHOMO_BINARY_ALIST_URL"
+      METACUBEXD_BINARY_URL="$METACUBEXDBINARY_ALIST_URL"
       echo_info "已选择 Alist 作为下载源。"
       ;;
   esac
@@ -340,6 +350,17 @@ create_compose_file() {
   echo_info "正在创建 Docker Compose 文件: $COMPOSE_FILE"
   
   local compose_content
+  local metacubexd_service_content=$(cat <<EOF
+
+  metacubexd:
+    container_name: metacubexd
+    image: ${IMAGE_PROXY_PREFIX}${METACUBEXD_IMAGE}
+    restart: always
+    ports:
+      - '9080:80'
+EOF
+)
+
   if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]]; then
     echo_info "正在为 Docker Compose 文件添加 TUN 模式支持..."
     compose_content=$(cat <<EOF
@@ -355,6 +376,7 @@ services:
     network_mode: "host"
     volumes:
       - ${INSTALL_DIR}/data:/root/.config/mihomo
+${metacubexd_service_content}
 EOF
 )
   else
@@ -367,6 +389,7 @@ services:
     network_mode: "host"
     volumes:
       - ${INSTALL_DIR}/data:/root/.config/mihomo
+${metacubexd_service_content}
 EOF
 )
   fi
@@ -825,6 +848,39 @@ download_mihomo_binary() {
     done
 }
 
+# 下载并解压 METACUBEXD 文件
+download_metacubexd_binary() {
+    local ui_dir="$INSTALL_DIR/ui"
+    
+    if [ -z "$METACUBEXD_BINARY_URL" ]; then
+        echo_error "METACUBEXD 下载链接未设置。跳过下载。"
+        return 1
+    fi
+
+    echo_info "正在下载 METACUBEXD (Dashboard) 文件: $METACUBEXD_BINARY_URL"
+    if curl -L -o "$INSTALL_DIR/metacubexd.tgz" "$METACUBEXD_BINARY_URL"; then
+        echo_info "METACUBEXD 文件下载成功。"
+        
+        echo_info "正在创建并清空 UI 目录: $ui_dir"
+        rm -rf "$ui_dir"
+        mkdir -p "$ui_dir"
+        
+        echo_info "正在解压 METACUBEXD 文件到 $ui_dir..."
+        if tar -zxf "$INSTALL_DIR/metacubexd.tgz" -C "$ui_dir"; then
+            echo_info "解压成功。"
+            rm -f "$INSTALL_DIR/metacubexd.tgz"
+            return 0
+        else
+            echo_error "解压失败！"
+            rm -f "$INSTALL_DIR/metacubexd.tgz"
+            return 1 # Failure
+        fi
+    else
+        echo_error "从 $METACUBEXD_BINARY_URL 下载失败！"
+        return 1
+    fi
+}
+
 # 自动安装 - 二进制
 install_mihomo_binary() {
     check_root
@@ -871,6 +927,21 @@ install_mihomo_binary() {
         if ! download_mihomo_binary; then
             echo_error "Mihomo 二进制文件处理失败，安装中止。"
             exit 1
+        fi
+    fi
+
+    local should_download_dashboard=true
+    if [ -d "$INSTALL_DIR/ui" ] && [ -n "$(ls -A "$INSTALL_DIR/ui")" ]; then
+        read -p "检测到已存在的 Dashboard (UI) 文件，是否要重新下载并覆盖它？(y/N): " choice
+        if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+            echo_info "已跳过下载 Dashboard。"
+            should_download_dashboard=false
+        fi
+    fi
+
+    if [ "$should_download_dashboard" = true ]; then
+        if ! download_metacubexd_binary; then
+            echo_error "Dashboard 文件处理失败，但安装将继续。"
         fi
     fi
     
