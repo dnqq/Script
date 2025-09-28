@@ -25,7 +25,7 @@
 - **网络工具**
   - [`iptables_redirect.sh`](#iptables_redirect.sh) - iptables 端口转发
   - [`iptables_reset.sh`](#iptables_reset.sh) - iptables 清除所有规则
-  - [`disable_ipv6.sh`](#disable_ipv6.sh) - 一键禁用 Debian/Ubuntu 系统的 IPv6
+  - [`disable_ipv6.sh`](#disable_ipv6.sh) - 一键启用或禁用 Debian/Ubuntu 系统的 IPv6
 - **应用程序安装脚本**
   - [`install_alist.sh`](#install_alist.sh) - 一键部署 Alist 文件列表程序
   - [`install_docker.sh`](#install_docker.sh) - 一键安装 Docker
@@ -468,17 +468,35 @@
       ```
 
 <a id="disable_ipv6.sh"></a>
-24. **disable_ipv6.sh** - 一键禁用 Debian/Ubuntu 系统的 IPv6
-  
-  该脚本通过修改 `/etc/sysctl.conf` 来禁用 IPv6。
-  
-  ```bash
-  curl -s https://script.739999.xyz/shell/disable_ipv6.sh | bash
-  ```
-  
-  注意：
-  - 需要 root 权限运行
-  - 脚本执行后建议重启系统以确保所有服务都应用新设置
+24. **disable_ipv6.sh** - 一键启用或禁用 Debian/Ubuntu 系统的 IPv6
+   
+   该脚本通过修改 `/etc/sysctl.conf` 来启用或禁用 IPv6。
+
+   **用法:**
+   ```bash
+   curl -s https://script.739999.xyz/shell/disable_ipv6.sh | bash -s [action]
+   ```
+
+   **参数说明:**
+   - `action`: 操作类型 (必需)
+     - `disable`: 禁用 IPv6
+     - `enable`: 启用 IPv6
+   
+   **示例:**
+
+   禁用 IPv6:
+   ```bash
+   curl -s https://script.739999.xyz/shell/disable_ipv6.sh | bash -s disable
+   ```
+
+   启用 IPv6:
+   ```bash
+   curl -s https://script.739999.xyz/shell/disable_ipv6.sh | bash -s enable
+   ```
+   
+   注意：
+   - 需要 root 权限运行
+   - 脚本执行后建议重启系统以确保所有服务都应用新设置
 
 ## Python 脚本
 
