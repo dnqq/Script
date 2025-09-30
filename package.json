@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "build:manifest": "node scripts/build.js",
+    "upload:manifest": "wrangler kv:put MANIFEST --path=public/manifest.json",
     "build:css": "node node_modules/tailwindcss/src/cli.js -i ./public/styles.css -o ./public/output.css",
-    "build": "npm run build:manifest",
+    "build": "npm run build:manifest && npm run upload:manifest",
     "deploy": "wrangler deploy",
     "dev:css": "node node_modules/tailwindcss/src/cli.js -i ./public/styles.css -o ./public/output.css --watch"
   },
@@ -15,5 +16,8 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.13",
     "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "@cloudflare/kv-asset-handler": "^0.4.0"
   }
 }
