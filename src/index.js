@@ -1,3 +1,6 @@
+// 导入静态清单文件
+import manifest from '../public/manifest.json';
+
 // 定义需要计数的脚本目录
 const SCRIPT_DIRS = ['/tampermonkey/', '/shell/', '/python/', '/PowerShell/', '/bat/'];
 
@@ -7,16 +10,6 @@ export default {
 
     // API: 获取脚本列表
     if (url.pathname === '/api/scripts') {
-      // 从 KV 获取 manifest
-      const manifestText = await env.KV.get('MANIFEST');
-      if (!manifestText) {
-        return new Response('[]', {
-          headers: { 'Content-Type': 'application/json' },
-          status: 500, // 或者返回一个错误信息
-        });
-      }
-      const manifest = JSON.parse(manifestText);
-
       const scriptsWithDownloads = await Promise.all(
         manifest.map(async (script) => {
           const downloads = (await env.KV.get(`downloads:${script.filename}`)) || 0;
