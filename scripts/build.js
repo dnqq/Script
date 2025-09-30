@@ -2,7 +2,13 @@ const fs = require('fs');
 const path = require('path');
 
 const publicDir = path.join(__dirname, '../public');
-const manifestPath = path.join(publicDir, 'manifest.json');
+const distDir = path.join(__dirname, '../dist');
+const manifestPath = path.join(distDir, 'manifest.json');
+
+// 确保 dist 目录存在
+if (!fs.existsSync(distDir)) {
+  fs.mkdirSync(distDir);
+}
 
 // 定义脚本类别及其目录
 const scriptCategories = [
@@ -51,5 +57,10 @@ scriptCategories.forEach(category => {
 });
 
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-
 console.log('✅ 脚本清单 (manifest.json) 生成成功！');
+
+// 复制 worker 脚本到 dist 目录
+const workerSrc = path.join(__dirname, '../src/index.js');
+const workerDest = path.join(distDir, 'index.js');
+fs.copyFileSync(workerSrc, workerDest);
+console.log('✅ Worker 脚本 (index.js) 复制成功！');
