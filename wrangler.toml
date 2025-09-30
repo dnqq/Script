@@ -11,7 +11,3 @@ command = "npm run build"
 [[kv_namespaces]]
 binding = "KV"
 id = "2f33b505e6a34491a64e12c7c21e94e5" # 替换为您的生产环境 KV 命名空间 ID
-
-[[rules]]
-type = "Text"
-globs = ["**/*.json"]
