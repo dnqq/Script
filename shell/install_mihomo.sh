@@ -505,7 +505,7 @@ _infer_current_state() {
         ALLOW_LAN='n'
     fi
 
-    if command -v iptables-save &> /dev/null && iptables-save | grep -q -- '-j CLASH'; then
+    if command -v iptables-save &> /dev/null && iptables-save | grep -q -- '-j MIHOMO'; then
         echo_info "检测到活动的 iptables 网关规则，将以网关模式更新配置。"
         SETUP_GATEWAY='y'
     else
@@ -718,6 +718,18 @@ update_subscription() {
     echo_info "订阅已更新。正在尝试应用新配置..."
     if [ -f "$COMPOSE_FILE" ]; then
         echo_info "检测到 Docker 安装。正在启动/重启容器以应用新配置..."
+        # 检查 Docker 的 iptables 链是否存在，如果不存在则重启 Docker 服务
+        if ! iptables -t nat -L DOCKER -n >/dev/null 2>&1; then
+            echo_warn "未找到 Docker 的 iptables 链 (DOCKER)。这可能导致网络问题。"
+            echo_info "正在尝试通过重启 Docker 服务来修复..."
+            if restart_docker_service; then
+                echo_info "Docker 服务已重启。等待 5 秒以确保其完全启动..."
+                sleep 5
+            else
+                echo_error "Docker 服务重启失败。更新过程可能会失败。"
+            fi
+        fi
+
         local compose_cmd="docker compose"
         if command -v docker-compose &> /dev/null; then
             compose_cmd="docker-compose"
