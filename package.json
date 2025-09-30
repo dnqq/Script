@@ -4,10 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "build:manifest": "node scripts/build.js",
-    "upload:manifest": "wrangler kv:put --binding=KV MANIFEST --path=public/manifest.json",
     "build:css": "node node_modules/tailwindcss/src/cli.js -i ./public/styles.css -o ./public/output.css",
-    "build": "npm run build:manifest && npm run upload:manifest",
+    "build": "npm run build:css",
     "deploy": "wrangler deploy",
     "dev:css": "node node_modules/tailwindcss/src/cli.js -i ./public/styles.css -o ./public/output.css --watch"
   },

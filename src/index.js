@@ -1,12 +1,17 @@
 import { getAssetFromKV, mapRequestToAsset } from '@cloudflare/kv-asset-handler';
 
-// 定义需要计数的脚本目录
+// 定义脚本类别及其目录
 const SCRIPT_DIRS = ['/tampermonkey/', '/shell/', '/python/', '/PowerShell/', '/bat/'];
+const SCRIPT_CATEGORY_MAP = {
+  '/tampermonkey/': 'Tampermonkey',
+  '/shell/': 'Shell',
+  '/python/': 'Python',
+  '/PowerShell/': 'PowerShell',
+  '/bat/': 'Batch',
+};
 
 async function handleAsset(request, env, ctx) {
   const url = new URL(request.url);
-  // Workers Sites 模式下，静态资源被上传到以 __STATIC_CONTENT 开头的 KV 命名空间
-  // getAssetFromKV 会自动使用这个命名空间
   const asset = await getAssetFromKV(
     {
       request,
@@ -16,7 +21,6 @@ async function handleAsset(request, env, ctx) {
       ASSET_NAMESPACE: env.__STATIC_CONTENT,
       ASSET_MANIFEST: JSON.parse(await env.__STATIC_CONTENT.get('__STATIC_CONTENT_MANIFEST')),
       mapRequestToAsset: (req) => {
-        // 将 / 路由映射到 /index.html
         if (url.pathname === '/') {
           return new Request(`${url.origin}/index.html`, req);
         }
@@ -25,7 +29,6 @@ async function handleAsset(request, env, ctx) {
     }
   );
 
-  // 如果是下载脚本文件，则增加下载计数
   const isScriptDownload = SCRIPT_DIRS.some(dir => url.pathname.startsWith(dir));
   if (asset.status === 200 && isScriptDownload) {
     const filename = url.pathname.split('/').pop();
@@ -40,17 +43,26 @@ async function handleApi(request, env) {
   const url = new URL(request.url);
 
   if (url.pathname === '/api/scripts') {
-    const manifestText = await env.KV.get('MANIFEST');
-    if (!manifestText) {
-      return new Response('[]', {
-        headers: { 'Content-Type': 'application/json' },
-        status: 500,
-      });
-    }
-    const manifest = JSON.parse(manifestText);
+    const internalManifest = JSON.parse(await env.__STATIC_CONTENT.get('__STATIC_CONTENT_MANIFEST'));
+    const scriptKeys = Object.keys(internalManifest).filter(key =>
+      SCRIPT_DIRS.some(dir => key.startsWith(key.substring(0,1) === '/' ? dir.substring(1) : dir))
+    );
+
+    const scripts = scriptKeys.map(key => {
+        const filename = key.split('/').pop();
+        const dir = `/${key.substring(0, key.lastIndexOf('/') + 1)}`;
+        const category = SCRIPT_CATEGORY_MAP[dir] || 'Unknown';
+        // 注意：这里无法动态获取 @name，将直接使用文件名
+        return {
+            name: filename, 
+            filename: filename,
+            category: category,
+            url: `/${key}`
+        };
+    });
 
     const scriptsWithDownloads = await Promise.all(
-      manifest.map(async (script) => {
+      scripts.map(async (script) => {
         const downloads = (await env.KV.get(`downloads:${script.filename}`)) || 0;
         return { ...script, downloads: parseInt(downloads) };
       })
@@ -70,14 +82,11 @@ export default {
       if (apiResponse) {
         return apiResponse;
       }
-
       return await handleAsset(request, env, ctx);
     } catch (e) {
-      // 如果 getAssetFromKV 找不到资源，它会抛出异常
       if (e.status === 404) {
         return new Response('404 Not Found', { status: 404 });
       }
-      // 返回其他错误
       return new Response(e.stack || e.toString(), { status: 500 });
     }
   },

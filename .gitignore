@@ -9,7 +9,7 @@ node_modules
 *.log
 
 # 构建产物
-/public/manifest.json
+# No build artifacts to ignore anymore
 
 # IDE & 系统文件
 .vscode
