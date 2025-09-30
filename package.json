@@ -1,0 +1,17 @@
+{
+  "name": "script-workers",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "node scripts/build.js",
+    "deploy": "npm run build && npx tailwindcss -i ./public/styles.css -o ./public/output.css && wrangler deploy",
+    "build:css": "npx tailwindcss -i ./public/styles.css -o ./public/output.css --watch"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.13",
+    "wrangler": "^3.0.0"
+  }
+}

@@ -1,6 +1,17 @@
+# 敏感信息
 .env
-# Ignore log files
-*.log
-*.json
-*.txt
+.wrangler/
+
+# 依赖
 node_modules
+
+# 日志文件
+*.log
+
+# 构建产物
+/public/manifest.json
+/public/output.css
+
+# IDE & 系统文件
+.vscode
+.DS_Store

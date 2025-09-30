@@ -1,12 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CF Workers + Pages</title>
+  <title>Script-Workers</title>
+  <link href="/output.css" rel="stylesheet">
 </head>
-<body>
-  <h1>Hello from Pages!</h1>
-  <p>This is a static file served by Cloudflare Pages.</p>
+<body class="bg-gray-900 text-gray-100">
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-4xl font-bold text-center mb-8">脚本列表</h1>
+    <div id="script-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- 脚本列表将通过JS动态插入到这里 -->
+    </div>
+  </div>
+  <script src="/script-loader.js"></script>
 </body>
 </html>
