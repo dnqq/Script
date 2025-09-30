@@ -1,0 +1,6 @@
+name = "script-workers"
+main = "src/index.js"
+compatibility_date = "2025-09-30"
+
+[site]
+bucket = "./public"

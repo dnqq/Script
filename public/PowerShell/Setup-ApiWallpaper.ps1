@@ -32,18 +32,26 @@ while ($true) {
 }
 
 # Get refresh interval
+$defaultInterval = 10
 $intervalMinutes = 0
-while ($intervalMinutes -le 0) {
+while ($true) {
+    $userInput = Read-Host "> Enter refresh interval in minutes (or press Enter for default: $defaultInterval)"
+    if ([string]::IsNullOrWhiteSpace($userInput)) {
+        $intervalMinutes = $defaultInterval
+        Write-Host "  Using default interval: $intervalMinutes minutes"
+        break
+    }
     try {
-        $input = Read-Host "> Please enter the refresh interval in minutes (e.g., 60)"
-        $intervalMinutes = [int]$input
-        if ($intervalMinutes -le 0) {
+        $intervalMinutes = [int]$userInput
+        if ($intervalMinutes -gt 0) {
+            break
+        }
+        else {
             Write-Warning "Please enter an integer greater than 0."
         }
     }
     catch {
         Write-Warning "Invalid input. Please enter a number."
-        $intervalMinutes = 0
     }
 }
 
@@ -62,14 +70,22 @@ if (-not (Test-Path $scriptDirectory)) {
 $wallpaperScriptPath = Join-Path $scriptDirectory "Set-ApiWallpaper.ps1"
 $imagePath = Join-Path $scriptDirectory "api_wallpaper.jpg"
 
-# C# code for setting wallpaper.
+# C# code for forcing the desktop to refresh.
 $csharpCode = @'
 using System.Runtime.InteropServices;
-public class Wallpaper {
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+using System.ComponentModel;
+
+public class Desktop {
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-    public static void Set(string path) {
-        SystemParametersInfo(20, 0, path, 3);
+
+    public static void Refresh() {
+        // Calling with an empty path forces a reread from the registry.
+        // The '3' flag ensures the change is broadcast to all windows.
+        int result = SystemParametersInfo(20, 0, "", 3);
+        if (result == 0) {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
     }
 }
 '@
@@ -82,15 +98,24 @@ try {{
     # Download image from API
     Invoke-WebRequest -Uri "{0}" -OutFile "{1}" -UseBasicParsing
 
-    # Set wallpaper
+    # Set wallpaper path in the registry
+    Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name Wallpaper -Value "{1}"
+    # Set fit style to 'Stretch' (2). Other options: Fill (10), Fit (6), Tile (0), Center (0)
+    Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name WallpaperStyle -Value "2"
+    Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name TileWallpaper -Value "0"
+
+    # Force the desktop to refresh and apply the new wallpaper
     \$code = @'
 {2}
 '@
     Add-Type -TypeDefinition \$code
-    [Wallpaper]::Set("{1}")
+    [Desktop]::Refresh()
 }}
 catch {{
-    # Error logging can be added here.
+    # Log the error to a file for debugging
+    $errorLogPath = Join-Path (Split-Path $MyInvocation.MyCommand.Path) "error.log"
+    $errorMessage = "$(Get-Date): $($_.Exception.Message)"
+    Add-Content -Path $errorLogPath -Value $errorMessage
 }}
 "@ -f $apiUrl, $imagePath, $csharpCode
 
@@ -102,8 +127,8 @@ Write-Host "Successfully created wallpaper script: $wallpaperScriptPath" -Foregr
 # --- 4. Create Windows Scheduled Task ---
 $taskName = "Auto API Wallpaper Changer"
 $taskDescription = "Fetches a new image from API and sets it as wallpaper every $intervalMinutes minutes."
-$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$wallpaperScriptPath`""
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes $intervalMinutes)
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -NoProfile -Command `"Get-Content -Path '$($wallpaperScriptPath)' | Invoke-Expression`""
+$trigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1)) -RepetitionInterval (New-TimeSpan -Minutes $intervalMinutes)
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
 
 # Check for and remove old task to prevent duplicates
