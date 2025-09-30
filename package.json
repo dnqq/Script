@@ -4,12 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "debug:bin": "ls -la node_modules/.bin",
     "build:manifest": "node scripts/build.js",
-    "build:css": "tailwindcss -i ./public/styles.css -o ./public/output.css",
-    "build": "npm run debug:bin && npm run build:manifest && npm run build:css",
+    "build:css": "node node_modules/tailwindcss/lib/cli.js -i ./public/styles.css -o ./public/output.css",
+    "build": "npm run build:manifest && npm run build:css",
     "deploy": "wrangler deploy",
-    "dev:css": "tailwindcss -i ./public/styles.css -o ./public/output.css --watch"
+    "dev:css": "node node_modules/tailwindcss/lib/cli.js -i ./public/styles.css -o ./public/output.css --watch"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
