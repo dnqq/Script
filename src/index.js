@@ -1,4 +1,5 @@
-import manifest from '../public/manifest.json';
+import manifestText from '../public/manifest.json';
+const manifest = JSON.parse(manifestText);
 
 // 定义需要计数的脚本目录
 const SCRIPT_DIRS = ['/tampermonkey/', '/shell/', '/python/', '/PowerShell/', '/bat/'];
