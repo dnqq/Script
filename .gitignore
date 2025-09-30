@@ -9,7 +9,7 @@ node_modules
 *.log
 
 # 构建产物
-/public/manifest.json
+/src/manifest.json
 
 # IDE & 系统文件
 .vscode

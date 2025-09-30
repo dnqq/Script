@@ -1,5 +1,5 @@
 // 导入静态清单文件
-import manifest from '../public/manifest.json';
+import manifest from './manifest.json';
 
 // 定义需要计数的脚本目录
 const SCRIPT_DIRS = ['/tampermonkey/', '/shell/', '/python/', '/PowerShell/', '/bat/'];
