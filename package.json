@@ -5,10 +5,10 @@
   "scripts": {
     "dev": "wrangler dev",
     "build:manifest": "node scripts/build.js",
-    "build:css": "node node_modules/tailwindcss/lib/cli.js -i ./public/styles.css -o ./public/output.css",
-    "build": "npm run build:manifest && npm run build:css",
+    "build:css": "node node_modules/tailwindcss/src/cli.js -i ./public/styles.css -o ./public/output.css",
+    "build": "npm run build:manifest",
     "deploy": "wrangler deploy",
-    "dev:css": "node node_modules/tailwindcss/lib/cli.js -i ./public/styles.css -o ./public/output.css --watch"
+    "dev:css": "node node_modules/tailwindcss/src/cli.js -i ./public/styles.css -o ./public/output.css --watch"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
