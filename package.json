@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "build": "node scripts/build.js",
-    "deploy": "npm run build && npx tailwindcss -i ./public/styles.css -o ./public/output.css && wrangler deploy",
+    "build": "node scripts/build.js && npx tailwindcss -i ./public/styles.css -o ./public/output.css",
+    "deploy": "wrangler deploy",
     "build:css": "npx tailwindcss -i ./public/styles.css -o ./public/output.css --watch"
   },
   "devDependencies": {
