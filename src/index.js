@@ -8,8 +8,6 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
-import { Toucan } from 'toucan-js';
-
 // The new structure for our Worker
 export default {
   async fetch(request, env, ctx) {
