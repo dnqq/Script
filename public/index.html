@@ -130,6 +130,53 @@
         categoryNav.querySelector('a[data-category="all"]').classList.add('active');
 
         function renderDashboard() {
+          // 收集所有脚本并按下载量排序
+          const allScripts = [];
+          for (const category in manifest) {
+            const categoryData = manifest[category];
+            if (categoryData._scripts) {
+              categoryData._scripts.forEach(script => {
+                allScripts.push({
+                  ...script,
+                  category: category,
+                  subcategory: null,
+                  downloads: parseInt(stats[script.key] || '0', 10)
+                });
+              });
+            }
+            for (const subCategory in categoryData) {
+              if (subCategory !== '_scripts') {
+                categoryData[subCategory].forEach(script => {
+                  allScripts.push({
+                    ...script,
+                    category: category,
+                    subcategory: subCategory,
+                    downloads: parseInt(stats[script.key] || '0', 10)
+                  });
+                });
+              }
+            }
+          }
+
+          // 按下载量排序，取前8
+          const topScripts = allScripts.sort((a, b) => b.downloads - a.downloads).slice(0, 8);
+
+          // 统计每个分类的脚本数量
+          const categoryStats = {};
+          for (const category in manifest) {
+            const categoryData = manifest[category];
+            let count = 0;
+            if (categoryData._scripts) {
+              count += categoryData._scripts.length;
+            }
+            for (const subCategory in categoryData) {
+              if (subCategory !== '_scripts') {
+                count += categoryData[subCategory].length;
+              }
+            }
+            categoryStats[category] = count;
+          }
+
           app.innerHTML = `
             <div class="dashboard-header">
               <h2 class="text-3xl font-bold text-primary">总览</h2>
@@ -170,7 +217,74 @@
                 </div>
               </div>
             </div>
+
+            <div class="dashboard-content-grid">
+              <!-- 热门脚本排行榜 -->
+              <div class="dashboard-section">
+                <div class="section-header">
+                  <h3 class="text-xl font-bold text-primary">热门脚本</h3>
+                  <svg style="width: 1.25rem; height: 1.25rem; color: var(--primary-color);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path>
+                  </svg>
+                </div>
+                <div class="top-scripts-list">
+                  ${topScripts.map((script, index) => {
+                    const rawDescription = script.details.split('\n')[0];
+                    const cleanedDescription = rawDescription.replace(/^\d+\.\s+\*\*(.*?)\*\*\s+-\s+/, '');
+                    const title = cleanedDescription || script.name;
+                    return `
+                      <div class="top-script-item">
+                        <div class="rank-badge rank-${index + 1}">${index + 1}</div>
+                        <div class="top-script-info">
+                          <div class="top-script-name">${script.name}</div>
+                          <div class="top-script-desc">${title}</div>
+                        </div>
+                        <div class="top-script-stats">
+                          <svg style="width: 1rem; height: 1rem; opacity: 0.5;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                          </svg>
+                          <span>${script.downloads.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+
+              <!-- 分类统计 -->
+              <div class="dashboard-section">
+                <div class="section-header">
+                  <h3 class="text-xl font-bold text-primary">分类统计</h3>
+                  <svg style="width: 1.25rem; height: 1.25rem; color: var(--primary-color);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                  </svg>
+                </div>
+                <div class="category-stats-grid">
+                  ${Object.entries(categoryStats).map(([category, count]) => `
+                    <a href="#" class="category-stat-card" data-category="${category}">
+                      <div class="category-stat-name">${category}</div>
+                      <div class="category-stat-count">${count} 个脚本</div>
+                    </a>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
           `;
+
+          // 添加分类卡片点击事件
+          app.querySelectorAll('.category-stat-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+              e.preventDefault();
+              const category = card.dataset.category;
+              categoryNav.querySelectorAll('a').forEach(l => l.classList.remove('active'));
+              const categoryLink = categoryNav.querySelector(`a[data-category="${category}"]`);
+              if (categoryLink) {
+                categoryLink.classList.add('active');
+                renderCategory(category);
+              }
+            });
+          });
         }
 
         function renderCategory(category, subcategory) {
