@@ -198,6 +198,15 @@ pre {
   border-left-color: var(--border-color);
   color: var(--text-primary);
 }
-.prose code {
+.prose :not(pre) > code {
   color: var(--text-primary);
+  background-color: var(--bg-secondary);
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  border-radius: var(--border-radius-sm);
+}
+
+.prose pre code {
+  color: inherit; /* Let the parent <pre> or highlight.js control the color */
 }
