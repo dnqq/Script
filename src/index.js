@@ -21,7 +21,12 @@ export default {
 
     // 如果请求的是脚本目录下的文件，则处理计数和下载
     if (isScriptRequest) {
-      const assetResponse = await env.ASSETS.fetch(request);
+      // 创建一个新的请求对象，不包含查询参数，以确保静态资源能被正确找到
+      const assetUrl = new URL(request.url);
+      assetUrl.search = '';
+      const assetRequest = new Request(assetUrl, request);
+
+      const assetResponse = await env.ASSETS.fetch(assetRequest);
 
       // 如果文件存在，则增加计数并强制下载
       if (assetResponse.status === 200) {

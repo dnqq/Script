@@ -189,8 +189,9 @@
                 <details class="details-card" data-script-name="${script.name}">
                   <summary class="details-summary">
                     <h3 class="text-base font-medium text-primary">${title}</h3>
-                    <div class="flex items-center">
-                      <span class="text-sm text-secondary mr-4">下载: ${count.toLocaleString()}</span>
+                    <div class="flex items-center space-x-4">
+                      <span class="text-sm text-secondary">下载: ${count.toLocaleString()}</span>
+                      <a href="/${script.key}?t=${new Date().getTime()}" download onclick="event.stopPropagation()" class="text-sm py-1 px-3 rounded-md transition-colors" style="background-color: var(--primary-color); color: white;">下载</a>
                       <svg class="details-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                     </div>
                   </summary>
