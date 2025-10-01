@@ -56,6 +56,7 @@
 <h3 id="powershell-脚本-总览">PowerShell 脚本</h3>
 
 - [`SetNetwork.ps1`](#SetNetwork.ps1) - Windows网络配置管理工具
+- [`Setup-ApiWallpaper.ps1`](#Setup-ApiWallpaper.ps1) - API壁纸自动更换工具
 
 <h3 id="tampermonkey-脚本-总览">Tampermonkey 脚本</h3>
 
@@ -595,24 +596,93 @@
 
 <a id="SetNetwork.ps1"></a>
 1. **SetNetwork.ps1** - Windows网络配置管理工具
-   
+
    这个脚本提供了一个交互式界面，用于快速切换Windows网络配置：
    - 支持固定IP和DHCP配置模式
    - 可以设置不同的网关和DNS服务器
    - 提供一键清除DNS缓存功能
    - 显示当前网络配置状态
-   
+
    以管理员权限运行
-   
+
    设置执行策略:
    ```powershell
    Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
    ```
-   
+
    执行脚本:
    ```powershell
    .\SetNetwork.ps1
    ```
+
+<a id="Setup-ApiWallpaper.ps1"></a>
+2. **Setup-ApiWallpaper.ps1** - API壁纸自动更换工具
+
+   这是一个全自动的 Windows 桌面壁纸管理工具，通过调用 API 接口定时下载并更换桌面壁纸。
+
+   **核心功能**:
+   - **自动化配置**: 一键创建壁纸更换脚本和 Windows 定时任务
+   - **灵活配置**: 可自定义 API 地址和更换间隔（分钟）
+   - **静默运行**: 使用 VBScript 包装器，后台运行完全无窗口干扰
+   - **智能下载**: 自动添加 User-Agent 请求头，兼容各种 API
+   - **详细日志**: 记录每次壁纸更换过程，便于调试和追踪
+   - **文件验证**: 自动验证下载文件的有效性，防止损坏图片
+
+   **如何使用**:
+
+   1. **下载并运行安装脚本**:
+      ```powershell
+      # 下载脚本
+      Invoke-WebRequest -Uri "https://script.sqmn.eu.org/PowerShell/Setup-ApiWallpaper.ps1" -OutFile "Setup-ApiWallpaper.ps1"
+
+      # 以普通用户权限运行（不需要管理员权限）
+      .\Setup-ApiWallpaper.ps1
+      ```
+
+   2. **配置参数**:
+      - **API URL**: 输入壁纸 API 地址，或直接回车使用默认值 `https://random.sqmn.eu.org`
+      - **更换间隔**: 输入间隔分钟数，或直接回车使用默认值 `10` 分钟
+
+   3. **自动创建的文件**:
+      - `%USERPROFILE%\Documents\AutoApiWallpaper\Set-ApiWallpaper.ps1` - 壁纸设置脚本
+      - `%USERPROFILE%\Documents\AutoApiWallpaper\Run-Silent.vbs` - 静默运行包装器
+      - `%USERPROFILE%\Documents\AutoApiWallpaper\api_wallpaper.jpg` - 下载的壁纸文件
+      - `%USERPROFILE%\Documents\AutoApiWallpaper\wallpaper.log` - 运行日志
+
+   4. **查看日志**:
+      ```powershell
+      Get-Content "$env:USERPROFILE\Documents\AutoApiWallpaper\wallpaper.log"
+      ```
+
+   5. **管理定时任务**:
+      - 任务名称: `Auto API Wallpaper Changer`
+      - 在"任务计划程序"中可以查看、暂停或删除任务
+      - 或使用 PowerShell 命令:
+        ```powershell
+        # 查看任务状态
+        Get-ScheduledTask -TaskName "Auto API Wallpaper Changer"
+
+        # 手动运行一次
+        Start-ScheduledTask -TaskName "Auto API Wallpaper Changer"
+
+        # 禁用任务
+        Disable-ScheduledTask -TaskName "Auto API Wallpaper Changer"
+
+        # 删除任务
+        Unregister-ScheduledTask -TaskName "Auto API Wallpaper Changer" -Confirm:$false
+        ```
+
+   **技术特点**:
+   - 使用 Windows API (`SystemParametersInfo`) 直接设置壁纸，立即生效
+   - 支持自定义壁纸样式（默认为"填充"模式，自动适配屏幕）
+   - VBScript 包装器确保完全静默运行，无任何窗口闪现
+   - 完善的错误处理和 UTF-8 编码日志记录
+
+   **注意事项**:
+   - 脚本会在 1 分钟后首次执行，之后按设置的间隔定期执行
+   - 如果 API 返回 403 错误，脚本会自动添加浏览器 User-Agent 重试
+   - 壁纸文件会被覆盖更新，不会占用过多磁盘空间
+   - 定时任务即使在电池供电时也会运行
 
 ## Tampermonkey 脚本
 
