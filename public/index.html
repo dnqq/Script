@@ -60,7 +60,7 @@
             if (subCategory !== '_scripts') {
               categoryTotalScripts += categoryData[subCategory].length;
               categoryData[subCategory].forEach(script => {
-                totalDownloads += (stats[script.key] || 0);
+                totalDownloads += parseInt(stats[script.key] || '0', 10);
               });
             }
           }
