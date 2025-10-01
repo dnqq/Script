@@ -177,7 +177,9 @@
             const scriptListHtml = sortedScripts.map(script => {
               if (!script.details) return '';
               const count = stats[script.key] || 0;
-              const title = `${script.name} - ${script.details.split('\n')[0]}`;
+              const rawDescription = script.details.split('\n')[0];
+              const cleanedDescription = rawDescription.replace(/^\d+\.\s+\*\*(.*?)\*\*\s+-\s+/, '');
+              const title = `${script.name} - ${cleanedDescription}`;
               
               return `
                 <details class="bg-white rounded-lg shadow overflow-hidden transition-all duration-300 group border border-gray-200 hover:border-blue-500/50">
