@@ -7,6 +7,7 @@ directory = "./public/"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
-[[kv_namespaces]]
-binding = "SCRIPT_STATS"
-id = "2f33b505e6a34491a64e12c7c21e94e5" # 您需要在 Cloudflare Dashboard 创建并替换此 ID
+[[d1_databases]]
+binding = "DB" # 代码中使用的名字
+database_name = "script-hub" # 您创建的数据库名
+database_id = "b81dd067-dc8f-48f8-8ab9-f711bcbf244c" # <--- 请在这里粘贴您 D1 数据库的实际 ID
