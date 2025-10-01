@@ -9,19 +9,18 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans">
+<body class="bg-gray-900 text-gray-300 font-sans">
 
-  <div class="container mx-auto px-4 py-8">
-    <header class="text-center mb-12">
-      <h1 class="text-4xl font-bold text-gray-900">脚本中心</h1>
-      <p class="text-gray-600 mt-2">由 Cloudflare Workers 驱动</p>
+  <div class="container mx-auto px-4 py-12">
+    <header class="text-center mb-16">
+      <h1 class="text-5xl font-extrabold text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-teal-500">脚本中心</h1>
     </header>
 
-    <main id="app">
-      <p class="text-center text-gray-500">正在加载脚本列表...</p>
+    <main id="app" class="max-w-4xl mx-auto">
+      <p class="text-center text-gray-400">正在加载脚本列表...</p>
     </main>
 
-    <footer class="text-center mt-12 text-gray-500 text-sm">
+    <footer class="text-center mt-16 text-gray-500 text-sm">
       <p>&copy; 2024. All rights reserved.</p>
     </footer>
   </div>
@@ -53,32 +52,32 @@
         // 2. 渲染页面
         for (const category in manifest) {
           const categorySection = document.createElement('section');
-          categorySection.className = 'mb-10';
+          categorySection.className = 'mb-12';
 
           const categoryTitle = document.createElement('h2');
-          categoryTitle.className = 'text-2xl font-semibold border-b-2 border-blue-500 pb-2 mb-4 capitalize';
+          categoryTitle.className = 'text-3xl font-bold text-white pb-3 mb-6 capitalize border-b-2 border-gray-700';
           categoryTitle.textContent = category;
           categorySection.appendChild(categoryTitle);
 
-          const scriptList = document.createElement('div'); // Changed from ul
-          scriptList.className = 'space-y-4'; // Use space-y for vertical spacing
+          const scriptList = document.createElement('div');
+          scriptList.className = 'space-y-4';
           
           manifest[category].forEach(script => {
-            if (!script.details) return; // Skip scripts without details from README
+            if (!script.details) return;
 
             const detailsElement = document.createElement('details');
-            detailsElement.className = 'bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 group';
+            detailsElement.className = 'bg-gray-800 rounded-xl shadow-lg overflow-hidden transition-all duration-300 group border border-gray-700 hover:border-blue-500';
 
             const summaryElement = document.createElement('summary');
-            summaryElement.className = 'p-5 cursor-pointer flex justify-between items-center list-none group-hover:bg-gray-50';
+            summaryElement.className = 'p-5 cursor-pointer flex justify-between items-center list-none';
             
             const scriptName = document.createElement('h3');
             scriptName.textContent = script.name;
-            scriptName.className = 'text-lg font-medium text-gray-900';
+            scriptName.className = 'text-lg font-semibold text-white';
 
             const count = stats[script.key] || 0;
             const countSpan = document.createElement('span');
-            countSpan.className = 'text-sm text-gray-500 mr-4';
+            countSpan.className = 'text-sm text-gray-400 mr-4';
             countSpan.textContent = `下载: ${count}`;
             
             const summaryContent = document.createElement('div');
@@ -89,33 +88,29 @@
             summaryRight.className = 'flex items-center';
             summaryRight.appendChild(countSpan);
             // Add an arrow icon for open/close state
-            summaryRight.innerHTML += `<svg class="w-5 h-5 text-gray-500 transform transition-transform duration-300 group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`;
+            summaryRight.innerHTML += `<svg class="w-5 h-5 text-gray-400 transform transition-transform duration-300 group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`;
 
             summaryElement.appendChild(summaryContent);
             summaryElement.appendChild(summaryRight);
 
             const detailsContent = document.createElement('div');
-            detailsContent.className = 'p-5 border-t border-gray-200';
+            detailsContent.className = 'px-5 pb-5 border-t border-gray-700';
             
-            // Render markdown content only on first toggle
             detailsElement.addEventListener('toggle', event => {
                if (event.target.open && !detailsContent.dataset.rendered) {
                    const renderedHtml = marked.parse(script.details);
-                   // Add prose class for typography styling from Tailwind
-                   detailsContent.innerHTML = `<div class="prose prose-sm max-w-none">${renderedHtml}</div>`;
+                   detailsContent.innerHTML = `<div class="prose prose-sm max-w-none prose-invert">${renderedHtml}</div>`;
                    detailsContent.dataset.rendered = 'true';
                    
-                   // Apply syntax highlighting to the new content
                    detailsContent.querySelectorAll('pre code').forEach((block) => {
                        hljs.highlightElement(block);
                    });
 
-                   // Add copy buttons to code blocks
                    detailsContent.querySelectorAll('pre').forEach(pre => {
                        pre.style.position = 'relative';
                        const copyButton = document.createElement('button');
                        copyButton.textContent = '复制';
-                       copyButton.className = 'absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs hover:bg-gray-800 transition-colors';
+                       copyButton.className = 'absolute top-2 right-2 bg-gray-600 text-white px-2 py-1 rounded text-xs hover:bg-gray-500 transition-colors';
                        pre.appendChild(copyButton);
                        copyButton.addEventListener('click', () => {
                            const code = pre.querySelector('code').innerText;

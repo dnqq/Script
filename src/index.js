@@ -84,7 +84,10 @@ async function handleStats(env) {
     });
   } catch (e) {
     console.error('D1 Error:', e);
-    return new Response('Could not retrieve stats.', { status: 500 });
+    return new Response(JSON.stringify({ error: 'Could not retrieve stats from D1.', message: e.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
