@@ -96,35 +96,33 @@ async function incrementCount(env, key, ip) {
     console.error("D1 database 'DB' is not bound. Cannot increment count.");
     return;
   }
-  if (!ip) {
-    console.error('Could not get IP address. Cannot increment count.');
+
+  // 步骤 1: 更新总计数。这是关键操作。
+  try {
+    await env.DB.prepare(
+      `INSERT INTO script_counts (script_name, download_count) VALUES (?1, 1)
+       ON CONFLICT(script_name) DO UPDATE SET download_count = download_count + 1`
+    ).bind(key).run();
+  } catch (e) {
+    console.error(`Failed to update script_counts for ${key}:`, e);
+    // 如果这个关键步骤失败，我们不应该继续。
     return;
   }
 
+  // 步骤 2: 记录唯一的每日下载。这是次要操作。
+  if (!ip) {
+    console.error('Could not get IP address. Cannot log daily download.');
+    return;
+  }
   try {
-    const today = new Date().toISOString().slice(0, 10); // 格式: YYYY-MM-DD
-
-    // 检查今天这个 IP 是否已经下载过
-    const stmt_check = env.DB.prepare('SELECT 1 FROM daily_downloads WHERE script_name = ?1 AND ip_address = ?2 AND download_date = ?3');
-    const { results } = await stmt_check.bind(key, ip, today).all();
-
-    // 如果 results.length > 0，说明已经下载过，直接返回
-    if (results.length > 0) {
-      return;
-    }
-
-    // 如果是首次下载，则批量执行插入和更新
-    await env.DB.batch([
-      // 1. 记录本次下载
-      env.DB.prepare('INSERT INTO daily_downloads (script_name, ip_address, download_date) VALUES (?1, ?2, ?3)').bind(key, ip, today),
-      // 2. 更新总计数 (UPSERT: 如果存在则更新，不存在则插入)
-      env.DB.prepare(
-        `INSERT INTO script_counts (script_name, download_count) VALUES (?1, 1)
-         ON CONFLICT(script_name) DO UPDATE SET download_count = download_count + 1`
-      ).bind(key),
-    ]);
+    const today = new Date().toISOString().slice(0, 10);
+    // 使用 INSERT OR IGNORE 来避免单独的 SELECT 检查。
+    // 这需要 daily_downloads 表在 (script_name, ip_address, download_date) 上有 UNIQUE 约束。
+    await env.DB.prepare(
+      'INSERT OR IGNORE INTO daily_downloads (script_name, ip_address, download_date) VALUES (?1, ?2, ?3)'
+    ).bind(key, ip, today).run();
   } catch (e) {
-    // 记录错误，但不要阻塞下载
-    console.error(`Failed to increment count for ${key}:`, e);
+    // 记录此错误，但由于主计数已更新，因此这不是一个严重故障。
+    console.error(`Failed to log daily download for ${key}:`, e);
   }
 }
