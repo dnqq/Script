@@ -189,9 +189,15 @@
                 <details class="details-card" data-script-name="${script.name}">
                   <summary class="details-summary">
                     <h3 class="text-base font-medium text-primary">${title}</h3>
-                    <div class="flex items-center space-x-4">
-                      <span class="text-sm text-secondary">下载: ${count.toLocaleString()}</span>
-                      <a href="/${script.key}?t=${new Date().getTime()}" download onclick="event.stopPropagation()" class="text-sm py-1 px-3 rounded-md transition-colors" style="background-color: var(--primary-color); color: white;">下载</a>
+                    <div class="flex items-center" style="gap: 1rem;">
+                      <div class="download-count">
+                        <svg style="width: 16px; height: 16px; opacity: 0.6;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <span>${count.toLocaleString()}</span>
+                      </div>
+                      <a href="/${script.key}?t=${new Date().getTime()}" download onclick="event.stopPropagation()" class="download-button">
+                        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <span>下载</span>
+                      </a>
                       <svg class="details-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                     </div>
                   </summary>
