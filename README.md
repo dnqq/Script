@@ -73,7 +73,7 @@
 
    **用法:**
    ```bash
-   curl -s https://script.739999.xyz/shell/manage_empty_dirs.sh | bash -s [action] [path]
+   curl -s https://script.sqmn.eu.org/shell/manage_empty_dirs.sh | bash -s [action] [path]
    ```
 
    **参数说明:**
@@ -87,17 +87,17 @@
 
    查找当前目录下的空目录:
    ```bash
-   curl -s https://script.739999.xyz/shell/manage_empty_dirs.sh | bash -s find
+   curl -s https://script.sqmn.eu.org/shell/manage_empty_dirs.sh | bash -s find
    ```
 
    删除 `/path/to/your/folder` 下的空目录:
    ```bash
-   curl -s https://script.739999.xyz/shell/manage_empty_dirs.sh | bash -s delete /path/to/your/folder
+   curl -s https://script.sqmn.eu.org/shell/manage_empty_dirs.sh | bash -s delete /path/to/your/folder
    ```
 
    安全清理 `/path/to/your/folder` 下的空目录:
    ```bash
-   curl -s https://script.739999.xyz/shell/manage_empty_dirs.sh | bash -s clean /path/to/your/folder
+   curl -s https://script.sqmn.eu.org/shell/manage_empty_dirs.sh | bash -s clean /path/to/your/folder
    ```
 
 <a id="enable_swap.sh"></a>
@@ -105,12 +105,12 @@
    
    默认创建 2G Swap:
    ```bash
-   curl -s https://script.739999.xyz/shell/enable_swap.sh | bash
+   curl -s https://script.sqmn.eu.org/shell/enable_swap.sh | bash
    ```
    
    指定 Swap 大小（如 4G）:
    ```bash
-   curl -s https://script.739999.xyz/shell/enable_swap.sh | bash -s 4
+   curl -s https://script.sqmn.eu.org/shell/enable_swap.sh | bash -s 4
    ```
    
    注意：
@@ -136,12 +136,12 @@
    
    **基础用法:**
    ```bash
-   curl -s https://script.739999.xyz/shell/upload_backup.sh | bash -s -- -u your_username -p your_password -s your_server_id -d https://dav.com/dav -f /path/to/folder
+   curl -s https://script.sqmn.eu.org/shell/upload_backup.sh | bash -s -- -u your_username -p your_password -s your_server_id -d https://dav.com/dav -f /path/to/folder
    ```
 
    **高级用法 (多文件夹备份并排除文件):**
    ```bash
-   curl -s https://script.739999.xyz/shell/upload_backup.sh | bash -s -- \
+   curl -s https://script.sqmn.eu.org/shell/upload_backup.sh | bash -s -- \
    -u your_username \
    -p your_password \
    -s your_server_id \
@@ -163,13 +163,13 @@
    - target_port - 目标服务器端口  
    
    ```bash
-   curl -s https://script.739999.xyz/shell/iptables_redirect.sh | bash -s <transfer_port> <target_domain_or_ip> <target_port>
+   curl -s https://script.sqmn.eu.org/shell/iptables_redirect.sh | bash -s <transfer_port> <target_domain_or_ip> <target_port>
    ```
 
 <a id="iptables_reset.sh"></a>
 5. **iptables_reset.sh** - iptables 清除所有规则
    ```bash
-   curl -s https://script.739999.xyz/shell/iptables_reset.sh | bash
+   curl -s https://script.sqmn.eu.org/shell/iptables_reset.sh | bash
    ```
 
 <a id="manage_ipv6.sh"></a>
@@ -179,7 +179,7 @@
 
   **用法:**
   ```bash
-  curl -s https://script.739999.xyz/shell/manage_ipv6.sh | bash -s [action]
+  curl -s https://script.sqmn.eu.org/shell/manage_ipv6.sh | bash -s [action]
   ```
 
   **参数说明:**
@@ -191,12 +191,12 @@
 
   禁用 IPv6:
   ```bash
-  curl -s https://script.739999.xyz/shell/manage_ipv6.sh | bash -s disable
+  curl -s https://script.sqmn.eu.org/shell/manage_ipv6.sh | bash -s disable
   ```
 
   启用 IPv6:
   ```bash
-  curl -s https://script.739999.xyz/shell/manage_ipv6.sh | bash -s enable
+  curl -s https://script.sqmn.eu.org/shell/manage_ipv6.sh | bash -s enable
   ```
   
   注意：
@@ -207,7 +207,7 @@
 <a id="install_alist.sh"></a>
 7. **install_alist.sh** - 一键部署 Alist 文件列表程序
     ```bash
-    curl -s https://script.739999.xyz/shell/install_alist.sh | bash
+    curl -s https://script.sqmn.eu.org/shell/install_alist.sh | bash
     ```
     
     服务启动后，将监听以下端口:
@@ -216,13 +216,13 @@
 <a id="install_docker.sh"></a>
 8. **install_docker.sh** - 一键安装 Docker
    ```bash
-   curl -s https://script.739999.xyz/shell/install_docker.sh | bash
+   curl -s https://script.sqmn.eu.org/shell/install_docker.sh | bash
    ```
 
 <a id="install_freshrss.sh"></a>
 9. **install_freshrss.sh** - 一键部署 FreshRSS 阅读器
      ```bash
-     curl -s https://script.739999.xyz/shell/install_freshrss.sh | bash
+     curl -s https://script.sqmn.eu.org/shell/install_freshrss.sh | bash
      ```
      
      服务启动后，将监听以下端口:
@@ -233,12 +233,12 @@
      
      无参数运行，使用最新版本:
      ```bash
-     curl -O https://script.739999.xyz/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh
+     curl -O https://script.sqmn.eu.org/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh
      ```
      
      指定版本（可选参数）:
      ```bash
-     curl -O https://script.739999.xyz/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh 0.61.1
+     curl -O https://script.sqmn.eu.org/shell/install_frpc.sh && chmod +x install_frpc.sh && ./install_frpc.sh 0.61.1
      ```
      
      安装过程中会要求输入:
@@ -255,12 +255,12 @@
      
      无参数运行，使用最新版本:
      ```bash
-     curl -s https://script.739999.xyz/shell/install_frps.sh | bash
+     curl -s https://script.sqmn.eu.org/shell/install_frps.sh | bash
      ```
      
      指定版本（可选参数）:
      ```bash
-     curl -s https://script.739999.xyz/shell/install_frps.sh | bash -s 0.61.1
+     curl -s https://script.sqmn.eu.org/shell/install_frps.sh | bash -s 0.61.1
      ```
      
      服务启动后，将监听以下端口:
@@ -273,7 +273,7 @@
 <a id="install_memos.sh"></a>
 12. **install_memos.sh** - 一键部署 Memos 笔记应用
      ```bash
-     curl -s https://script.739999.xyz/shell/install_memos.sh | bash
+     curl -s https://script.sqmn.eu.org/shell/install_memos.sh | bash
      ```
      
      服务启动后，将监听以下端口:
@@ -294,7 +294,7 @@
 
      - **推荐用法 (显示菜单)**:
        ```bash
-       curl -LO https://script.739999.xyz/shell/install_mihomo.sh && chmod +x install_mihomo.sh && ./install_mihomo.sh
+       curl -LO https://script.sqmn.eu.org/shell/install_mihomo.sh && chmod +x install_mihomo.sh && ./install_mihomo.sh
        ```
 
      - **功能菜单选项**:
@@ -312,7 +312,7 @@
      
      直接执行：
      ```bash
-     curl -s https://script.739999.xyz/shell/install_new_api.sh | bash
+     curl -s https://script.sqmn.eu.org/shell/install_new_api.sh | bash
      ```
      
      服务启动后，将监听以下端口:
@@ -321,7 +321,7 @@
 <a id="install_nginx_proxy_manager.sh"></a>
 15. **install_nginx_proxy_manager.sh** - 一键部署 nginx_proxy_manager
      ```bash
-     curl -s https://script.739999.xyz/shell/install_nginx_proxy_manager.sh | bash
+     curl -s https://script.sqmn.eu.org/shell/install_nginx_proxy_manager.sh | bash
      ```
      
      服务启动后，将监听以下端口:
@@ -335,7 +335,7 @@
 <a id="install_rsshub.sh"></a>
 16. **install_rsshub.sh** - 一键部署 RSSHub RSS生成器
      ```bash
-     curl -s https://script.739999.xyz/shell/install_rsshub.sh | bash
+     curl -s https://script.sqmn.eu.org/shell/install_rsshub.sh | bash
      ```
      
      服务启动后，将监听以下端口:
@@ -344,7 +344,7 @@
 <a id="install_syncthing.sh"></a>
 17. **install_syncthing.sh** - 一键部署 Syncthing 文件同步工具
      ```bash
-     curl -s https://script.739999.xyz/shell/install_syncthing.sh | bash
+     curl -s https://script.sqmn.eu.org/shell/install_syncthing.sh | bash
      ```
      
      服务启动后，将监听以下端口:
@@ -355,13 +355,13 @@
 <a id="install_tools.sh"></a>
 18. **install_tools.sh** - Debian/Ubuntu 一键安装常用工具
      ```bash
-     curl -s https://script.739999.xyz/shell/install_tools.sh | bash
+     curl -s https://script.sqmn.eu.org/shell/install_tools.sh | bash
      ```
 
 <a id="install_vaultwarden.sh"></a>
 19. **install_vaultwarden.sh** - 一键部署 Vaultwarden 密码管理器
      ```bash
-     curl -s https://script.739999.xyz/shell/install_vaultwarden.sh | bash
+     curl -s https://script.sqmn.eu.org/shell/install_vaultwarden.sh | bash
      ```
      
      服务启动后，将监听以下端口:
@@ -374,7 +374,7 @@
      
      带参数安装：
      ```bash
-     curl -s https://script.739999.xyz/shell/install_XrayR.sh | bash -s -- "api_host" "api_key" "node_id" "cert_domain" "email" "cf_token"
+     curl -s https://script.sqmn.eu.org/shell/install_XrayR.sh | bash -s -- "api_host" "api_key" "node_id" "cert_domain" "email" "cf_token"
      ```
      
      安装过程中需要提供以下信息：
@@ -403,17 +403,17 @@
 
     1. 交互式运行脚本：
     ```bash
-    curl -LO https://script.739999.xyz/shell/frp_service.sh && chmod +x frp_service.sh && ./frp_service.sh
+    curl -LO https://script.sqmn.eu.org/shell/frp_service.sh && chmod +x frp_service.sh && ./frp_service.sh
     ```
 
     2. 命令行参数运行脚本（使用命名参数）：
     ```bash
-    curl -s https://script.739999.xyz/shell/frp_service.sh | bash -s -- -n "服务名称" -l 3000 -r 3000
+    curl -s https://script.sqmn.eu.org/shell/frp_service.sh | bash -s -- -n "服务名称" -l 3000 -r 3000
     ```
 
     3. 命令行参数运行脚本（可选参数）：
     ```bash
-    curl -s https://script.739999.xyz/shell/frp_service.sh | bash -s -- -n "服务名称" -l 3000 -r 3000 -t tcp -i 127.0.0.1
+    curl -s https://script.sqmn.eu.org/shell/frp_service.sh | bash -s -- -n "服务名称" -l 3000 -r 3000 -t tcp -i 127.0.0.1
     ```
 
     **参数说明**:
@@ -442,12 +442,12 @@
 
     - **基础用法** (使用默认目录):
       ```bash
-      curl -s https://script.739999.xyz/shell/qb_move_guomang.sh | bash
+      curl -s https://script.sqmn.eu.org/shell/qb_move_guomang.sh | bash
       ```
 
     - **自定义目录用法**:
       ```bash
-      curl -s https://script.739999.xyz/shell/qb_move_guomang.sh | bash -s "/path/to/source" "/path/to/target"
+      curl -s https://script.sqmn.eu.org/shell/qb_move_guomang.sh | bash -s "/path/to/source" "/path/to/target"
       ```
 
 <a id="qb_move_movies.sh"></a>
@@ -466,12 +466,12 @@
 
     - **基础用法**:
       ```bash
-      curl -s https://script.739999.xyz/shell/qb_move_movies.sh | bash
+      curl -s https://script.sqmn.eu.org/shell/qb_move_movies.sh | bash
       ```
 
     - **自定义目录用法**:
       ```bash
-      curl -s https://script.739999.xyz/shell/qb_move_movies.sh | bash -s "/path/to/source" "/path/to/target"
+      curl -s https://script.sqmn.eu.org/shell/qb_move_movies.sh | bash -s "/path/to/source" "/path/to/target"
       ```
 
 <a id="qb_move_tv_shows.sh"></a>
@@ -490,12 +490,12 @@
 
     - **基础用法**:
       ```bash
-      curl -s https://script.739999.xyz/shell/qb_move_tv_shows.sh | bash
+      curl -s https://script.sqmn.eu.org/shell/qb_move_tv_shows.sh | bash
       ```
 
     - **自定义目录用法**:
       ```bash
-      curl -s https://script.739999.xyz/shell/qb_move_tv_shows.sh | bash -s "/path/to/source" "/path/to/target"
+      curl -s https://script.sqmn.eu.org/shell/qb_move_tv_shows.sh | bash -s "/path/to/source" "/path/to/target"
       ```
 
 ## Python 脚本

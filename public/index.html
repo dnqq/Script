@@ -1,42 +1,32 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>脚本中心</title>
-  <link href="/output.css" rel="stylesheet">
+  <link href="/styles.css" rel="stylesheet">
   <script src="/vendor/marked.min.js"></script>
   <link rel="stylesheet" href="/vendor/atom-one-dark.min.css">
   <script src="/vendor/highlight.min.js"></script>
-  <style>
-    .details-content {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.5s ease-in-out;
-    }
-    details[open] .details-content {
-      max-height: 1000px; /* Or a sufficiently large value */
-    }
-  </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+<body>
   <div class="flex h-screen">
     <!-- Sidebar -->
-    <aside class="w-72 bg-white border-r border-slate-200 flex-shrink-0">
+    <aside class="sidebar flex-shrink-0">
       <div class="p-6">
-        <h1 class="text-2xl font-bold text-slate-900">脚本中心</h1>
+        <h1 class="text-2xl font-bold text-primary">脚本中心</h1>
       </div>
       <nav id="category-nav" class="px-4 space-y-1">
-        <a href="#" class="block px-4 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100" data-category="all">总览</a>
+        <a href="#" class="nav-link px-4 py-2" data-category="all">总览</a>
         <!-- Categories will be dynamically inserted here -->
       </nav>
     </aside>
 
     <!-- Main content -->
     <div class="flex-1 flex flex-col overflow-hidden">
-      <main id="app" class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-8">
-        <!-- Dashboard will be rendered here initially -->
-        <p class="text-center text-slate-500">正在加载...</p>
+      <main id="app" class="flex-1 overflow-x-hidden overflow-y-auto p-8">
+        <!-- Content will be rendered here -->
+        <p class="text-center text-secondary">正在加载...</p>
       </main>
     </div>
   </div>
@@ -86,14 +76,14 @@
 
           if (hasSubCategories) {
             categoryElement.innerHTML = `
-              <details class="group">
-                <summary class="flex items-center justify-between px-4 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 cursor-pointer">
-                  <span class="capitalize">${category}</span>
-                  <svg class="w-4 h-4 transform transition-transform duration-200 group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+              <details>
+                <summary class="nav-link px-4 py-2 flex items-center justify-between cursor-pointer">
+                  <span class="capitalize font-medium">${category}</span>
+                  <svg class="details-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </summary>
                 <div class="pl-4 mt-1 space-y-1">
                   ${Object.keys(categoryData).filter(key => key !== '_scripts').map(subCategory => `
-                    <a href="#" class="block px-4 py-2 text-sm text-slate-600 rounded-lg hover:bg-slate-100" data-category="${category}" data-subcategory="${subCategory}">${subCategory}</a>
+                    <a href="#" class="nav-link block px-4 py-2 text-sm" data-category="${category}" data-subcategory="${subCategory}">${subCategory}</a>
                   `).join('')}
                 </div>
               </details>
@@ -101,7 +91,7 @@
           } else {
             const categoryLink = document.createElement('a');
             categoryLink.href = '#';
-            categoryLink.className = 'block px-4 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 capitalize';
+            categoryLink.className = 'nav-link block px-4 py-2 capitalize font-medium';
             categoryLink.textContent = category;
             categoryLink.dataset.category = category;
             categoryElement.appendChild(categoryLink);
@@ -114,14 +104,14 @@
 
         // 分类点击事件
         categoryNav.addEventListener('click', (e) => {
-          if (e.target.tagName === 'A') {
+          const link = e.target.closest('a');
+          if (link) {
             e.preventDefault();
-            const category = e.target.dataset.category;
-            const subcategory = e.target.dataset.subcategory;
+            const category = link.dataset.category;
+            const subcategory = link.dataset.subcategory;
             
-            // 更新激活状态
-            categoryNav.querySelectorAll('a').forEach(link => link.classList.remove('bg-blue-50', 'font-semibold', 'text-blue-600'));
-            e.target.classList.add('bg-blue-50', 'font-semibold', 'text-blue-600');
+            categoryNav.querySelectorAll('a').forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
 
             if (category === 'all') {
               renderDashboard();
@@ -130,24 +120,27 @@
             }
           }
         });
+        
+        // Set initial active link
+        categoryNav.querySelector('a[data-category="all"]').classList.add('active');
 
         function renderDashboard() {
           app.innerHTML = `
             <div class="mb-8">
-              <h2 class="text-3xl font-bold text-slate-900">总览</h2>
+              <h2 class="text-3xl font-bold text-primary">总览</h2>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-                <h3 class="text-sm font-medium text-slate-500">脚本总数</h3>
-                <p class="mt-2 text-3xl font-bold text-slate-900">${totalScripts}</p>
+            <div class="grid grid-cols-3 gap-6">
+              <div class="stat-card">
+                <h3 class="text-sm font-medium text-secondary">脚本总数</h3>
+                <p class="mt-2 text-3xl font-bold text-primary">${totalScripts}</p>
               </div>
-              <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-                <h3 class="text-sm font-medium text-slate-500">总下载量</h3>
-                <p class="mt-2 text-3xl font-bold text-slate-900">${totalDownloads.toLocaleString()}</p>
+              <div class="stat-card">
+                <h3 class="text-sm font-medium text-secondary">总下载量</h3>
+                <p class="mt-2 text-3xl font-bold text-primary">${totalDownloads.toLocaleString()}</p>
               </div>
-              <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-                <h3 class="text-sm font-medium text-slate-500">分类数量</h3>
-                <p class="mt-2 text-3xl font-bold text-slate-900">${Object.keys(manifest).length}</p>
+              <div class="stat-card">
+                <h3 class="text-sm font-medium text-secondary">分类数量</h3>
+                <p class="mt-2 text-3xl font-bold text-primary">${Object.keys(manifest).length}</p>
               </div>
             </div>
           `;
@@ -176,7 +169,7 @@
           }
 
           if (!scripts || scripts.length === 0) {
-            app.innerHTML = '<p>未找到该分类下的脚本。</p>';
+            app.innerHTML = '<p class="text-secondary">未找到该分类下的脚本。</p>';
             return;
           }
 
@@ -191,26 +184,26 @@
               const title = `${script.name} - ${cleanedDescription}`;
               
               return `
-                <details class="bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-300 group border border-slate-200 hover:border-blue-500/50">
-                  <summary class="p-6 cursor-pointer flex justify-between items-center list-none">
-                    <h3 class="text-base font-medium text-slate-800">${title}</h3>
+                <details class="details-card" data-script-name="${script.name}">
+                  <summary class="details-summary">
+                    <h3 class="text-base font-medium text-primary">${title}</h3>
                     <div class="flex items-center">
-                      <span class="text-sm text-slate-500 mr-4">下载: ${count.toLocaleString()}</span>
-                      <svg class="w-5 h-5 text-slate-500 transform transition-transform duration-300 group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                      <span class="text-sm text-secondary mr-4">下载: ${count.toLocaleString()}</span>
+                      <svg class="details-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                     </div>
                   </summary>
-                  <div class="px-6 pb-6 border-t border-slate-200 details-content"></div>
+                  <div class="details-content"></div>
                 </details>
               `;
             }).join('');
 
             app.innerHTML = `
               <div class="flex justify-between items-center mb-8">
-                <h2 class="text-3xl font-bold text-slate-900 capitalize">${title}</h2>
+                <h2 class="text-3xl font-bold text-primary capitalize">${title}</h2>
                 <div class="flex items-center space-x-2 text-sm">
-                  <span class="text-slate-600">排序:</span>
-                  <button data-sort="downloads" class="px-3 py-1 rounded-md ${currentSort === 'downloads' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-700'}">下载量</button>
-                  <button data-sort="name" class="px-3 py-1 rounded-md ${currentSort === 'name' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-700'}">名称</button>
+                  <span class="text-secondary">排序:</span>
+                  <button data-sort="downloads" class="sort-button ${currentSort === 'downloads' ? 'active' : ''}">下载量</button>
+                  <button data-sort="name" class="sort-button ${currentSort === 'name' ? 'active' : ''}">名称</button>
                 </div>
               </div>
               <div class="space-y-4">${scriptListHtml}</div>
@@ -230,22 +223,23 @@
           sortAndRender();
 
           app.addEventListener('click', (e) => {
-            if (e.target.matches('button[data-sort]')) {
-              currentSort = e.target.dataset.sort;
+            const sortButton = e.target.closest('button[data-sort]');
+            if (sortButton) {
+              currentSort = sortButton.dataset.sort;
               sortAndRender();
             }
           });
 
           app.addEventListener('toggle', event => {
             const detailsElement = event.target;
-            if (detailsElement.tagName === 'DETAILS' && detailsElement.open) {
+            if (detailsElement.tagName === 'DETAILS') {
               const detailsContent = detailsElement.querySelector('.details-content');
-              if (!detailsContent.dataset.rendered) {
-                const scriptName = detailsElement.querySelector('h3').textContent.split(' - ')[0];
+              if (detailsElement.open && !detailsContent.dataset.rendered) {
+                const scriptName = detailsElement.dataset.scriptName;
                 const script = scripts.find(s => s.name === scriptName);
                 if (script) {
                    const renderedHtml = marked.parse(script.details);
-                   detailsContent.innerHTML = `<div class="prose prose-sm max-w-none prose-slate">${renderedHtml}</div>`;
+                   detailsContent.innerHTML = `<div class="prose">${renderedHtml}</div>`;
                    detailsContent.dataset.rendered = 'true';
                    
                    detailsContent.querySelectorAll('pre code').forEach((block) => {
@@ -253,10 +247,9 @@
                    });
 
                    detailsContent.querySelectorAll('pre').forEach(pre => {
-                       pre.style.position = 'relative';
                        const copyButton = document.createElement('button');
                        copyButton.textContent = '复制';
-                       copyButton.className = 'absolute top-2 right-2 bg-slate-200 text-slate-700 px-2 py-1 rounded-md text-xs hover:bg-slate-300 transition-all';
+                       copyButton.className = 'copy-button';
                        pre.appendChild(copyButton);
                        copyButton.addEventListener('click', () => {
                            const code = pre.querySelector('code').innerText;
