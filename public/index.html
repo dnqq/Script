@@ -9,28 +9,34 @@
   <link rel="stylesheet" href="/vendor/atom-one-dark.min.css">
   <script src="/vendor/highlight.min.js"></script>
 </head>
-<body class="bg-black text-gray-300 font-sans antialiased">
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+  <div class="flex h-screen">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-gray-200 flex-shrink-0">
+      <div class="p-6">
+        <h1 class="text-2xl font-bold text-gray-900">脚本中心</h1>
+      </div>
+      <nav id="category-nav" class="px-4 space-y-2">
+        <a href="#" class="block px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100" data-category="all">总览</a>
+        <!-- Categories will be dynamically inserted here -->
+      </nav>
+    </aside>
 
-  <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
-    <header class="text-center mb-20">
-      <h1 class="text-6xl font-bold tracking-tighter text-gray-100">脚本中心</h1>
-    </header>
-
-    <main id="app" class="max-w-4xl mx-auto">
-      <p class="text-center text-gray-500">正在加载脚本列表...</p>
-    </main>
-
-    <footer class="text-center mt-20 text-gray-600 text-sm">
-      <p>&copy; 2024. All rights reserved.</p>
-    </footer>
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <main id="app" class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-8">
+        <!-- Dashboard will be rendered here initially -->
+        <p class="text-center text-gray-500">正在加载...</p>
+      </main>
+    </div>
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       const app = document.getElementById('app');
+      const categoryNav = document.getElementById('category-nav');
 
       try {
-        // 1. 获取脚本清单和下载统计
         const [manifestResponse, statsResponse] = await Promise.all([
           fetch('/script-manifest.json'),
           fetch('/api/stats')
@@ -41,65 +47,140 @@
 
         const manifest = await manifestResponse.json();
         const stats = await statsResponse.json();
-
-        app.innerHTML = ''; // 清空加载提示
-
-        if (Object.keys(manifest).length === 0) {
-          app.innerHTML = '<p class="text-center text-gray-500">没有找到任何脚本。</p>';
-          return;
+        
+        let totalScripts = 0;
+        let totalDownloads = 0;
+        for (const category in manifest) {
+          totalScripts += manifest[category].length;
+          manifest[category].forEach(script => {
+            totalDownloads += (stats[script.key] || 0);
+          });
         }
 
-        // 2. 渲染页面
+        // 渲染分类
         for (const category in manifest) {
-          const categorySection = document.createElement('section');
-          categorySection.className = 'mb-16';
+          const categoryLink = document.createElement('a');
+          categoryLink.href = '#';
+          categoryLink.className = 'block px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100';
+          categoryLink.textContent = category;
+          categoryLink.dataset.category = category;
+          categoryNav.appendChild(categoryLink);
+        }
 
-          const categoryTitle = document.createElement('h2');
-          categoryTitle.className = 'text-3xl font-semibold text-gray-200 pb-4 mb-8 capitalize border-b border-gray-800';
-          categoryTitle.textContent = category;
-          categorySection.appendChild(categoryTitle);
+        // 初始渲染仪表盘
+        renderDashboard();
 
-          const scriptList = document.createElement('div');
-          scriptList.className = 'space-y-5';
+        // 分类点击事件
+        categoryNav.addEventListener('click', (e) => {
+          if (e.target.tagName === 'A') {
+            e.preventDefault();
+            const category = e.target.dataset.category;
+            
+            // 更新激活状态
+            categoryNav.querySelectorAll('a').forEach(link => link.classList.remove('bg-gray-100', 'font-semibold'));
+            e.target.classList.add('bg-gray-100', 'font-semibold');
+
+            if (category === 'all') {
+              renderDashboard();
+            } else {
+              renderCategory(category);
+            }
+          }
+        });
+
+        function renderDashboard() {
+          app.innerHTML = `
+            <div class="mb-8">
+              <h2 class="text-3xl font-bold text-gray-900">总览</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-sm font-medium text-gray-500">脚本总数</h3>
+                <p class="mt-2 text-3xl font-bold text-gray-900">${totalScripts}</p>
+              </div>
+              <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-sm font-medium text-gray-500">总下载量</h3>
+                <p class="mt-2 text-3xl font-bold text-gray-900">${totalDownloads}</p>
+              </div>
+              <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-sm font-medium text-gray-500">分类数量</h3>
+                <p class="mt-2 text-3xl font-bold text-gray-900">${Object.keys(manifest).length}</p>
+              </div>
+            </div>
+          `;
+        }
+
+        function renderCategory(category) {
+          const scripts = manifest[category];
+          if (!scripts) {
+            app.innerHTML = '<p>未找到该分类下的脚本。</p>';
+            return;
+          }
+
+          let currentSort = 'downloads';
+
+          const renderScripts = (sortedScripts) => {
+            const scriptListHtml = sortedScripts.map(script => {
+              if (!script.details) return '';
+              const count = stats[script.key] || 0;
+              const title = `${script.name} - ${script.details.split('\n')[0]}`;
+              
+              return `
+                <details class="bg-white rounded-lg shadow overflow-hidden transition-all duration-300 group border border-gray-200 hover:border-blue-500/50">
+                  <summary class="p-6 cursor-pointer flex justify-between items-center list-none">
+                    <h3 class="text-base font-medium text-gray-800">${title}</h3>
+                    <div class="flex items-center">
+                      <span class="text-sm text-gray-500 mr-4">下载: ${count}</span>
+                      <svg class="w-5 h-5 text-gray-500 transform transition-transform duration-300 group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </div>
+                  </summary>
+                  <div class="px-6 pb-6 border-t border-gray-200 details-content"></div>
+                </details>
+              `;
+            }).join('');
+
+            app.innerHTML = `
+              <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 capitalize">${category}</h2>
+                <div class="flex items-center space-x-2 text-sm">
+                  <span class="text-gray-600">排序:</span>
+                  <button data-sort="downloads" class="px-3 py-1 rounded-md ${currentSort === 'downloads' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}">下载量</button>
+                  <button data-sort="name" class="px-3 py-1 rounded-md ${currentSort === 'name' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}">名称</button>
+                </div>
+              </div>
+              <div class="space-y-4">${scriptListHtml}</div>
+            `;
+          };
+
+          const sortAndRender = () => {
+            let sortedScripts = [...scripts];
+            if (currentSort === 'downloads') {
+              sortedScripts.sort((a, b) => (stats[b.key] || 0) - (stats[a.key] || 0));
+            } else if (currentSort === 'name') {
+              sortedScripts.sort((a, b) => a.name.localeCompare(b.name));
+            }
+            renderScripts(sortedScripts);
+          };
           
-          manifest[category].forEach(script => {
-            if (!script.details) return;
+          sortAndRender();
 
-            const detailsElement = document.createElement('details');
-            detailsElement.className = 'bg-[#1C1C1E] rounded-2xl shadow-lg overflow-hidden transition-all duration-300 group border border-gray-800 hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10';
+          app.addEventListener('click', (e) => {
+            if (e.target.matches('button[data-sort]')) {
+              currentSort = e.target.dataset.sort;
+              sortAndRender();
+            }
+          });
 
-            const summaryElement = document.createElement('summary');
-            summaryElement.className = 'p-6 cursor-pointer flex justify-between items-center list-none';
-            
-            const scriptName = document.createElement('h3');
-            scriptName.textContent = script.name;
-            scriptName.className = 'text-lg font-medium text-gray-100';
-
-            const count = stats[script.key] || 0;
-            const countSpan = document.createElement('span');
-            countSpan.className = 'text-sm text-gray-500 mr-4';
-            countSpan.textContent = `下载: ${count}`;
-            
-            const summaryContent = document.createElement('div');
-            summaryContent.className = 'flex items-center';
-            summaryContent.appendChild(scriptName);
-            
-            const summaryRight = document.createElement('div');
-            summaryRight.className = 'flex items-center';
-            summaryRight.appendChild(countSpan);
-            // Add an arrow icon for open/close state
-            summaryRight.innerHTML += `<svg class="w-6 h-6 text-gray-600 transform transition-transform duration-300 group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`;
-
-            summaryElement.appendChild(summaryContent);
-            summaryElement.appendChild(summaryRight);
-
-            const detailsContent = document.createElement('div');
-            detailsContent.className = 'px-6 pb-6 border-t border-gray-800';
-            
-            detailsElement.addEventListener('toggle', event => {
-               if (event.target.open && !detailsContent.dataset.rendered) {
+          app.addEventListener('toggle', event => {
+            const detailsElement = event.target;
+            if (detailsElement.tagName === 'DETAILS' && detailsElement.open) {
+              const detailsContent = detailsElement.querySelector('.details-content');
+              if (!detailsContent.dataset.rendered) {
+                const scriptName = detailsElement.querySelector('h3').textContent.split(' - ')[0];
+                const script = scripts.find(s => s.name === scriptName);
+                if (script) {
                    const renderedHtml = marked.parse(script.details);
-                   detailsContent.innerHTML = `<div class="prose prose-sm max-w-none prose-invert prose-p:text-gray-400 prose-headings:text-gray-200 prose-a:text-blue-400 hover:prose-a:text-blue-300">${renderedHtml}</div>`;
+                   detailsContent.innerHTML = `<div class="prose prose-sm max-w-none prose-p:text-gray-500 prose-headings:text-gray-800 prose-a:text-blue-600 hover:prose-a:text-blue-500">${renderedHtml}</div>`;
                    detailsContent.dataset.rendered = 'true';
                    
                    detailsContent.querySelectorAll('pre code').forEach((block) => {
@@ -110,7 +191,7 @@
                        pre.style.position = 'relative';
                        const copyButton = document.createElement('button');
                        copyButton.textContent = '复制';
-                       copyButton.className = 'absolute top-3 right-3 bg-white/10 text-gray-300 px-2 py-1 rounded-md text-xs backdrop-blur-sm hover:bg-white/20 transition-all';
+                       copyButton.className = 'absolute top-2 right-2 bg-gray-200 text-gray-700 px-2 py-1 rounded-md text-xs hover:bg-gray-300 transition-all';
                        pre.appendChild(copyButton);
                        copyButton.addEventListener('click', () => {
                            const code = pre.querySelector('code').innerText;
@@ -120,17 +201,12 @@
                            });
                        });
                    });
-               }
-            });
-
-            detailsElement.appendChild(summaryElement);
-            detailsElement.appendChild(detailsContent);
-            scriptList.appendChild(detailsElement);
-          });
-
-          categorySection.appendChild(scriptList);
-          app.appendChild(categorySection);
+                }
+              }
+            }
+          }, true);
         }
+
       } catch (error) {
         console.error('加载脚本失败:', error);
         app.innerHTML = `<p class="text-center text-red-500">加载脚本失败: ${error.message}</p>`;

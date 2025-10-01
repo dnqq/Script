@@ -39,42 +39,62 @@ function extractDetailsFromReadme(scriptName) {
 
 console.log('Starting script manifest generation...');
 
-// 1. Get categories from the actual subdirectories in the 'scripts' folder.
-const categories = fs.readdirSync(scriptsDir).filter(item => {
-  const itemPath = path.join(scriptsDir, item);
-  return fs.statSync(itemPath).isDirectory();
-});
+// 1. Extract the content within the main <details> block from README.
+const detailsRegex = /<details open>([\s\S]*?)<\/details>/;
+const detailsMatch = readmeContent.match(detailsRegex);
 
-// 2. Iterate through each category directory.
-categories.forEach(category => {
-  const categoryDir = path.join(scriptsDir, category);
-  const scriptFiles = fs.readdirSync(categoryDir);
+if (!detailsMatch) {
+  console.error('Could not find the <details> block in README.md');
+  process.exit(1);
+}
 
-  // 3. For each script file, check if it's documented in the README.
-  scriptFiles.forEach(scriptName => {
+const detailsContent = detailsMatch[1];
+
+// 2. Split the content by category headers (<h3>).
+const categoryBlocks = detailsContent.split('<h3').slice(1);
+
+categoryBlocks.forEach(block => {
+  // 3. Extract category name.
+  const categoryNameRegex = /id=".*?-脚本-总览">([\s\S]*?)<\/h3>/;
+  const categoryNameMatch = block.match(categoryNameRegex);
+  if (!categoryNameMatch) return;
+  
+  const categoryName = categoryNameMatch[1].trim().replace('脚本', '').trim().toLowerCase();
+  if (!categoryName) return;
+
+  manifest[categoryName] = [];
+
+  // 4. Extract script list items (<li> or `<a>`).
+  const scriptRegex = /- \[`(.*?)`\]\(#.*\) - (.*)/g;
+  let scriptMatch;
+  while ((scriptMatch = scriptRegex.exec(block)) !== null) {
+    const scriptName = scriptMatch[1];
+    const description = scriptMatch[2];
+    
     const detailsMarkdown = extractDetailsFromReadme(scriptName);
 
-    // 4. Only include scripts that have details in the README.
     if (detailsMarkdown) {
-      if (!manifest[category]) {
-        manifest[category] = [];
-      }
-
-      const scriptKey = `${category}/${scriptName}`;
+      const scriptKey = `${categoryName}/${scriptName}`;
       
-      manifest[category].push({
+      manifest[categoryName].push({
         name: scriptName,
         key: scriptKey,
         details: detailsMarkdown,
       });
 
-      // Copy the script file to the public directory for static access.
-      const publicScriptPath = path.join(publicDir, category, scriptName);
-      fs.mkdirSync(path.dirname(publicScriptPath), { recursive: true });
-      fs.copyFileSync(path.join(categoryDir, scriptName), publicScriptPath);
-      console.log(`Copied ${scriptKey} to public directory.`);
+      // Copy the script file to the public directory.
+      const sourceScriptPath = path.join(scriptsDir, categoryName, scriptName);
+      const publicScriptPath = path.join(publicDir, categoryName, scriptName);
+      
+      if (fs.existsSync(sourceScriptPath)) {
+        fs.mkdirSync(path.dirname(publicScriptPath), { recursive: true });
+        fs.copyFileSync(sourceScriptPath, publicScriptPath);
+        console.log(`Copied ${scriptKey} to public directory.`);
+      } else {
+        console.warn(`Warning: Script file not found for ${scriptKey}`);
+      }
     }
-  });
+  }
 });
 
 fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
