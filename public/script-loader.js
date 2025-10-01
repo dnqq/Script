@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const scriptListContainer = document.getElementById('script-list');
 
-  fetch('/api/scripts')
+  fetch('/manifest.json')
     .then(response => response.json())
     .then(scripts => {
       if (scripts.length === 0) {

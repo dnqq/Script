@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "build:css": "node node_modules/tailwindcss/src/cli.js -i ./public/styles.css -o ./public/output.css",
-    "build": "npm run build:css",
+    "build:manifest": "node scripts/build.js",
+    "build": "npm run build:css && npm run build:manifest",
     "deploy": "wrangler deploy",
     "dev:css": "node node_modules/tailwindcss/src/cli.js -i ./public/styles.css -o ./public/output.css --watch"
   },
@@ -16,6 +17,7 @@
     "wrangler": "^4.0.0"
   },
   "dependencies": {
-    "@cloudflare/kv-asset-handler": "^0.4.0"
+    "@cloudflare/kv-asset-handler": "^0.4.0",
+    "node-fetch": "^2.7.0"
   }
 }

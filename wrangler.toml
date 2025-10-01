@@ -1,10 +1,10 @@
 name = "script-library"
 main = "src/index.js"
 compatibility_date = "2025-09-30"
+pages_build_output_dir = "public"
 
-[site]
-bucket = "./public"
-
+[build]
+command = "npm run build"
 
 [[kv_namespaces]]
 binding = "KV"
