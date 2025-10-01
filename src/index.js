@@ -1,5 +1,8 @@
 export default {
   async fetch(request, env, ctx) {
+    // Log all available bindings at the start of a request for debugging.
+    console.log(`Available bindings: ${Object.keys(env).join(', ')}`);
+
     const url = new URL(request.url);
 
     // API route to get all download stats
