@@ -684,7 +684,7 @@ main::before {
 
 .search-input {
   width: 100%;
-  padding: 0.625rem 2.5rem 0.625rem 2.5rem;
+  padding: 0.625rem 2.25rem 0.625rem 2.25rem;
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-md);
   background-color: var(--bg-secondary);
