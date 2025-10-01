@@ -1,18 +1,86 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Script-Workers</title>
+  <title>脚本库</title>
   <link href="/output.css" rel="stylesheet">
 </head>
-<body class="bg-gray-900 text-gray-100">
+<body class="bg-gray-100 text-gray-800">
+
   <div class="container mx-auto px-4 py-8">
-    <h1 class="text-4xl font-bold text-center mb-8">脚本列表</h1>
-    <div id="script-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <!-- 脚本列表将通过JS动态插入到这里 -->
-    </div>
+    <header class="text-center mb-12">
+      <h1 class="text-4xl font-bold text-gray-900">我的脚本库</h1>
+      <p class="text-gray-600 mt-2">一个由 Cloudflare Workers + R2 驱动的脚本展示平台</p>
+    </header>
+
+    <main id="app">
+      <p class="text-center text-gray-500">正在加载脚本列表...</p>
+    </main>
+
+    <footer class="text-center mt-12 text-gray-500">
+      <p>&copy; 2024. All rights reserved.</p>
+    </footer>
   </div>
-  <script src="/script-loader.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const app = document.getElementById('app');
+
+      fetch('/api/scripts')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(categories => {
+          app.innerHTML = ''; // Clear loading message
+          if (Object.keys(categories).length === 0) {
+            app.innerHTML = '<p class="text-center text-gray-500">未能找到任何脚本。请上传脚本到您的 R2 存储桶中。</p>';
+            return;
+          }
+
+          for (const category in categories) {
+            const categorySection = document.createElement('section');
+            categorySection.className = 'mb-8';
+
+            const categoryTitle = document.createElement('h2');
+            categoryTitle.className = 'text-2xl font-bold border-b-2 border-blue-500 pb-2 mb-4';
+            categoryTitle.textContent = category;
+            categorySection.appendChild(categoryTitle);
+
+            const scriptList = document.createElement('ul');
+            scriptList.className = 'space-y-3';
+            
+            categories[category].forEach(script => {
+              const listItem = document.createElement('li');
+              listItem.className = 'bg-white p-4 rounded-lg shadow flex justify-between items-center';
+
+              const link = document.createElement('a');
+              link.href = `/download/${script.key}`;
+              link.textContent = script.name;
+              link.className = 'text-blue-600 hover:underline';
+              
+              const countSpan = document.createElement('span');
+              countSpan.className = 'text-sm text-gray-500';
+              countSpan.textContent = `下载: ${script.count}`;
+
+              listItem.appendChild(link);
+              listItem.appendChild(countSpan);
+              scriptList.appendChild(listItem);
+            });
+
+            categorySection.appendChild(scriptList);
+            app.appendChild(categorySection);
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching scripts:', error);
+          app.innerHTML = '<p class="text-center text-red-500">加载脚本列表失败，请检查控制台获取更多信息。</p>';
+        });
+    });
+  </script>
+
 </body>
 </html>

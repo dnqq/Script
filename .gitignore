@@ -14,3 +14,5 @@ node_modules
 # IDE & 系统文件
 .vscode
 .DS_Store
+# Build artifacts
+public/output.css
