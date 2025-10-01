@@ -37,16 +37,19 @@
       const categoryNav = document.getElementById('category-nav');
 
       try {
-        const [manifestResponse, statsResponse] = await Promise.all([
+        const [manifestResponse, statsResponse, todayStatsResponse] = await Promise.all([
           fetch('/script-manifest.json'),
-          fetch('/api/stats')
+          fetch('/api/stats'),
+          fetch('/api/stats/today')
         ]);
 
         if (!manifestResponse.ok) throw new Error('无法加载脚本清单');
         if (!statsResponse.ok) throw new Error('无法加载下载统计');
+        if (!todayStatsResponse.ok) throw new Error('无法加载今日下载统计');
 
         const manifest = await manifestResponse.json();
         const stats = await statsResponse.json();
+        const todayStats = await todayStatsResponse.json();
         
         let totalScripts = 0;
         let totalDownloads = 0;
@@ -138,8 +141,8 @@
                 <p class="mt-2 text-3xl font-bold text-primary">${totalDownloads.toLocaleString()}</p>
               </div>
               <div class="stat-card">
-                <h3 class="text-sm font-medium text-secondary">分类数量</h3>
-                <p class="mt-2 text-3xl font-bold text-primary">${Object.keys(manifest).length}</p>
+                <h3 class="text-sm font-medium text-secondary">今日下载</h3>
+                <p class="mt-2 text-3xl font-bold text-primary">${todayStats.today_downloads.toLocaleString()}</p>
               </div>
             </div>
           `;

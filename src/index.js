@@ -10,6 +10,11 @@ export default {
       return handleStats(env);
     }
 
+    // 新增：用于获取今日下载统计的 API 路由
+    if (url.pathname === '/api/stats/today') {
+      return handleTodayStats(env);
+    }
+
     // 定义需要计数的脚本目录
     const scriptDirs = ['/shell/', '/python/', '/PowerShell/', '/bat/', '/tampermonkey/'];
     const isScriptRequest = scriptDirs.some((dir) => url.pathname.startsWith(dir));
@@ -85,6 +90,36 @@ async function handleStats(env) {
   } catch (e) {
     console.error('D1 Error:', e);
     return new Response(JSON.stringify({ error: 'Could not retrieve stats from D1.', message: e.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+async function handleTodayStats(env) {
+  if (!env.DB) {
+    return new Response(JSON.stringify({ error: "D1 database 'DB' is not bound." }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const stmt = env.DB.prepare('SELECT COUNT(*) as count FROM daily_downloads WHERE download_date = ?1').bind(today);
+    const result = await stmt.first();
+    
+    const count = result ? result.count : 0;
+
+    return new Response(JSON.stringify({ today_downloads: count }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache',
+      },
+    });
+  } catch (e) {
+    console.error('D1 Error fetching today stats:', e);
+    return new Response(JSON.stringify({ error: 'Could not retrieve today stats from D1.', message: e.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
