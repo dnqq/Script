@@ -73,7 +73,7 @@ categoryBlocks.forEach(block => {
   lines.forEach(line => {
     line = line.trim();
     const subCategoryMatch = line.match(/^- \*\*(.*)\*\*$/);
-    const scriptMatch = line.match(/^- \[`(.*?)`\]\(#.*\) - (.*)/);
+    const scriptMatch = line.match(/^- \[`(.*?)`\]\(#(.*?)\) - (.*)/);
 
     if (subCategoryMatch) {
       currentSubCategory = subCategoryMatch[1];
@@ -82,8 +82,9 @@ categoryBlocks.forEach(block => {
       }
     } else if (scriptMatch) {
       const scriptName = scriptMatch[1];
-      const description = scriptMatch[2];
-      const detailsMarkdown = extractDetailsFromReadme(scriptName);
+      const anchorId = scriptMatch[2]; // Extract the actual anchor ID from the link
+      const description = scriptMatch[3];
+      const detailsMarkdown = extractDetailsFromReadme(anchorId); // Use the anchor ID instead of filename
 
       if (detailsMarkdown) {
         const scriptData = {
