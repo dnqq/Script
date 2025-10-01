@@ -25,12 +25,20 @@ jobs:
         run: npm run build
 
       - name: Sync DYNAMIC script files to R2
-        # Note: The 'public' directory is deployed automatically by the [site] config.
-        # We only need to sync the 'scripts' directory to our R2 bucket for dynamic downloads.
-        run: npx wrangler r2 bucket upload scripts --name ${{ secrets.R2_BUCKET_NAME }}
+        # The `wrangler r2 object put` command uploads files one by one.
+        # We use a shell script to find all files in the 'scripts' directory
+        # and upload them individually to the correct path in the R2 bucket.
+        run: |
+          cd scripts
+          find . -type f | while read -r file; do
+            # Correct syntax: wrangler r2 object put <BUCKET_NAME>/<OBJECT_KEY> --file <FILE>
+            # We use $R2_BUCKET_NAME which is populated from the env block below.
+            npx wrangler r2 object put "$R2_BUCKET_NAME/${file#./}" --file="$file"
+          done
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
 
       - name: Deploy Worker and Static Assets
         run: npx wrangler deploy
