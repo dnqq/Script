@@ -1,4 +1,4 @@
-name = "my-script-hub-app"
+name = "script-hub"
 main = "src/index.js"
 compatibility_date = "2024-03-20"
 compatibility_flags = ["service_binding_extra_handlers"]
