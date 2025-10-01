@@ -14,7 +14,7 @@
     <!-- Sidebar -->
     <aside class="sidebar flex-shrink-0">
       <div class="p-6">
-        <h1 class="text-2xl font-bold text-primary">脚本中心</h1>
+        <h1 class="text-2xl font-bold" style="color: var(--primary-color);">脚本中心</h1>
       </div>
       <nav id="category-nav" class="px-4 space-y-1">
         <a href="#" class="nav-link px-4 py-2" data-category="all">总览</a>
@@ -121,7 +121,6 @@
           }
         });
         
-        // Set initial active link
         categoryNav.querySelector('a[data-category="all"]').classList.add('active');
 
         function renderDashboard() {
@@ -200,8 +199,8 @@
             app.innerHTML = `
               <div class="flex justify-between items-center mb-8">
                 <h2 class="text-3xl font-bold text-primary capitalize">${title}</h2>
-                <div class="flex items-center space-x-2 text-sm">
-                  <span class="text-secondary">排序:</span>
+                <div class="flex items-center" style="gap: 0.5rem;">
+                  <span class="text-secondary text-sm">排序:</span>
                   <button data-sort="downloads" class="sort-button ${currentSort === 'downloads' ? 'active' : ''}">下载量</button>
                   <button data-sort="name" class="sort-button ${currentSort === 'name' ? 'active' : ''}">名称</button>
                 </div>
@@ -267,7 +266,7 @@
 
       } catch (error) {
         console.error('加载脚本失败:', error);
-        app.innerHTML = `<p class="text-center text-red-500">加载脚本失败: ${error.message}</p>`;
+        app.innerHTML = `<p class="text-center" style="color: red;">加载脚本失败: ${error.message}</p>`;
       }
     });
   </script>
