@@ -97,32 +97,31 @@ async function incrementCount(env, key, ip) {
     return;
   }
 
-  // 步骤 1: 更新总计数。这是关键操作。
-  try {
-    await env.DB.prepare(
-      `INSERT INTO script_counts (script_name, download_count) VALUES (?1, 1)
-       ON CONFLICT(script_name) DO UPDATE SET download_count = download_count + 1`
-    ).bind(key).run();
-  } catch (e) {
-    console.error(`Failed to update script_counts for ${key}:`, e);
-    // 如果这个关键步骤失败，我们不应该继续。
+  if (!ip) {
+    // 如果没有 IP 地址，我们无法执行唯一性检查，因此不执行任何操作。
+    console.error('Could not get IP address. Cannot log unique download.');
     return;
   }
 
-  // 步骤 2: 记录唯一的每日下载。这是次要操作。
-  if (!ip) {
-    console.error('Could not get IP address. Cannot log daily download.');
-    return;
-  }
   try {
     const today = new Date().toISOString().slice(0, 10);
-    // 使用 INSERT OR IGNORE 来避免单独的 SELECT 检查。
-    // 这需要 daily_downloads 表在 (script_name, ip_address, download_date) 上有 UNIQUE 约束。
-    await env.DB.prepare(
+
+    // 步骤 1: 尝试记录唯一的每日下载。
+    // 这利用了 daily_downloads 表上 (script_name, ip_address, download_date) 的 UNIQUE 约束。
+    const { meta } = await env.DB.prepare(
       'INSERT OR IGNORE INTO daily_downloads (script_name, ip_address, download_date) VALUES (?1, ?2, ?3)'
     ).bind(key, ip, today).run();
+
+    // 步骤 2: 如果这是一个新的唯一每日下载（即插入成功），则更新总计数。
+    if (meta.changes > 0) {
+      // 这是一个新的唯一IP/天组合，所以我们增加总计数。
+      await env.DB.prepare(
+        `INSERT INTO script_counts (script_name, download_count) VALUES (?1, 1)
+         ON CONFLICT(script_name) DO UPDATE SET download_count = download_count + 1`
+      ).bind(key).run();
+    }
+    // 如果 meta.changes === 0，则表示该IP今天已经下载过此脚本，我们不增加总计数。
   } catch (e) {
-    // 记录此错误，但由于主计数已更新，因此这不是一个严重故障。
-    console.error(`Failed to log daily download for ${key}:`, e);
+    console.error(`Failed to process download count for ${key}:`, e);
   }
 }
