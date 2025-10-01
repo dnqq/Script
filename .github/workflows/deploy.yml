@@ -1,14 +1,14 @@
-name: Deploy to Cloudflare
+name: Deploy to Cloudflare Pages
 
 on:
   push:
     branches:
-      - main # Or your default branch
+      - main # 或者你的主分支名，比如 master
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    name: Deploy
+    name: Build and Deploy
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -16,16 +16,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '18' # 或者你希望使用的 Node.js 版本
 
       - name: Install dependencies
         run: npm install
 
-      - name: Build Project
-        run: npm run build
-
-      - name: Deploy Worker and Static Assets
-        run: npx wrangler deploy
+      - name: Build & Deploy
+        run: npm run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

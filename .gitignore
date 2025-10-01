@@ -23,3 +23,6 @@ public/shell
 public/python
 public/powershell
 public/tampermonkey
+
+# Generated files
+public/output.css
