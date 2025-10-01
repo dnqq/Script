@@ -16,3 +16,10 @@ node_modules
 .DS_Store
 # Build artifacts
 public/output.css
+public/script-manifest.json
+
+# Generated script folders
+public/shell
+public/python
+public/powershell
+public/tampermonkey

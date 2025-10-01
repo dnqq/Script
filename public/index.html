@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>脚本中心</title>
   <link href="/output.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans">
 
@@ -57,37 +60,77 @@
           categoryTitle.textContent = category;
           categorySection.appendChild(categoryTitle);
 
-          const scriptList = document.createElement('ul');
-          scriptList.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
+          const scriptList = document.createElement('div'); // Changed from ul
+          scriptList.className = 'space-y-4'; // Use space-y for vertical spacing
           
           manifest[category].forEach(script => {
-            const count = stats[script.key] || 0;
-            const listItem = document.createElement('li');
-            listItem.className = 'bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col justify-between';
+            if (!script.details) return; // Skip scripts without details from README
 
+            const detailsElement = document.createElement('details');
+            detailsElement.className = 'bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 group';
+
+            const summaryElement = document.createElement('summary');
+            summaryElement.className = 'p-5 cursor-pointer flex justify-between items-center list-none group-hover:bg-gray-50';
+            
             const scriptName = document.createElement('h3');
             scriptName.textContent = script.name;
-            scriptName.className = 'text-lg font-medium text-gray-900 mb-2';
+            scriptName.className = 'text-lg font-medium text-gray-900';
 
-            const infoDiv = document.createElement('div');
-            infoDiv.className = 'flex justify-between items-center mt-4';
-            
+            const count = stats[script.key] || 0;
             const countSpan = document.createElement('span');
-            countSpan.className = 'text-sm text-gray-500';
+            countSpan.className = 'text-sm text-gray-500 mr-4';
             countSpan.textContent = `下载: ${count}`;
-
-            const link = document.createElement('a');
-            link.href = `/download/${script.key}`;
-            link.textContent = '下载';
-            link.className = 'bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors';
-            link.setAttribute('download', script.name); // 提示浏览器下载
-
-            infoDiv.appendChild(countSpan);
-            infoDiv.appendChild(link);
             
-            listItem.appendChild(scriptName);
-            listItem.appendChild(infoDiv);
-            scriptList.appendChild(listItem);
+            const summaryContent = document.createElement('div');
+            summaryContent.className = 'flex items-center';
+            summaryContent.appendChild(scriptName);
+            
+            const summaryRight = document.createElement('div');
+            summaryRight.className = 'flex items-center';
+            summaryRight.appendChild(countSpan);
+            // Add an arrow icon for open/close state
+            summaryRight.innerHTML += `<svg class="w-5 h-5 text-gray-500 transform transition-transform duration-300 group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`;
+
+            summaryElement.appendChild(summaryContent);
+            summaryElement.appendChild(summaryRight);
+
+            const detailsContent = document.createElement('div');
+            detailsContent.className = 'p-5 border-t border-gray-200';
+            
+            // Render markdown content only on first toggle
+            detailsElement.addEventListener('toggle', event => {
+               if (event.target.open && !detailsContent.dataset.rendered) {
+                   const renderedHtml = marked.parse(script.details);
+                   // Add prose class for typography styling from Tailwind
+                   detailsContent.innerHTML = `<div class="prose prose-sm max-w-none">${renderedHtml}</div>`;
+                   detailsContent.dataset.rendered = 'true';
+                   
+                   // Apply syntax highlighting to the new content
+                   detailsContent.querySelectorAll('pre code').forEach((block) => {
+                       hljs.highlightElement(block);
+                   });
+
+                   // Add copy buttons to code blocks
+                   detailsContent.querySelectorAll('pre').forEach(pre => {
+                       pre.style.position = 'relative';
+                       const copyButton = document.createElement('button');
+                       copyButton.textContent = '复制';
+                       copyButton.className = 'absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs hover:bg-gray-800 transition-colors';
+                       pre.appendChild(copyButton);
+                       copyButton.addEventListener('click', () => {
+                           const code = pre.querySelector('code').innerText;
+                           navigator.clipboard.writeText(code).then(() => {
+                               copyButton.textContent = '已复制!';
+                               setTimeout(() => { copyButton.textContent = '复制'; }, 2000);
+                           });
+                       });
+                   });
+               }
+            });
+
+            detailsElement.appendChild(summaryElement);
+            detailsElement.appendChild(detailsContent);
+            scriptList.appendChild(detailsElement);
           });
 
           categorySection.appendChild(scriptList);
