@@ -1,22 +1,25 @@
 /* 全局 CSS 变量定义 */
 :root,
 :root.light {
-  --bg-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --bg-secondary: #f8f9ff;
-  --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --text-primary: #2d3748;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f7f8fa;
+  --bg-gradient: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+  --text-primary: #1a202c;
   --text-secondary: #4a5568;
   --text-tertiary: #a0aec0;
   --border-color: #e2e8f0;
-  --card-bg: rgba(255, 255, 255, 0.95);
-  --shadow-lg: 0 10px 25px -5px rgba(102, 126, 234, 0.15), 0 8px 10px -6px rgba(102, 126, 234, 0.1);
-  --shadow-xl: 0 20px 40px -10px rgba(102, 126, 234, 0.25), 0 15px 15px -10px rgba(102, 126, 234, 0.15);
-  --primary-color: #667eea;
-  --primary-color-hover: #5a67d8;
-  --accent-color: #f093fb;
-  --border-radius-sm: 8px;
-  --border-radius-md: 12px;
-  --border-radius-lg: 16px;
+  --card-bg: #ffffff;
+  --card-hover-bg: #fafbfc;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 10px 30px rgba(0, 0, 0, 0.12), 0 4px 10px rgba(0, 0, 0, 0.06);
+  --primary-color: #5b67f5;
+  --primary-color-hover: #4854e8;
+  --primary-light: #eef0ff;
+  --accent-color: #8b5cf6;
+  --border-radius-sm: 6px;
+  --border-radius-md: 10px;
+  --border-radius-lg: 14px;
 }
 
 :root.dark {
@@ -85,9 +88,8 @@ body {
 .sidebar {
   width: 18rem;
   background-color: var(--card-bg);
-  border-right: none;
-  backdrop-filter: blur(10px);
-  box-shadow: 4px 0 20px rgba(102, 126, 234, 0.1);
+  border-right: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
 }
 .nav-link {
   display: block;
@@ -96,27 +98,28 @@ body {
   transition: background-color 0.2s, color 0.2s;
 }
 .nav-link:hover {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
+  background-color: var(--primary-light);
+  color: var(--primary-color);
 }
 .nav-link.active {
   background-color: var(--primary-color);
   color: white;
   font-weight: 600;
+  box-shadow: var(--shadow-sm);
 }
 .details-card {
   background-color: var(--card-bg);
   border-radius: var(--border-radius-lg);
-  border: none;
+  border: 1px solid var(--border-color);
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-sm);
 }
 .details-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
-  border-left: 4px solid var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-color);
+  background-color: var(--card-hover-bg);
 }
 .details-summary {
   padding: 1.5rem;
@@ -143,40 +146,52 @@ details[open] .details-content { max-height: 1000px; }
 }
 details[open] .details-icon { transform: rotate(90deg); }
 .stat-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.85) 100%);
+  background-color: var(--card-bg);
   padding: 2rem;
   border-radius: var(--border-radius-lg);
-  border: none;
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary-color) 0%, var(--accent-color) 100%);
 }
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-color);
 }
 .sort-button {
   padding: 0.5rem 1rem;
-  border: none;
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius-md);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   font-weight: 500;
+  font-size: 0.875rem;
 }
 .sort-button.active {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-hover) 100%);
+  background-color: var(--primary-color);
   color: white;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
 }
 .sort-button:not(.active) {
-  background-color: rgba(255, 255, 255, 0.7);
+  background-color: var(--card-bg);
   color: var(--text-secondary);
-  backdrop-filter: blur(10px);
 }
 .sort-button:not(.active):hover {
-  background-color: rgba(255, 255, 255, 0.9);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: var(--primary-light);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 .copy-button {
   position: absolute;
@@ -246,15 +261,10 @@ main::before {
   right: 0;
   bottom: 0;
   background:
-    radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(240, 147, 251, 0.1) 0%, transparent 50%);
+    radial-gradient(circle at 20% 20%, rgba(91, 103, 245, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.03) 0%, transparent 50%);
   pointer-events: none;
   z-index: -1;
-}
-
-/* 标题增强 */
-h1, h2, h3 {
-  text-shadow: 0 2px 4px rgba(102, 126, 234, 0.1);
 }
 
 /* 文本颜色类 */
@@ -283,12 +293,12 @@ h1, h2, h3 {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  background-color: var(--bg-secondary);
   border-radius: var(--border-radius-md);
   color: var(--text-secondary);
   font-size: 0.875rem;
   font-weight: 500;
-  border: 1px solid rgba(102, 126, 234, 0.15);
+  border: 1px solid var(--border-color);
 }
 
 /* 下载按钮增强 */
@@ -297,21 +307,21 @@ h1, h2, h3 {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-hover) 100%);
+  background-color: var(--primary-color);
   color: white;
   border-radius: var(--border-radius-md);
   font-size: 0.875rem;
   font-weight: 600;
   text-decoration: none;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: var(--shadow-sm);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
 }
 
 .download-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-  background: linear-gradient(135deg, var(--primary-color-hover) 0%, #4c51bf 100%);
+  box-shadow: var(--shadow-lg);
+  background-color: var(--primary-color-hover);
 }
 
 /* 导航链接增强 */
