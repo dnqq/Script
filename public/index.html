@@ -82,7 +82,7 @@
 
           if (hasSubCategories) {
             categoryElement.innerHTML = `
-              <details>
+              <details open>
                 <summary class="nav-link px-4 py-2 flex items-center justify-between cursor-pointer">
                   <span class="capitalize font-medium">${category}</span>
                   <svg class="details-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
@@ -234,7 +234,7 @@
                     const cleanedDescription = rawDescription.replace(/^\d+\.\s+\*\*(.*?)\*\*\s+-\s+/, '');
                     const title = cleanedDescription || script.name;
                     return `
-                      <div class="top-script-item">
+                      <a href="#" class="top-script-item" data-category="${script.category}" data-subcategory="${script.subcategory || ''}">
                         <div class="rank-badge rank-${index + 1}">${index + 1}</div>
                         <div class="top-script-info">
                           <div class="top-script-name">${script.name}</div>
@@ -246,7 +246,7 @@
                           </svg>
                           <span>${script.downloads.toLocaleString()}</span>
                         </div>
-                      </div>
+                      </a>
                     `;
                   }).join('')}
                 </div>
@@ -271,6 +271,23 @@
               </div>
             </div>
           `;
+
+          // 添加热门脚本点击事件
+          app.querySelectorAll('.top-script-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+              e.preventDefault();
+              const category = item.dataset.category;
+              const subcategory = item.dataset.subcategory;
+              categoryNav.querySelectorAll('a').forEach(l => l.classList.remove('active'));
+              const categoryLink = subcategory
+                ? categoryNav.querySelector(`a[data-category="${category}"][data-subcategory="${subcategory}"]`)
+                : categoryNav.querySelector(`a[data-category="${category}"]`);
+              if (categoryLink) {
+                categoryLink.classList.add('active');
+                renderCategory(category, subcategory || null);
+              }
+            });
+          });
 
           // 添加分类卡片点击事件
           app.querySelectorAll('.category-stat-card').forEach(card => {

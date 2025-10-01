@@ -511,12 +511,15 @@ main::before {
   border-radius: var(--border-radius-md);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid transparent;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .top-script-item:hover {
   background-color: var(--card-hover-bg);
   border-color: var(--primary-color);
   transform: translateX(4px);
+  box-shadow: var(--shadow-sm);
 }
 
 .rank-badge {
