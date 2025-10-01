@@ -23,6 +23,19 @@
           <h1 class="logo-text">脚本库</h1>
         </div>
       </div>
+      <div class="px-4 mb-4">
+        <div class="search-container">
+          <input type="text" id="search-input" class="search-input" placeholder="搜索脚本...">
+          <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          <button id="clear-search" class="clear-search" style="display: none;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
       <nav id="category-nav" class="px-4 space-y-1">
         <a href="#" class="nav-link px-4 py-2" data-category="all">总览</a>
         <!-- Categories will be dynamically inserted here -->
@@ -45,6 +58,8 @@
     document.addEventListener('DOMContentLoaded', async () => {
       const app = document.getElementById('app');
       const categoryNav = document.getElementById('category-nav');
+      const searchInput = document.getElementById('search-input');
+      const clearSearchBtn = document.getElementById('clear-search');
 
       try {
         const [manifestResponse, statsResponse, todayStatsResponse] = await Promise.all([
@@ -133,8 +148,184 @@
             }
           }
         });
-        
+
         categoryNav.querySelector('a[data-category="all"]').classList.add('active');
+
+        // 搜索功能
+        let searchTimeout;
+        let allScriptsData = [];
+
+        // 收集所有脚本数据用于搜索
+        for (const category in manifest) {
+          const categoryData = manifest[category];
+          if (categoryData._scripts) {
+            categoryData._scripts.forEach(script => {
+              allScriptsData.push({
+                ...script,
+                category: category,
+                subcategory: null
+              });
+            });
+          }
+          for (const subCategory in categoryData) {
+            if (subCategory !== '_scripts') {
+              categoryData[subCategory].forEach(script => {
+                allScriptsData.push({
+                  ...script,
+                  category: category,
+                  subcategory: subCategory
+                });
+              });
+            }
+          }
+        }
+
+        // 搜索输入处理（带防抖）
+        searchInput.addEventListener('input', (e) => {
+          const query = e.target.value.trim();
+
+          if (query) {
+            clearSearchBtn.style.display = 'flex';
+          } else {
+            clearSearchBtn.style.display = 'none';
+          }
+
+          clearTimeout(searchTimeout);
+          searchTimeout = setTimeout(() => {
+            if (query) {
+              performSearch(query);
+            } else {
+              // 清空搜索，返回总览
+              categoryNav.querySelectorAll('a').forEach(l => l.classList.remove('active'));
+              categoryNav.querySelector('a[data-category="all"]').classList.add('active');
+              renderDashboard();
+            }
+          }, 300);
+        });
+
+        // 清除搜索按钮
+        clearSearchBtn.addEventListener('click', () => {
+          searchInput.value = '';
+          clearSearchBtn.style.display = 'none';
+          categoryNav.querySelectorAll('a').forEach(l => l.classList.remove('active'));
+          categoryNav.querySelector('a[data-category="all"]').classList.add('active');
+          renderDashboard();
+        });
+
+        // 执行搜索
+        function performSearch(query) {
+          const lowerQuery = query.toLowerCase();
+          const results = allScriptsData.filter(script => {
+            const nameMatch = script.name.toLowerCase().includes(lowerQuery);
+            const detailsMatch = script.details.toLowerCase().includes(lowerQuery);
+            const categoryMatch = script.category.toLowerCase().includes(lowerQuery);
+            const subcategoryMatch = script.subcategory ? script.subcategory.toLowerCase().includes(lowerQuery) : false;
+            return nameMatch || detailsMatch || categoryMatch || subcategoryMatch;
+          });
+
+          renderSearchResults(results, query);
+        }
+
+        // 渲染搜索结果
+        function renderSearchResults(results, query) {
+          // 移除所有导航激活状态
+          categoryNav.querySelectorAll('a').forEach(l => l.classList.remove('active'));
+
+          if (results.length === 0) {
+            app.innerHTML = `
+              <div class="no-results">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <h3>未找到相关脚本</h3>
+                <p>尝试使用不同的关键词搜索</p>
+              </div>
+            `;
+            return;
+          }
+
+          // 高亮匹配文本的函数
+          function highlightText(text, query) {
+            const regex = new RegExp(`(${query})`, 'gi');
+            return text.replace(regex, '<span class="search-highlight">$1</span>');
+          }
+
+          const scriptListHtml = results.map(script => {
+            const count = stats[script.key] || 0;
+            const rawDescription = script.details.split('\n')[0];
+            const cleanedDescription = rawDescription.replace(/^\d+\.\s+\*\*(.*?)\*\*\s+-\s+/, '');
+            const title = highlightText(`${script.name} - ${cleanedDescription}`, query);
+            const categoryPath = script.subcategory ? `${script.category} / ${script.subcategory}` : script.category;
+
+            return `
+              <details class="details-card" data-script-name="${script.name}" data-script-key="${script.key}">
+                <summary class="details-summary">
+                  <div>
+                    <h3 class="text-base font-medium text-primary">${title}</h3>
+                    <p class="text-sm text-secondary" style="margin-top: 0.25rem;">${highlightText(categoryPath, query)}</p>
+                  </div>
+                  <div class="flex items-center" style="gap: 1rem;">
+                    <div class="download-count">
+                      <svg style="width: 16px; height: 16px; opacity: 0.6;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                      <span>${count.toLocaleString()}</span>
+                    </div>
+                    <a href="/${script.key}?t=${new Date().getTime()}" download onclick="event.stopPropagation()" class="download-button">
+                      <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                      <span>下载</span>
+                    </a>
+                    <svg class="details-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                  </div>
+                </summary>
+                <div class="details-content"></div>
+              </details>
+            `;
+          }).join('');
+
+          app.innerHTML = `
+            <div class="flex justify-between items-center mb-8">
+              <div>
+                <h2 class="text-3xl font-bold text-primary">搜索结果</h2>
+                <p class="text-secondary text-sm" style="margin-top: 0.5rem;">找到 ${results.length} 个相关脚本</p>
+              </div>
+            </div>
+            <div class="space-y-4">${scriptListHtml}</div>
+          `;
+
+          // 添加 toggle 事件监听器
+          app.addEventListener('toggle', event => {
+            const detailsElement = event.target;
+            if (detailsElement.tagName === 'DETAILS') {
+              const detailsContent = detailsElement.querySelector('.details-content');
+              if (detailsElement.open && !detailsContent.dataset.rendered) {
+                const scriptKey = detailsElement.dataset.scriptKey;
+                const script = allScriptsData.find(s => s.key === scriptKey);
+                if (script) {
+                   const renderedHtml = marked.parse(script.details);
+                   detailsContent.innerHTML = `<div class="prose">${renderedHtml}</div>`;
+                   detailsContent.dataset.rendered = 'true';
+
+                   detailsContent.querySelectorAll('pre code').forEach((block) => {
+                       hljs.highlightElement(block);
+                   });
+
+                   detailsContent.querySelectorAll('pre').forEach(pre => {
+                       const copyButton = document.createElement('button');
+                       copyButton.textContent = '复制';
+                       copyButton.className = 'copy-button';
+                       pre.appendChild(copyButton);
+                       copyButton.addEventListener('click', () => {
+                           const code = pre.querySelector('code').innerText;
+                           navigator.clipboard.writeText(code).then(() => {
+                               copyButton.textContent = '已复制!';
+                               setTimeout(() => { copyButton.textContent = '复制'; }, 2000);
+                           });
+                       });
+                   });
+                }
+              }
+            }
+          }, true);
+        }
 
         function renderDashboard() {
           // 收集所有脚本并按下载量排序
