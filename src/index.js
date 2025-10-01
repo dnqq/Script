@@ -14,11 +14,21 @@ export default {
 
     // For all other requests, serve static assets
     // This is the recommended approach for combining Workers and Pages
-    return env.ASSETS.fetch(request);
+    if (env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
+
+    return new Response("Static asset binding 'ASSETS' not found. This may be due to a deployment issue.", { status: 500 });
   },
 };
 
 async function handleStats(env) {
+  if (!env.SCRIPT_STATS) {
+    return new Response(JSON.stringify({ error: "KV namespace 'SCRIPT_STATS' is not bound. Please check your wrangler.toml and Cloudflare dashboard." }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
   try {
     const { keys } = await env.SCRIPT_STATS.list();
     const stats = {};
@@ -60,7 +70,12 @@ async function handleDownload(request, env, ctx) {
     if (assetResponse.status === 200) {
       // File found, increment count asynchronously.
       // We don't wait for this to complete before returning the response.
-      ctx.waitUntil(incrementCount(env, scriptKey));
+      if (ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(incrementCount(env, scriptKey));
+      } else {
+        // If waitUntil is not available, log it. The download will still work.
+        console.error('ctx.waitUntil is not available. Cannot increment count asynchronously.');
+      }
 
       // Return the file to the user.
       // We create a new response to add the 'Content-Disposition' header.
@@ -82,6 +97,11 @@ async function handleDownload(request, env, ctx) {
 }
 
 async function incrementCount(env, key) {
+  if (!env.SCRIPT_STATS) {
+    // If KV is not bound, just log it and do nothing. Don't block the download.
+    console.error("KV namespace 'SCRIPT_STATS' is not bound. Cannot increment count.");
+    return;
+  }
   try {
     let count = await env.SCRIPT_STATS.get(key);
     count = count ? parseInt(count) + 1 : 1;
