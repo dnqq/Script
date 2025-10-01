@@ -51,20 +51,52 @@
         let totalScripts = 0;
         let totalDownloads = 0;
         for (const category in manifest) {
-          totalScripts += manifest[category].length;
-          manifest[category].forEach(script => {
-            totalDownloads += (stats[script.key] || 0);
-          });
+          const categoryData = manifest[category];
+          let categoryTotalScripts = 0;
+          if (categoryData._scripts) {
+            categoryTotalScripts += categoryData._scripts.length;
+          }
+          for (const subCategory in categoryData) {
+            if (subCategory !== '_scripts') {
+              categoryTotalScripts += categoryData[subCategory].length;
+              categoryData[subCategory].forEach(script => {
+                totalDownloads += (stats[script.key] || 0);
+              });
+            }
+          }
+          totalScripts += categoryTotalScripts;
         }
 
         // 渲染分类
         for (const category in manifest) {
-          const categoryLink = document.createElement('a');
-          categoryLink.href = '#';
-          categoryLink.className = 'block px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100';
-          categoryLink.textContent = category;
-          categoryLink.dataset.category = category;
-          categoryNav.appendChild(categoryLink);
+          const categoryData = manifest[category];
+          const hasSubCategories = Object.keys(categoryData).some(key => key !== '_scripts');
+
+          const categoryElement = document.createElement('div');
+
+          if (hasSubCategories) {
+            categoryElement.innerHTML = `
+              <details class="group">
+                <summary class="flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 cursor-pointer">
+                  <span class="capitalize">${category}</span>
+                  <svg class="w-4 h-4 transform transition-transform duration-200 group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </summary>
+                <div class="pl-4 mt-1 space-y-1">
+                  ${Object.keys(categoryData).filter(key => key !== '_scripts').map(subCategory => `
+                    <a href="#" class="block px-4 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100" data-category="${category}" data-subcategory="${subCategory}">${subCategory}</a>
+                  `).join('')}
+                </div>
+              </details>
+            `;
+          } else {
+            const categoryLink = document.createElement('a');
+            categoryLink.href = '#';
+            categoryLink.className = 'block px-4 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 capitalize';
+            categoryLink.textContent = category;
+            categoryLink.dataset.category = category;
+            categoryElement.appendChild(categoryLink);
+          }
+          categoryNav.appendChild(categoryElement);
         }
 
         // 初始渲染仪表盘
@@ -75,6 +107,7 @@
           if (e.target.tagName === 'A') {
             e.preventDefault();
             const category = e.target.dataset.category;
+            const subcategory = e.target.dataset.subcategory;
             
             // 更新激活状态
             categoryNav.querySelectorAll('a').forEach(link => link.classList.remove('bg-gray-100', 'font-semibold'));
@@ -83,7 +116,7 @@
             if (category === 'all') {
               renderDashboard();
             } else {
-              renderCategory(category);
+              renderCategory(category, subcategory);
             }
           }
         });
@@ -110,9 +143,30 @@
           `;
         }
 
-        function renderCategory(category) {
-          const scripts = manifest[category];
-          if (!scripts) {
+        function renderCategory(category, subcategory) {
+          let scripts;
+          let title = category;
+
+          if (subcategory) {
+            scripts = manifest[category] && manifest[category][subcategory];
+            title = `${category} - ${subcategory}`;
+          } else {
+            // Aggregate all scripts in the category if no subcategory is selected
+            const categoryData = manifest[category];
+            scripts = [];
+            if (categoryData) {
+              if (categoryData._scripts) {
+                scripts = scripts.concat(categoryData._scripts);
+              }
+              for (const sub in categoryData) {
+                if (sub !== '_scripts') {
+                  scripts = scripts.concat(categoryData[sub]);
+                }
+              }
+            }
+          }
+
+          if (!scripts || scripts.length === 0) {
             app.innerHTML = '<p>未找到该分类下的脚本。</p>';
             return;
           }
@@ -141,7 +195,7 @@
 
             app.innerHTML = `
               <div class="flex justify-between items-center mb-8">
-                <h2 class="text-3xl font-bold text-gray-900 capitalize">${category}</h2>
+                <h2 class="text-3xl font-bold text-gray-900 capitalize">${title}</h2>
                 <div class="flex items-center space-x-2 text-sm">
                   <span class="text-gray-600">排序:</span>
                   <button data-sort="downloads" class="px-3 py-1 rounded-md ${currentSort === 'downloads' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}">下载量</button>

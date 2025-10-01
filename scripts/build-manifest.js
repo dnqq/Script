@@ -62,38 +62,59 @@ categoryBlocks.forEach(block => {
   const categoryName = categoryNameMatch[1].trim().replace('脚本', '').trim().toLowerCase();
   if (!categoryName) return;
 
-  manifest[categoryName] = [];
+  manifest[categoryName] = {
+    _scripts: [] // For scripts directly under the main category
+  };
 
-  // 4. Extract script list items (<li> or `<a>`).
-  const scriptRegex = /- \[`(.*?)`\]\(#.*\) - (.*)/g;
-  let scriptMatch;
-  while ((scriptMatch = scriptRegex.exec(block)) !== null) {
-    const scriptName = scriptMatch[1];
-    const description = scriptMatch[2];
-    
-    const detailsMarkdown = extractDetailsFromReadme(scriptName);
+  // 4. Process lines to find subcategories and scripts.
+  const lines = block.split('\n');
+  let currentSubCategory = null;
 
-    if (detailsMarkdown) {
-      const scriptKey = `${categoryName}/${scriptName}`;
-      
-      manifest[categoryName].push({
-        name: scriptName,
-        key: scriptKey,
-        details: detailsMarkdown,
-      });
+  lines.forEach(line => {
+    line = line.trim();
+    const subCategoryMatch = line.match(/^- \*\*(.*)\*\*$/);
+    const scriptMatch = line.match(/^- \[`(.*?)`\]\(#.*\) - (.*)/);
 
-      // Copy the script file to the public directory.
-      const sourceScriptPath = path.join(scriptsDir, categoryName, scriptName);
-      const publicScriptPath = path.join(publicDir, categoryName, scriptName);
-      
-      if (fs.existsSync(sourceScriptPath)) {
-        fs.mkdirSync(path.dirname(publicScriptPath), { recursive: true });
-        fs.copyFileSync(sourceScriptPath, publicScriptPath);
-        console.log(`Copied ${scriptKey} to public directory.`);
-      } else {
-        console.warn(`Warning: Script file not found for ${scriptKey}`);
+    if (subCategoryMatch) {
+      currentSubCategory = subCategoryMatch[1];
+      if (!manifest[categoryName][currentSubCategory]) {
+        manifest[categoryName][currentSubCategory] = [];
+      }
+    } else if (scriptMatch) {
+      const scriptName = scriptMatch[1];
+      const description = scriptMatch[2];
+      const detailsMarkdown = extractDetailsFromReadme(scriptName);
+
+      if (detailsMarkdown) {
+        const scriptData = {
+          name: scriptName,
+          key: `${categoryName}/${scriptName}`,
+          details: detailsMarkdown,
+        };
+
+        if (currentSubCategory) {
+          manifest[categoryName][currentSubCategory].push(scriptData);
+        } else {
+          manifest[categoryName]._scripts.push(scriptData);
+        }
+        
+        // Copy the script file to the public directory.
+        const sourceScriptPath = path.join(scriptsDir, categoryName, scriptName);
+        const publicScriptPath = path.join(publicDir, categoryName, scriptName);
+        
+        if (fs.existsSync(sourceScriptPath)) {
+          fs.mkdirSync(path.dirname(publicScriptPath), { recursive: true });
+          fs.copyFileSync(sourceScriptPath, publicScriptPath);
+          console.log(`Copied ${scriptData.key} to public directory.`);
+        } else {
+          console.warn(`Warning: Script file not found for ${scriptData.key}`);
+        }
       }
     }
+  });
+  
+  if (manifest[categoryName]._scripts.length === 0) {
+    delete manifest[categoryName]._scripts;
   }
 });
 
