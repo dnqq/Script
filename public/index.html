@@ -3,82 +3,100 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>脚本库</title>
+  <title>脚本中心</title>
   <link href="/output.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gray-100 text-gray-800 font-sans">
 
   <div class="container mx-auto px-4 py-8">
     <header class="text-center mb-12">
-      <h1 class="text-4xl font-bold text-gray-900">我的脚本库</h1>
-      <p class="text-gray-600 mt-2">一个由 Cloudflare Workers + R2 驱动的脚本展示平台</p>
+      <h1 class="text-4xl font-bold text-gray-900">脚本中心</h1>
+      <p class="text-gray-600 mt-2">由 Cloudflare Workers 驱动</p>
     </header>
 
     <main id="app">
       <p class="text-center text-gray-500">正在加载脚本列表...</p>
     </main>
 
-    <footer class="text-center mt-12 text-gray-500">
+    <footer class="text-center mt-12 text-gray-500 text-sm">
       <p>&copy; 2024. All rights reserved.</p>
     </footer>
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       const app = document.getElementById('app');
 
-      fetch('/api/scripts')
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(categories => {
-          app.innerHTML = ''; // Clear loading message
-          if (Object.keys(categories).length === 0) {
-            app.innerHTML = '<p class="text-center text-gray-500">未能找到任何脚本。请上传脚本到您的 R2 存储桶中。</p>';
-            return;
-          }
+      try {
+        // 1. 获取脚本清单和下载统计
+        const [manifestResponse, statsResponse] = await Promise.all([
+          fetch('/script-manifest.json'),
+          fetch('/api/stats')
+        ]);
 
-          for (const category in categories) {
-            const categorySection = document.createElement('section');
-            categorySection.className = 'mb-8';
+        if (!manifestResponse.ok) throw new Error('无法加载脚本清单');
+        if (!statsResponse.ok) throw new Error('无法加载下载统计');
 
-            const categoryTitle = document.createElement('h2');
-            categoryTitle.className = 'text-2xl font-bold border-b-2 border-blue-500 pb-2 mb-4';
-            categoryTitle.textContent = category;
-            categorySection.appendChild(categoryTitle);
+        const manifest = await manifestResponse.json();
+        const stats = await statsResponse.json();
 
-            const scriptList = document.createElement('ul');
-            scriptList.className = 'space-y-3';
+        app.innerHTML = ''; // 清空加载提示
+
+        if (Object.keys(manifest).length === 0) {
+          app.innerHTML = '<p class="text-center text-gray-500">没有找到任何脚本。</p>';
+          return;
+        }
+
+        // 2. 渲染页面
+        for (const category in manifest) {
+          const categorySection = document.createElement('section');
+          categorySection.className = 'mb-10';
+
+          const categoryTitle = document.createElement('h2');
+          categoryTitle.className = 'text-2xl font-semibold border-b-2 border-blue-500 pb-2 mb-4 capitalize';
+          categoryTitle.textContent = category;
+          categorySection.appendChild(categoryTitle);
+
+          const scriptList = document.createElement('ul');
+          scriptList.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
+          
+          manifest[category].forEach(script => {
+            const count = stats[script.key] || 0;
+            const listItem = document.createElement('li');
+            listItem.className = 'bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col justify-between';
+
+            const scriptName = document.createElement('h3');
+            scriptName.textContent = script.name;
+            scriptName.className = 'text-lg font-medium text-gray-900 mb-2';
+
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'flex justify-between items-center mt-4';
             
-            categories[category].forEach(script => {
-              const listItem = document.createElement('li');
-              listItem.className = 'bg-white p-4 rounded-lg shadow flex justify-between items-center';
+            const countSpan = document.createElement('span');
+            countSpan.className = 'text-sm text-gray-500';
+            countSpan.textContent = `下载: ${count}`;
 
-              const link = document.createElement('a');
-              link.href = `/download/${script.key}`;
-              link.textContent = script.name;
-              link.className = 'text-blue-600 hover:underline';
-              
-              const countSpan = document.createElement('span');
-              countSpan.className = 'text-sm text-gray-500';
-              countSpan.textContent = `下载: ${script.count}`;
+            const link = document.createElement('a');
+            link.href = `/download/${script.key}`;
+            link.textContent = '下载';
+            link.className = 'bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors';
+            link.setAttribute('download', script.name); // 提示浏览器下载
 
-              listItem.appendChild(link);
-              listItem.appendChild(countSpan);
-              scriptList.appendChild(listItem);
-            });
+            infoDiv.appendChild(countSpan);
+            infoDiv.appendChild(link);
+            
+            listItem.appendChild(scriptName);
+            listItem.appendChild(infoDiv);
+            scriptList.appendChild(listItem);
+          });
 
-            categorySection.appendChild(scriptList);
-            app.appendChild(categorySection);
-          }
-        })
-        .catch(error => {
-          console.error('Error fetching scripts:', error);
-          app.innerHTML = '<p class="text-center text-red-500">加载脚本列表失败，请检查控制台获取更多信息。</p>';
-        });
+          categorySection.appendChild(scriptList);
+          app.appendChild(categorySection);
+        }
+      } catch (error) {
+        console.error('加载脚本失败:', error);
+        app.innerHTML = `<p class="text-center text-red-500">加载脚本失败: ${error.message}</p>`;
+      }
     });
   </script>
 

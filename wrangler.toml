@@ -1,29 +1,10 @@
-# The name of your Worker project.
-name = "script-library"
-
-# The entry-point for your Worker.
+name = "script-hub"
 main = "src/index.js"
-
-# The compatibility date for your Worker.
 compatibility_date = "2024-03-20"
 
-# This section binds your Worker to a static asset directory.
-# When you run `wrangler deploy`, the files in this directory will be
-# uploaded and served automatically. This is for your `index.html`, CSS, etc.
 [site]
 bucket = "./public"
 
-# ---------------------------------------------------------------------------
-# R2 Bucket binding for accessing your DYNAMIC script files for download.
-# These are NOT static assets.
-# ---------------------------------------------------------------------------
-[[r2_buckets]]
-binding = "SCRIPT_FILES" # Renamed for clarity
-bucket_name = "script-library" # Keeping the name you provided
-
-# ---------------------------------------------------------------------------
-# KV Namespace binding for storing script download counts.
-# ---------------------------------------------------------------------------
 [[kv_namespaces]]
 binding = "SCRIPT_STATS"
-id = "2f33b505e6a34491a64e12c7c21e94e5" # Keeping the ID you provided
+id = "2f33b505e6a34491a64e12c7c21e94e5" # 您需要在 Cloudflare Dashboard 创建并替换此 ID

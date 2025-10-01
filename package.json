@@ -1,11 +1,13 @@
 {
-  "name": "script-gallery",
+  "name": "script-hub",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "tailwindcss -i ./public/styles.css -o ./public/output.css",
+    "build:manifest": "node scripts/build-manifest.js",
+    "build:css": "tailwindcss -i ./public/styles.css -o ./public/output.css",
+    "build": "npm run build:manifest && npm run build:css",
     "deploy": "npm run build && wrangler deploy",
-    "start": "wrangler dev"
+    "dev": "wrangler dev"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.1",
