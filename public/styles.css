@@ -679,6 +679,7 @@ main::before {
 .search-container {
   position: relative;
   width: 100%;
+  margin-bottom: 1rem;
 }
 
 .search-input {
@@ -691,6 +692,7 @@ main::before {
   font-size: 0.875rem;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
+  box-sizing: border-box;
 }
 
 .search-input:focus {
