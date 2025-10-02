@@ -39,6 +39,7 @@ services:
     environment:
       - PUID=0  # 宿主用户ID
       - PGID=0  # 宿主组ID
+      - TZ=Asia/Shanghai
     volumes:
       - ./config:/var/syncthing/config  # 配置目录
       - /data/syncthing:/var/syncthing/data      # 同步数据目录

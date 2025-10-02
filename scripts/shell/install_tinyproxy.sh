@@ -120,6 +120,8 @@ services:
   tinyproxy:
     image: ${DOCKER_IMAGE}
     container_name: tinyproxy_service
+    environment:
+      - TZ=Asia/Shanghai
     ports:
       # 将主机的 ${HOST_PORT} 端口映射到容器的 8888 端口
       - "${HOST_PORT}:8888"

@@ -419,6 +419,8 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     network_mode: "host"
+    environment:
+      - TZ=Asia/Shanghai
     volumes:
       - ${INSTALL_DIR}/data:/root/.config/mihomo
 ${metacubexd_service_content}
@@ -432,6 +434,8 @@ services:
     container_name: mihomo
     restart: always
     network_mode: "host"
+    environment:
+      - TZ=Asia/Shanghai
     volumes:
       - ${INSTALL_DIR}/data:/root/.config/mihomo
 ${metacubexd_service_content}

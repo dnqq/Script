@@ -29,6 +29,8 @@ services:
   memos:
     image: neosmemo/memos:stable
     container_name: memos
+    environment:
+      - TZ=Asia/Shanghai
     volumes:
       - $INSTALL_DIR/data:/var/opt/memos
     ports:

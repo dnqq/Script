@@ -40,6 +40,7 @@ services:
       - '5244:5244'
     environment:
       - UMASK=022
+      - TZ=Asia/Shanghai
     restart: unless-stopped
 EOF
 

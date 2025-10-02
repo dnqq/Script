@@ -41,6 +41,8 @@ services:
     image: 'docker.io/jc21/nginx-proxy-manager:latest'
     container_name: nginx-proxy-manager
     restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
     ports:
       - '80:80'         # HTTP
       - '443:443'       # HTTPS

@@ -39,6 +39,7 @@ services:
       - 8687:80
     environment:
       ADMIN_TOKEN: "$ADMIN_TOKEN"
+      TZ: "Asia/Shanghai"
     volumes:
       - ./vw-data:/data
 EOF
