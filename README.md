@@ -27,7 +27,7 @@
   - [`iptables_reset.sh`](#iptables_reset.sh) - iptables 清除所有规则
   - [`manage_ipv6.sh`](#manage_ipv6.sh) - 一键启用或禁用 Debian/Ubuntu 系统的 IPv6
 - **应用程序安装脚本**
-  - [`install_alist.sh`](#install_alist.sh) - 一键部署 Alist 文件列表程序
+  - [`install_openlist.sh`](#install_openlist.sh) - 一键部署 Openlist 文件列表程序
   - [`install_docker.sh`](#install_docker.sh) - 一键安装 Docker
   - [`install_freshrss.sh`](#install_freshrss.sh) - 一键部署 FreshRSS 阅读器
   - [`install_frpc.sh`](#install_frpc.sh) - 一键安装 frp 客户端
@@ -208,10 +208,10 @@
   - `sysctl` 命令会立即应用配置到内核，但为确保所有服务（如 Docker）都应用新设置，**强烈建议**在执行脚本后重新启动系统。
 
 ### 应用程序安装脚本
-<a id="install_alist.sh"></a>
-7. **install_alist.sh** - 一键部署 Alist 文件列表程序
+<a id="install_openlist.sh"></a>
+7. **install_openlist.sh** - 一键部署 Openlist 文件列表程序
     ```bash
-    curl -s https://script.sqmn.eu.org/shell/install_alist.sh | bash
+    curl -s https://script.sqmn.eu.org/shell/install_openlist.sh | bash
     ```
     
     服务启动后，将监听以下端口:
