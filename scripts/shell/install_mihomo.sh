@@ -346,8 +346,9 @@ EOF
 tun:
   enable: true
   stack: system
-  dns-hijack:
-    - any:53
+  # dns-hijack is now handled by iptables/ip6tables rules
+  # dns-hijack:
+  #   - any:53
   auto-route: true
   auto-detect-interface: true
 EOF
@@ -1814,7 +1815,16 @@ configure_tun_gateway_rules() {
     iptables -P FORWARD DROP
     ip6tables -P FORWARD DROP
     echo_info "防火墙规则配置完成。"
-    # --- 5. 持久化规则 ---
+
+    # --- 5. 添加 DNS 重定向规则 ---
+    local mihomo_dns_port=${MIHOMO_DNS_PORT:-53}
+    echo_info "正在为 TUN 模式添加 DNS 重定向规则 (for IPv4 and IPv6)..."
+    iptables -t nat -A PREROUTING -i "${lan_if}" -p udp --dport 53 -j REDIRECT --to-port "${mihomo_dns_port}"
+    iptables -t nat -A PREROUTING -i "${lan_if}" -p tcp --dport 53 -j REDIRECT --to-port "${mihomo_dns_port}"
+    ip6tables -t nat -A PREROUTING -i "${lan_if}" -p udp --dport 53 -j REDIRECT --to-port "${mihomo_dns_port}"
+    ip6tables -t nat -A PREROUTING -i "${lan_if}" -p tcp --dport 53 -j REDIRECT --to-port "${mihomo_dns_port}"
+
+    # --- 6. 持久化规则 ---
     persist_iptables_rules
     echo_info "✅ TUN 透明网关配置完成！"
     echo_info "请确保你的局域网设备的网关和 DNS 指向 Armbian 的 LAN 口 IP。"
