@@ -308,9 +308,9 @@ EOF
       
       # 2. 确保 listen: 0.0.0.0:53
       if sed -n '/^\s*dns:/,/^[^[:space:]]/p' "$CONFIG_FILE" | grep -q '^\s*listen:'; then
-        sed -i -E "/^\s*dns:/,/^[^[:space:]]/s/^(\s*listen:).*/\1 0.0.0.0:${MIHOMO_DNS_PORT}/" "$CONFIG_FILE"
+        sed -i -E "/^\s*dns:/,/^[^[:space:]]/s/^(\s*listen:).*/\1 :${MIHOMO_DNS_PORT}/" "$CONFIG_FILE"
       else
-        sed -i "/^\s*dns:/a \  listen: 0.0.0.0:${MIHOMO_DNS_PORT}" "$CONFIG_FILE"
+        sed -i "/^\s*dns:/a \  listen: :${MIHOMO_DNS_PORT}" "$CONFIG_FILE"
       fi
       
       # 3. 确保 enhanced-mode: redir-host (网关模式所需)
@@ -325,7 +325,7 @@ EOF
       cat <<EOF >> "$CONFIG_FILE"
 dns:
   enable: true
-  listen: 0.0.0.0:${MIHOMO_DNS_PORT}
+  listen: :${MIHOMO_DNS_PORT}
   enhanced-mode: redir-host
   nameserver:
     - 114.114.114.114
