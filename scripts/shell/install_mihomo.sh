@@ -509,8 +509,13 @@ _infer_current_state() {
         ALLOW_LAN='n'
     fi
 
+    # 优先检查标准网关的 MIHOMO 链，因为它更明确
     if command -v iptables-save &> /dev/null && iptables-save | grep -q -- '-j MIHOMO'; then
-        echo_info "检测到活动的 iptables 网关规则，将以网关模式更新配置。"
+        echo_info "检测到活动的 iptables 网关规则 (standard)，将以网关模式更新配置。"
+        SETUP_GATEWAY='y'
+    # 其次，检查 IP 转发是否开启，这是所有网关模式的共同特征
+    elif [ -f /proc/sys/net/ipv4/ip_forward ] && [ "$(cat /proc/sys/net/ipv4/ip_forward)" -eq 1 ]; then
+        echo_info "检测到内核 IP 转发已开启，将以网关模式更新配置。"
         SETUP_GATEWAY='y'
     else
         SETUP_GATEWAY='n'
