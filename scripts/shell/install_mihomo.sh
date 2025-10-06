@@ -139,7 +139,12 @@ select_image_proxy() {
 
 # 选择二进制文件下载链接
 select_binary_url() {
-  echo_info "请选择 Mihomo 二进制文件下载源:"
+  local context=${1:-"all"}
+  if [ "$context" = "ui_only" ]; then
+    echo_info "请选择 Dashboard (UI) 文件下载源:"
+  else
+    echo_info "请选择 Mihomo 二进制文件及 UI 文件下载源:"
+  fi
   echo " 1. Alist (推荐, 默认)"
   echo " 2. GitHub (直连)"
   echo " 3. GitHub (通过 hubproxy.739999.xyz 加速)"
@@ -288,6 +293,7 @@ redir-port: ${MIHOMO_REDIR_PORT}
 tproxy-port: ${MIHOMO_TPROXY_PORT}
 allow-lan: ${allow_lan_value}
 external-controller: "0.0.0.0:${MIHOMO_EXTERNAL_CONTROLLER_PORT}"
+external-ui: "/root/.config/mihomo/ui"
 log-level: info
 EOF
   fi
@@ -396,17 +402,6 @@ create_compose_file() {
   echo_info "正在创建 Docker Compose 文件: $COMPOSE_FILE"
   
   local compose_content
-  local metacubexd_service_content=$(cat <<EOF
-
-  metacubexd:
-    container_name: metacubexd
-    image: ${IMAGE_PROXY_PREFIX}${METACUBEXD_IMAGE}
-    restart: always
-    ports:
-      - '9080:80'
-EOF
-)
-
   if [[ "$ENABLE_TUN" =~ ^[Yy]$ ]]; then
     echo_info "正在为 Docker Compose 文件添加 TUN 模式支持..."
     compose_content=$(cat <<EOF
@@ -424,7 +419,6 @@ services:
       - TZ=Asia/Shanghai
     volumes:
       - ${INSTALL_DIR}/data:/root/.config/mihomo
-${metacubexd_service_content}
 EOF
 )
   else
@@ -439,7 +433,6 @@ services:
       - TZ=Asia/Shanghai
     volumes:
       - ${INSTALL_DIR}/data:/root/.config/mihomo
-${metacubexd_service_content}
 EOF
 )
   fi
@@ -833,12 +826,32 @@ install_mihomo_docker() {
   
   prepare_directory
 
+  # Select download source for UI files, needed for the integrated UI
+  select_binary_url "ui_only"
+
   # Prompts are removed, variables are now set by install_mihomo()
   ALLOW_LAN=${ALLOW_LAN:-n}
   ENABLE_TUN=${ENABLE_TUN:-n}
 
   setup_config "docker"
   download_geoip_database
+
+  # Download UI files (metacubexd)
+  local should_download_dashboard=true
+  if [ -d "$UI_DIR" ] && [ -n "$(ls -A "$UI_DIR")" ]; then
+      read -p "检测到已存在的 Dashboard (UI) 文件，是否要重新下载并覆盖它？(y/N): " choice
+      if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+          echo_info "已跳过下载 Dashboard。"
+          should_download_dashboard=false
+      fi
+  fi
+
+  if [ "$should_download_dashboard" = true ]; then
+      if ! download_metacubexd_binary; then
+          echo_error "Dashboard 文件处理失败，但安装将继续。"
+      fi
+  fi
+
   create_compose_file
   start_mihomo_service
 
@@ -1246,16 +1259,10 @@ print_success_info() {
 
     echo_info ""
     echo_info "Web UI 面板地址:"
-    if [ "$install_type" = "docker" ]; then
-        echo_info "  - 本机访问: http://127.0.0.1:9080"
-        if [[ "$ALLOW_LAN" =~ ^[Yy]$ ]] && [ -n "$server_ip" ]; then
-            echo_info "  - 局域网访问: http://${server_ip}:9080"
-        fi
-    else # binary
-        echo_info "  - 本机访问: http://127.0.0.1:${MIHOMO_EXTERNAL_CONTROLLER_PORT}/ui"
-        if [[ "$ALLOW_LAN" =~ ^[Yy]$ ]] && [ -n "$server_ip" ]; then
-            echo_info "  - 局域网访问: http://${server_ip}:${MIHOMO_EXTERNAL_CONTROLLER_PORT}/ui"
-        fi
+    # The logic is now the same for both Docker and Binary installs
+    echo_info "  - 本机访问: http://127.0.0.1:${MIHOMO_EXTERNAL_CONTROLLER_PORT}/ui"
+    if [[ "$ALLOW_LAN" =~ ^[Yy]$ ]] && [ -n "$server_ip" ]; then
+        echo_info "  - 局域网访问: http://${server_ip}:${MIHOMO_EXTERNAL_CONTROLLER_PORT}/ui"
     fi
 
     echo_info ""
@@ -1930,13 +1937,13 @@ clear_gateway() {
             *Ubuntu*|*Debian*)
                 if command -v netfilter-persistent &> /dev/null; then
                     echo_info "正在保存已清除的 iptables 规则..."
-                    netfilter-persistent save >/dev/null 2>&1
+                    netfilter-persistent save
                 fi
                 ;;
             *CentOS*|*Red*Hat*)
                 if command -v service &> /dev/null && systemctl list-unit-files | grep -q iptables.service; then
                     echo_info "正在保存已清除的 iptables 规则..."
-                    service iptables save >/dev/null 2>&1
+                    service iptables save
                 fi
                 ;;
         esac
