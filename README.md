@@ -26,6 +26,7 @@
   - [`iptables_redirect.sh`](#iptables_redirect.sh) - iptables 端口转发
   - [`iptables_reset.sh`](#iptables_reset.sh) - iptables 清除所有规则
   - [`manage_ipv6.sh`](#manage_ipv6.sh) - 一键启用或禁用 Debian/Ubuntu 系统的 IPv6
+  - [`manage_root_password_login.sh`](#manage_root_password_login.sh) - 一键启用或禁用 root 用户的 SSH 密码登录
 - **应用程序安装脚本**
   - [`install_openlist.sh`](#install_openlist.sh) - 一键部署 Openlist 文件列表程序
   - [`install_docker.sh`](#install_docker.sh) - 一键安装 Docker
@@ -207,9 +208,41 @@
   - 需要 root 权限运行
   - `sysctl` 命令会立即应用配置到内核，但为确保所有服务（如 Docker）都应用新设置，**强烈建议**在执行脚本后重新启动系统。
 
+<a id="manage_root_password_login.sh"></a>
+7. **manage_root_password_login.sh** - 一键启用或禁用 root 用户的 SSH 密码登录
+
+   该脚本用于管理服务器的 SSH 安全配置，可以方便地启用或禁用 root 用户的密码登录。
+
+   **用法:**
+   ```bash
+   curl -sSL https://script.sqmn.eu.org/shell/manage_root_password_login.sh | bash -s [action]
+   ```
+
+   **参数说明:**
+   - `action`: 操作类型 (必需)
+     - `disable`: 禁用 root 密码登录 (将 `PermitRootLogin` 设置为 `prohibit-password`)。
+     - `enable`: 启用 root 密码登录 (将 `PermitRootLogin` 设置为 `yes`)。
+
+   **示例:**
+
+   禁用 root 密码登录:
+   ```bash
+   curl -sSL https://script.sqmn.eu.org/shell/manage_root_password_login.sh | bash -s disable
+   ```
+
+   启用 root 密码登录:
+   ```bash
+   curl -sSL https://script.sqmn.eu.org/shell/manage_root_password_login.sh | bash -s enable
+   ```
+
+   注意：
+   - 需要 root 权限运行。
+   - 脚本会自动修改 `/etc/ssh/sshd_config` 文件并重启 `sshd` 服务。
+   - **重要**: 在执行 `disable` 操作前，请确保您已配置了 SSH 密钥登录，否则您将无法再以 root 用户身份登录服务器。
+
 ### 应用程序安装脚本
 <a id="install_openlist.sh"></a>
-7. **install_openlist.sh** - 一键部署 Openlist 文件列表程序
+8. **install_openlist.sh** - 一键部署 Openlist 文件列表程序
     ```bash
     curl -s https://script.sqmn.eu.org/shell/install_openlist.sh | bash
     ```
@@ -218,13 +251,13 @@
     - Web界面: `5244` - 访问地址：http://localhost:5244
 
 <a id="install_docker.sh"></a>
-8. **install_docker.sh** - 一键安装 Docker
+9. **install_docker.sh** - 一键安装 Docker
    ```bash
    curl -s https://script.sqmn.eu.org/shell/install_docker.sh | bash
    ```
 
 <a id="install_freshrss.sh"></a>
-9. **install_freshrss.sh** - 一键部署 FreshRSS 阅读器
+10. **install_freshrss.sh** - 一键部署 FreshRSS 阅读器
      ```bash
      curl -s https://script.sqmn.eu.org/shell/install_freshrss.sh | bash
      ```
@@ -233,7 +266,7 @@
      - Web界面: `8080` - 访问地址：http://localhost:8080
 
 <a id="install_frpc.sh"></a>
-10. **install_frpc.sh** - 一键安装 frp 客户端
+11. **install_frpc.sh** - 一键安装 frp 客户端
      
      无参数运行，使用最新版本:
      ```bash
@@ -255,7 +288,7 @@
      - 密码: 安装过程中随机生成（执行脚本时会显示）
 
 <a id="install_frps.sh"></a>
-11. **install_frps.sh** - 一键安装 frp 服务端
+12. **install_frps.sh** - 一键安装 frp 服务端
      
      无参数运行，使用最新版本:
      ```bash
@@ -275,7 +308,7 @@
      - 认证Token: 安装过程中随机生成（执行脚本时会显示）
 
 <a id="install_memos.sh"></a>
-12. **install_memos.sh** - 一键部署 Memos 笔记应用
+13. **install_memos.sh** - 一键部署 Memos 笔记应用
      ```bash
      curl -s https://script.sqmn.eu.org/shell/install_memos.sh | bash
      ```
@@ -284,7 +317,7 @@
      - Web界面: `5230` - 访问地址：http://localhost:5230
 
 <a id="install_mihomo.sh"></a>
-13. **install_mihomo.sh** - 一键部署 Mihomo 代理服务
+14. **install_mihomo.sh** - 一键部署 Mihomo 代理服务
 
      功能全面的 Mihomo 管理脚本，支持 Docker 或二进制文件部署，提供菜单式交互，极大简化在服务器上配置和使用代理的过程。
 
@@ -312,7 +345,7 @@
        0.  退出脚本
 
 <a id="install_new_api.sh"></a>
-14. **install_new_api.sh** - 一键部署 new-api 服务
+15. **install_new_api.sh** - 一键部署 new-api 服务
      
      直接执行：
      ```bash
@@ -323,7 +356,7 @@
      - Web界面: `3000` - 访问地址：http://localhost:3000
 
 <a id="install_nginx_proxy_manager.sh"></a>
-15. **install_nginx_proxy_manager.sh** - 一键部署 nginx_proxy_manager
+16. **install_nginx_proxy_manager.sh** - 一键部署 nginx_proxy_manager
      ```bash
      curl -s https://script.sqmn.eu.org/shell/install_nginx_proxy_manager.sh | bash
      ```
@@ -337,7 +370,7 @@
        - 密码: `changeme`
 
 <a id="install_rsshub.sh"></a>
-16. **install_rsshub.sh** - 一键部署 RSSHub RSS生成器
+17. **install_rsshub.sh** - 一键部署 RSSHub RSS生成器
      ```bash
      curl -s https://script.sqmn.eu.org/shell/install_rsshub.sh | bash
      ```
@@ -346,7 +379,7 @@
      - Web界面: `1200` - 访问地址：http://localhost:1200
 
 <a id="install_syncthing.sh"></a>
-17. **install_syncthing.sh** - 一键部署 Syncthing 文件同步工具
+18. **install_syncthing.sh** - 一键部署 Syncthing 文件同步工具
      ```bash
      curl -s https://script.sqmn.eu.org/shell/install_syncthing.sh | bash
      ```
@@ -357,13 +390,13 @@
      - 本地发现端口: `21027` (UDP)
 
 <a id="install_tools.sh"></a>
-18. **install_tools.sh** - Debian/Ubuntu 一键安装常用工具
+19. **install_tools.sh** - Debian/Ubuntu 一键安装常用工具
      ```bash
      curl -s https://script.sqmn.eu.org/shell/install_tools.sh | bash
      ```
 
 <a id="install_vaultwarden.sh"></a>
-19. **install_vaultwarden.sh** - 一键部署 Vaultwarden 密码管理器
+20. **install_vaultwarden.sh** - 一键部署 Vaultwarden 密码管理器
      ```bash
      curl -s https://script.sqmn.eu.org/shell/install_vaultwarden.sh | bash
      ```
@@ -374,7 +407,7 @@
      - 管理员Token: 安装时自动生成（请妥善保管，用于访问管理界面）
 
 <a id="install_XrayR.sh"></a>
-20. **install_XrayR.sh** - 一键部署 XrayR 代理服务
+21. **install_XrayR.sh** - 一键部署 XrayR 代理服务
      
      带参数安装：
      ```bash
@@ -393,7 +426,7 @@
 
 ### 特定用途脚本
 <a id="frp_service.sh"></a>
-21. **frp_service.sh** - 一键新增 FRP 服务并重启 FRP 客户端
+22. **frp_service.sh** - 一键新增 FRP 服务并重启 FRP 客户端
 
     这个脚本用于向 FRP 客户端配置文件中添加新的服务代理，并重启 FRP 客户端服务。
 
@@ -428,7 +461,7 @@
     - `-i, --ip`        本地IP，默认为 127.0.0.1（二进制安装）或宿主机IP（docker安装）
 
 <a id="qb_move_guomang.sh"></a>
-22. **qb_move_guomang.sh** - 国漫整理与移动脚本
+23. **qb_move_guomang.sh** - 国漫整理与移动脚本
 
     该脚本专门用于整理从 qBittorrent 下载的国漫视频文件，并将其移动到指定的媒体库目录（如 OneDrive）。
 
@@ -455,7 +488,7 @@
       ```
 
 <a id="qb_move_movies.sh"></a>
-23. **qb_move_movies.sh** - 移动电影文件
+24. **qb_move_movies.sh** - 移动电影文件
 
     该脚本用于将指定目录下的电影文件移动到目标目录。
 
@@ -479,7 +512,7 @@
       ```
 
 <a id="qb_move_tv_shows.sh"></a>
-24. **qb_move_tv_shows.sh** - 移动电视剧文件
+25. **qb_move_tv_shows.sh** - 移动电视剧文件
 
     该脚本用于将指定目录下的电视剧文件移动到目标目录。
 
