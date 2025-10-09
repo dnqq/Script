@@ -1,64 +1,90 @@
 # ===================================================================
 # PowerShell Script to Setup API Wallpaper
 # Function: Guides user for API URL and refresh interval, then creates a scheduled task.
+# Usage:
+#   Interactive mode: .\Setup-ApiWallpaper.ps1
+#   One-click with defaults: .\Setup-ApiWallpaper.ps1 -NonInteractive
+#   One-click with custom: .\Setup-ApiWallpaper.ps1 -ApiUrl "https://example.com" -IntervalMinutes 15 -NonInteractive
+#   Remote execution: iex (irm https://your-domain.com/Setup-ApiWallpaper.ps1)
 # ===================================================================
 
+param(
+    [string]$ApiUrl = "",
+    [int]$IntervalMinutes = 0,
+    [switch]$NonInteractive
+)
+
 # --- 1. Welcome ---
-Clear-Host
-Write-Host "=============================================" -ForegroundColor Green
-Write-Host "  Welcome to the API Wallpaper Setup Script!" -ForegroundColor Green
-Write-Host "============================================="
-Write-Host "This script will help you with the following:"
-Write-Host "  1. Create a PowerShell script to download and set the wallpaper."
-Write-Host "  2. Create a Windows Scheduled Task to run the script periodically."
-Write-Host ""
+if (-not $NonInteractive) {
+    Clear-Host
+    Write-Host "=============================================" -ForegroundColor Green
+    Write-Host "  Welcome to the API Wallpaper Setup Script!" -ForegroundColor Green
+    Write-Host "============================================="
+    Write-Host "This script will help you with the following:"
+    Write-Host "  1. Create a PowerShell script to download and set the wallpaper."
+    Write-Host "  2. Create a Windows Scheduled Task to run the script periodically."
+    Write-Host ""
+}
 
 # --- 2. User Input ---
-# Get API URL
 $defaultApiUrl = "https://random.sqmn.eu.org"
-$apiUrl = ""
-while ($true) {
-    $userInput = Read-Host "> Enter API URL (or press Enter for default)"
-    if ([string]::IsNullOrWhiteSpace($userInput)) {
-        $apiUrl = $defaultApiUrl
-        Write-Host "  Using default URL: $apiUrl"
-        break
+$defaultInterval = 10
+
+# Get API URL
+if ($NonInteractive -or $ApiUrl) {
+    if ([string]::IsNullOrWhiteSpace($ApiUrl)) {
+        $ApiUrl = $defaultApiUrl
     }
-    if ($userInput -like "http*") {
-        $apiUrl = $userInput
-        break
+    Write-Host "Using API URL: $ApiUrl" -ForegroundColor Cyan
+} else {
+    while ($true) {
+        $userInput = Read-Host "> Enter API URL (or press Enter for default)"
+        if ([string]::IsNullOrWhiteSpace($userInput)) {
+            $ApiUrl = $defaultApiUrl
+            Write-Host "  Using default URL: $ApiUrl"
+            break
+        }
+        if ($userInput -like "http*") {
+            $ApiUrl = $userInput
+            break
+        }
+        Write-Warning "Invalid URL format. Please enter a valid URL starting with http or https."
     }
-    Write-Warning "Invalid URL format. Please enter a valid URL starting with http or https."
 }
 
 # Get refresh interval
-$defaultInterval = 10
-$intervalMinutes = 0
-while ($true) {
-    $userInput = Read-Host "> Enter refresh interval in minutes (or press Enter for default: $defaultInterval)"
-    if ([string]::IsNullOrWhiteSpace($userInput)) {
-        $intervalMinutes = $defaultInterval
-        Write-Host "  Using default interval: $intervalMinutes minutes"
-        break
+if ($NonInteractive -or $IntervalMinutes -gt 0) {
+    if ($IntervalMinutes -le 0) {
+        $IntervalMinutes = $defaultInterval
     }
-    try {
-        $intervalMinutes = [int]$userInput
-        if ($intervalMinutes -gt 0) {
+    Write-Host "Using refresh interval: $IntervalMinutes minutes" -ForegroundColor Cyan
+} else {
+    while ($true) {
+        $userInput = Read-Host "> Enter refresh interval in minutes (or press Enter for default: $defaultInterval)"
+        if ([string]::IsNullOrWhiteSpace($userInput)) {
+            $IntervalMinutes = $defaultInterval
+            Write-Host "  Using default interval: $IntervalMinutes minutes"
             break
         }
-        else {
-            Write-Warning "Please enter an integer greater than 0."
+        try {
+            $IntervalMinutes = [int]$userInput
+            if ($IntervalMinutes -gt 0) {
+                break
+            }
+            else {
+                Write-Warning "Please enter an integer greater than 0."
+            }
         }
-    }
-    catch {
-        Write-Warning "Invalid input. Please enter a number."
+        catch {
+            Write-Warning "Invalid input. Please enter a number."
+        }
     }
 }
 
 Write-Host ""
 Write-Host "Configuration Summary:" -ForegroundColor Cyan
-Write-Host "  API URL: $apiUrl"
-Write-Host "  Refresh Interval: $intervalMinutes minutes"
+Write-Host "  API URL: $ApiUrl"
+Write-Host "  Refresh Interval: $IntervalMinutes minutes"
 Write-Host ""
 
 # --- 3. Define Paths and Script Content ---
@@ -175,4 +201,6 @@ Write-Host ""
 Write-Host "All done! The wallpaper will change for the first time in about a minute."
 Write-Host "To modify or remove, open 'Task Scheduler' and find '$taskName'."
 Write-Host ""
-Read-Host "Press Enter to exit..."
+if (-not $NonInteractive) {
+    Read-Host "Press Enter to exit..."
+}

@@ -655,55 +655,71 @@
 
    **核心功能**:
    - **自动化配置**: 一键创建壁纸更换脚本和 Windows 定时任务
-   - **灵活配置**: 可自定义 API 地址和更换间隔（分钟）
+   - **灵活配置**: 支持交互式配置或命令行参数，可自定义 API 地址和更换间隔
    - **静默运行**: 使用 VBScript 包装器，后台运行完全无窗口干扰
    - **智能下载**: 自动添加 User-Agent 请求头，兼容各种 API
    - **详细日志**: 记录每次壁纸更换过程，便于调试和追踪
    - **文件验证**: 自动验证下载文件的有效性，防止损坏图片
 
-   **如何使用**:
+   **使用方式**:
 
-   1. **下载并运行安装脚本**:
-      ```powershell
-      # 下载脚本
-      Invoke-WebRequest -Uri "https://script.sqmn.eu.org/PowerShell/Setup-ApiWallpaper.ps1" -OutFile "Setup-ApiWallpaper.ps1"
+   **方式 1: 一键运行（使用默认值）**
+   ```powershell
+   # 远程执行（类似 curl | bash）
+   iex (irm https://script.sqmn.eu.org/PowerShell/Setup-ApiWallpaper.ps1)
 
-      # 以普通用户权限运行（不需要管理员权限）
-      .\Setup-ApiWallpaper.ps1
-      ```
+   # 或本地执行
+   .\Setup-ApiWallpaper.ps1 -NonInteractive
+   ```
+   默认使用 API: `https://random.sqmn.eu.org`，间隔: 10 分钟
 
-   2. **配置参数**:
-      - **API URL**: 输入壁纸 API 地址，或直接回车使用默认值 `https://random.sqmn.eu.org`
-      - **更换间隔**: 输入间隔分钟数，或直接回车使用默认值 `10` 分钟
+   **方式 2: 一键运行（自定义参数）**
+   ```powershell
+   # 本地执行
+   .\Setup-ApiWallpaper.ps1 -ApiUrl "https://your-api.com" -IntervalMinutes 15 -NonInteractive
 
-   3. **自动创建的文件**:
-      - `%USERPROFILE%\Documents\AutoApiWallpaper\Set-ApiWallpaper.ps1` - 壁纸设置脚本
-      - `%USERPROFILE%\Documents\AutoApiWallpaper\Run-Silent.vbs` - 静默运行包装器
-      - `%USERPROFILE%\Documents\AutoApiWallpaper\api_wallpaper.jpg` - 下载的壁纸文件
-      - `%USERPROFILE%\Documents\AutoApiWallpaper\wallpaper.log` - 运行日志
+   # 远程执行
+   iex "& { $(irm https://script.sqmn.eu.org/PowerShell/Setup-ApiWallpaper.ps1) } -ApiUrl 'https://your-api.com' -IntervalMinutes 15 -NonInteractive"
+   ```
 
-   4. **查看日志**:
-      ```powershell
-      Get-Content "$env:USERPROFILE\Documents\AutoApiWallpaper\wallpaper.log"
-      ```
+   **方式 3: 交互式配置**
+   ```powershell
+   # 下载脚本
+   Invoke-WebRequest -Uri "https://script.sqmn.eu.org/PowerShell/Setup-ApiWallpaper.ps1" -OutFile "Setup-ApiWallpaper.ps1"
 
-   5. **管理定时任务**:
-      - 任务名称: `Auto API Wallpaper Changer`
-      - 在"任务计划程序"中可以查看、暂停或删除任务
-      - 或使用 PowerShell 命令:
-        ```powershell
-        # 查看任务状态
-        Get-ScheduledTask -TaskName "Auto API Wallpaper Changer"
+   # 运行脚本，按提示输入配置
+   .\Setup-ApiWallpaper.ps1
+   ```
+   脚本会提示输入 API URL 和刷新间隔
 
-        # 手动运行一次
-        Start-ScheduledTask -TaskName "Auto API Wallpaper Changer"
+   **自动创建的文件**:
+   - `%USERPROFILE%\Documents\AutoApiWallpaper\Set-ApiWallpaper.ps1` - 壁纸设置脚本
+   - `%USERPROFILE%\Documents\AutoApiWallpaper\Run-Silent.vbs` - 静默运行包装器
+   - `%USERPROFILE%\Documents\AutoApiWallpaper\api_wallpaper.jpg` - 下载的壁纸文件
+   - `%USERPROFILE%\Documents\AutoApiWallpaper\wallpaper.log` - 运行日志
 
-        # 禁用任务
-        Disable-ScheduledTask -TaskName "Auto API Wallpaper Changer"
+   **查看日志**:
+   ```powershell
+   Get-Content "$env:USERPROFILE\Documents\AutoApiWallpaper\wallpaper.log"
+   ```
 
-        # 删除任务
-        Unregister-ScheduledTask -TaskName "Auto API Wallpaper Changer" -Confirm:$false
-        ```
+   **管理定时任务**:
+   - 任务名称: `Auto API Wallpaper Changer`
+   - 在"任务计划程序"中可以查看、暂停或删除任务
+   - 或使用 PowerShell 命令:
+   ```powershell
+   # 查看任务状态
+   Get-ScheduledTask -TaskName "Auto API Wallpaper Changer"
+
+   # 手动运行一次
+   Start-ScheduledTask -TaskName "Auto API Wallpaper Changer"
+
+   # 禁用任务
+   Disable-ScheduledTask -TaskName "Auto API Wallpaper Changer"
+
+   # 删除任务
+   Unregister-ScheduledTask -TaskName "Auto API Wallpaper Changer" -Confirm:$false
+   ```
 
    **技术特点**:
    - 使用 Windows API (`SystemParametersInfo`) 直接设置壁纸，立即生效
