@@ -666,7 +666,7 @@
    **方式 1: 一键运行（使用默认值）**
    ```powershell
    # 远程执行（类似 curl | bash）
-   iex (irm https://script.sqmn.eu.org/PowerShell/setup_api_wallpaper.ps1)
+   iex (irm https://script.sqmn.eu.org/powershell/setup_api_wallpaper.ps1)
 
    # 或本地执行
    .\setup_api_wallpaper.ps1 -NonInteractive
@@ -679,13 +679,13 @@
    .\setup_api_wallpaper.ps1 -ApiUrl "https://your-api.com" -IntervalMinutes 15 -NonInteractive
 
    # 远程执行
-   iex "& { $(irm https://script.sqmn.eu.org/PowerShell/setup_api_wallpaper.ps1) } -ApiUrl 'https://your-api.com' -IntervalMinutes 15 -NonInteractive"
+   iex "& { $(irm https://script.sqmn.eu.org/powershell/setup_api_wallpaper.ps1) } -ApiUrl 'https://your-api.com' -IntervalMinutes 15 -NonInteractive"
    ```
 
    **方式 3: 交互式配置**
    ```powershell
    # 下载脚本
-   Invoke-WebRequest -Uri "https://script.sqmn.eu.org/PowerShell/setup_api_wallpaper.ps1" -OutFile "setup_api_wallpaper.ps1"
+   Invoke-WebRequest -Uri "https://script.sqmn.eu.org/powershell/setup_api_wallpaper.ps1" -OutFile "setup_api_wallpaper.ps1"
 
    # 运行脚本，按提示输入配置
    .\setup_api_wallpaper.ps1
