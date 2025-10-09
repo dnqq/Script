@@ -15,7 +15,7 @@ export default {
       return handleTodayStats(env);
     }
 
-    // 定义需要计数的脚本目录（注意：构建脚本会将目录名转为小写）
+    // 定义需要计数的脚本目录（注意：构建脚本会将目录名转为小写11）
     const scriptDirs = ['/shell/', '/python/', '/powershell/', '/bat/', '/tampermonkey/'];
     const isScriptRequest = scriptDirs.some((dir) => url.pathname.startsWith(dir));
 
