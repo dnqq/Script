@@ -56,15 +56,15 @@
 
 <h3 id="powershell-脚本-总览">PowerShell 脚本</h3>
 
-- [`SetNetwork.ps1`](#SetNetwork.ps1) - Windows网络配置管理工具
-- [`Setup-ApiWallpaper.ps1`](#Setup-ApiWallpaper.ps1) - API壁纸自动更换工具
+- [`set_network.ps1`](#set_network.ps1) - Windows网络配置管理工具
+- [`setup_api_wallpaper.ps1`](#setup_api_wallpaper.ps1) - API壁纸自动更换工具
 
 <h3 id="tampermonkey-脚本-总览">Tampermonkey 脚本</h3>
 
-- [`ICVE课程资源下载（合集版）.js`](#ICVE课程资源下载合集版js) - 职教云课程资源批量下载工具
-- [`ICVE课程资源下载（单文件版）.js`](#ICVE课程资源下载单文件版js) - 职教云课程资源单文件下载工具
-- [`SPOC答题.js`](#SPOC答题js) - 智慧职教 SPOC 自动答题工具
-- [`MOOC答题.js`](#MOOC答题js) - 智慧职教 MOOC 自动答题工具
+- [`icve_course_download_collection.js`](#icve_course_download_collection.js) - 职教云课程资源批量下载工具
+- [`icve_course_download_single.js`](#icve_course_download_single.js) - 职教云课程资源单文件下载工具
+- [`spoc_auto_answer.js`](#spoc_auto_answer.js) - 智慧职教 SPOC 自动答题工具
+- [`mooc_auto_answer.js`](#mooc_auto_answer.js) - 智慧职教 MOOC 自动答题工具
 
 </details>
 
@@ -627,8 +627,8 @@
 
 ## PowerShell 脚本
 
-<a id="SetNetwork.ps1"></a>
-1. **SetNetwork.ps1** - Windows网络配置管理工具
+<a id="set_network.ps1"></a>
+1. **set_network.ps1** - Windows网络配置管理工具
 
    这个脚本提供了一个交互式界面，用于快速切换Windows网络配置：
    - 支持固定IP和DHCP配置模式
@@ -645,11 +645,11 @@
 
    执行脚本:
    ```powershell
-   .\SetNetwork.ps1
+   .\set_network.ps1
    ```
 
-<a id="Setup-ApiWallpaper.ps1"></a>
-2. **Setup-ApiWallpaper.ps1** - API壁纸自动更换工具
+<a id="setup_api_wallpaper.ps1"></a>
+2. **setup_api_wallpaper.ps1** - API壁纸自动更换工具
 
    这是一个全自动的 Windows 桌面壁纸管理工具，通过调用 API 接口定时下载并更换桌面壁纸。
 
@@ -666,29 +666,29 @@
    **方式 1: 一键运行（使用默认值）**
    ```powershell
    # 远程执行（类似 curl | bash）
-   iex (irm https://script.sqmn.eu.org/PowerShell/Setup-ApiWallpaper.ps1)
+   iex (irm https://script.sqmn.eu.org/PowerShell/setup_api_wallpaper.ps1)
 
    # 或本地执行
-   .\Setup-ApiWallpaper.ps1 -NonInteractive
+   .\setup_api_wallpaper.ps1 -NonInteractive
    ```
    默认使用 API: `https://random.sqmn.eu.org`，间隔: 10 分钟
 
    **方式 2: 一键运行（自定义参数）**
    ```powershell
    # 本地执行
-   .\Setup-ApiWallpaper.ps1 -ApiUrl "https://your-api.com" -IntervalMinutes 15 -NonInteractive
+   .\setup_api_wallpaper.ps1 -ApiUrl "https://your-api.com" -IntervalMinutes 15 -NonInteractive
 
    # 远程执行
-   iex "& { $(irm https://script.sqmn.eu.org/PowerShell/Setup-ApiWallpaper.ps1) } -ApiUrl 'https://your-api.com' -IntervalMinutes 15 -NonInteractive"
+   iex "& { $(irm https://script.sqmn.eu.org/PowerShell/setup_api_wallpaper.ps1) } -ApiUrl 'https://your-api.com' -IntervalMinutes 15 -NonInteractive"
    ```
 
    **方式 3: 交互式配置**
    ```powershell
    # 下载脚本
-   Invoke-WebRequest -Uri "https://script.sqmn.eu.org/PowerShell/Setup-ApiWallpaper.ps1" -OutFile "Setup-ApiWallpaper.ps1"
+   Invoke-WebRequest -Uri "https://script.sqmn.eu.org/PowerShell/setup_api_wallpaper.ps1" -OutFile "setup_api_wallpaper.ps1"
 
    # 运行脚本，按提示输入配置
-   .\Setup-ApiWallpaper.ps1
+   .\setup_api_wallpaper.ps1
    ```
    脚本会提示输入 API URL 和刷新间隔
 
@@ -735,8 +735,8 @@
 
 ## Tampermonkey 脚本
 
-<a id="ICVE课程资源下载合集版js"></a>
-1. **ICVE课程资源下载（合集版）.js** - 职教云课程资源批量下载工具
+<a id="icve_course_download_collection.js"></a>
+1. **icve_course_download_collection.js** - 职教云课程资源批量下载工具
 
    在 ICVE 课程主页提供一个功能强大的资源管理器，用于批量下载课程所有资源。
 
@@ -749,8 +749,8 @@
      - **获取直链**: 支持一键复制单个文件的下载地址。
    - **使用页面**: `https://zyk.icve.com.cn/icve-study/coursePreview/courseIndex`
 
-<a id="ICVE课程资源下载单文件版js"></a>
-2. **ICVE课程资源下载（单文件版）.js** - 职教云课程资源单文件下载工具
+<a id="icve_course_download_single.js"></a>
+2. **icve_course_download_single.js** - 职教云课程资源单文件下载工具
 
    在 ICVE 课程的单个文件预览页面，添加一个悬浮按钮，用于快速下载当前页面正在预览的文件。
 
@@ -760,8 +760,8 @@
      - **简单易用**: 无需复杂操作，进入页面即可下载。
    - **使用页面**: `*://zyk.icve.com.cn/icve-study/coursePreview/courseware?*`
 
-<a id="SPOC答题js"></a>
-3. **SPOC答题.js** - 智慧职教 SPOC 自动答题工具
+<a id="spoc_auto_answer.js"></a>
+3. **spoc_auto_answer.js** - 智慧职教 SPOC 自动答题工具
 
    在智慧职教（SPOC）的作业或考试页面，通过 AI 实现一键自动答题。
 
@@ -773,8 +773,8 @@
      - **需要自行配置 AI 接口**。请在脚本开头的配置区域填入你的 AI API 地址、API Key 和模型名称。
    - **使用页面**: `https://zjy2.icve.com.cn/study/spocjobTest*`
 
-<a id="MOOC答题js"></a>
-4. **MOOC答题.js** - 智慧职教 MOOC 自动答题工具
+<a id="mooc_auto_answer.js"></a>
+4. **mooc_auto_answer.js** - 智慧职教 MOOC 自动答题工具
 
    在智慧职教（MOOC）的考试页面，通过 AI 实现逐题自动解答并自动跳转。
 
