@@ -127,8 +127,70 @@
           categoryNav.appendChild(categoryElement);
         }
 
-        // 初始渲染仪表盘
-        renderDashboard();
+        // 检查URL参数，如果有script参数则自动定位
+        const urlParams = new URLSearchParams(window.location.search);
+        const scriptParam = urlParams.get('script');
+
+        if (scriptParam) {
+          // 查找脚本所在的分类
+          let foundScript = null;
+          let foundCategory = null;
+          let foundSubcategory = null;
+
+          for (const category in manifest) {
+            const categoryData = manifest[category];
+            if (categoryData._scripts) {
+              const script = categoryData._scripts.find(s => s.key === scriptParam);
+              if (script) {
+                foundScript = script;
+                foundCategory = category;
+                break;
+              }
+            }
+            for (const subCategory in categoryData) {
+              if (subCategory !== '_scripts') {
+                const script = categoryData[subCategory].find(s => s.key === scriptParam);
+                if (script) {
+                  foundScript = script;
+                  foundCategory = category;
+                  foundSubcategory = subCategory;
+                  break;
+                }
+              }
+            }
+            if (foundScript) break;
+          }
+
+          if (foundScript) {
+            // 激活对应的分类导航
+            categoryNav.querySelectorAll('a').forEach(l => l.classList.remove('active'));
+            const categoryLink = foundSubcategory
+              ? categoryNav.querySelector(`a[data-category="${foundCategory}"][data-subcategory="${foundSubcategory}"]`)
+              : categoryNav.querySelector(`a[data-category="${foundCategory}"]`);
+            if (categoryLink) {
+              categoryLink.classList.add('active');
+              renderCategory(foundCategory, foundSubcategory || null);
+
+              // 等待渲染完成后自动展开对应的脚本
+              setTimeout(() => {
+                const detailsElements = document.querySelectorAll('details[data-script-key]');
+                for (const details of detailsElements) {
+                  if (details.dataset.scriptKey === scriptParam) {
+                    details.open = true;
+                    details.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    break;
+                  }
+                }
+              }, 100);
+            }
+          } else {
+            // 如果没找到脚本，显示总览
+            renderDashboard();
+          }
+        } else {
+          // 初始渲染仪表盘
+          renderDashboard();
+        }
 
         // 分类点击事件
         categoryNav.addEventListener('click', (e) => {
@@ -269,6 +331,14 @@
                       <svg style="width: 16px; height: 16px; opacity: 0.6;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                       <span>${count.toLocaleString()}</span>
                     </div>
+                    <a href="/${script.key}" target="_blank" onclick="event.stopPropagation()" class="view-button">
+                      <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                      <span>查看</span>
+                    </a>
+                    <button onclick="event.stopPropagation(); navigator.clipboard.writeText(window.location.origin + '/?script=${script.key}').then(() => { this.innerHTML = '<svg style=\\'width: 16px; height: 16px;\\' fill=\\'none\\' stroke=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'2\\' d=\\'M5 13l4 4L19 7\\'></path></svg><span>已复制</span>'; setTimeout(() => { this.innerHTML = '<svg style=\\'width: 16px; height: 16px;\\' fill=\\'none\\' stroke=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'2\\' d=\\'M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z\\'></path></svg><span>分享</span>'; }, 2000); })" class="share-button">
+                      <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                      <span>分享</span>
+                    </button>
                     <a href="/${script.key}?t=${new Date().getTime()}" download onclick="event.stopPropagation()" class="download-button">
                       <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                       <span>下载</span>
@@ -432,7 +502,7 @@
                     const cleanedDescription = rawDescription.replace(/^\d+\.\s+\*\*(.*?)\*\*\s+-\s+/, '');
                     const title = cleanedDescription || script.name;
                     return `
-                      <a href="#" class="top-script-item" data-category="${script.category}" data-subcategory="${script.subcategory || ''}">
+                      <a href="#" class="top-script-item" data-category="${script.category}" data-subcategory="${script.subcategory || ''}" data-script-key="${script.key}">
                         <div class="rank-badge rank-${index + 1}">${index + 1}</div>
                         <div class="top-script-info">
                           <div class="top-script-name">${script.name}</div>
@@ -476,6 +546,7 @@
               e.preventDefault();
               const category = item.dataset.category;
               const subcategory = item.dataset.subcategory;
+              const scriptKey = item.dataset.scriptKey;
               categoryNav.querySelectorAll('a').forEach(l => l.classList.remove('active'));
               const categoryLink = subcategory
                 ? categoryNav.querySelector(`a[data-category="${category}"][data-subcategory="${subcategory}"]`)
@@ -483,6 +554,18 @@
               if (categoryLink) {
                 categoryLink.classList.add('active');
                 renderCategory(category, subcategory || null);
+
+                // 等待渲染完成后自动展开对应的脚本
+                setTimeout(() => {
+                  const detailsElements = document.querySelectorAll('details[data-script-key]');
+                  for (const details of detailsElements) {
+                    if (details.dataset.scriptKey === scriptKey) {
+                      details.open = true;
+                      details.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      break;
+                    }
+                  }
+                }, 100);
               }
             });
           });
@@ -540,7 +623,7 @@
               const title = `${script.name} - ${cleanedDescription}`;
               
               return `
-                <details class="details-card" data-script-name="${script.name}">
+                <details class="details-card" data-script-name="${script.name}" data-script-key="${script.key}">
                   <summary class="details-summary">
                     <h3 class="text-base font-medium text-primary">${title}</h3>
                     <div class="flex items-center" style="gap: 1rem;">
@@ -548,6 +631,14 @@
                         <svg style="width: 16px; height: 16px; opacity: 0.6;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         <span>${count.toLocaleString()}</span>
                       </div>
+                      <a href="/${script.key}" target="_blank" onclick="event.stopPropagation()" class="view-button">
+                        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        <span>查看</span>
+                      </a>
+                      <button onclick="event.stopPropagation(); navigator.clipboard.writeText(window.location.origin + '/?script=${script.key}').then(() => { this.innerHTML = '<svg style=\\'width: 16px; height: 16px;\\' fill=\\'none\\' stroke=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'2\\' d=\\'M5 13l4 4L19 7\\'></path></svg><span>已复制</span>'; setTimeout(() => { this.innerHTML = '<svg style=\\'width: 16px; height: 16px;\\' fill=\\'none\\' stroke=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'2\\' d=\\'M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z\\'></path></svg><span>分享</span>'; }, 2000); })" class="share-button">
+                        <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                        <span>分享</span>
+                      </button>
                       <a href="/${script.key}?t=${new Date().getTime()}" download onclick="event.stopPropagation()" class="download-button">
                         <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         <span>下载</span>
@@ -581,8 +672,24 @@
               sortedScripts.sort((a, b) => a.name.localeCompare(b.name));
             }
             renderScripts(sortedScripts);
+
+            // 检查URL参数，如果有script参数则自动展开
+            const urlParams = new URLSearchParams(window.location.search);
+            const scriptParam = urlParams.get('script');
+            if (scriptParam) {
+              setTimeout(() => {
+                const detailsElements = document.querySelectorAll('details[data-script-key]');
+                for (const details of detailsElements) {
+                  if (details.dataset.scriptKey === scriptParam) {
+                    details.open = true;
+                    details.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    break;
+                  }
+                }
+              }, 100);
+            }
           };
-          
+
           sortAndRender();
 
           app.addEventListener('click', (e) => {

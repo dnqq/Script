@@ -28,12 +28,15 @@ export default {
 
       const assetResponse = await env.ASSETS.fetch(assetRequest);
 
-      // 如果文件存在，则增加计数并强制下载
+      // 如果文件存在，则根据请求类型处理
       if (assetResponse.status === 200) {
         const scriptKey = url.pathname.substring(1); // 移除开头的 '/'
         const ip = request.headers.get('cf-connecting-ip');
 
-        // 文件已找到，异步增加计数。
+        // 检查是否是下载请求（通过查询参数判断）
+        const isDownload = url.searchParams.has('t'); // 下载按钮带有时间戳参数
+
+        // 查看和下载都增加计数
         if (ctx && typeof ctx.waitUntil === 'function') {
           ctx.waitUntil(incrementCount(env, scriptKey, ip));
         } else {
@@ -41,11 +44,25 @@ export default {
           console.error('ctx.waitUntil is not available. Cannot increment count asynchronously.');
         }
 
-        // 创建一个新的响应来添加 'Content-Disposition' 标头，以强制下载。
+        // 创建响应头
         const headers = new Headers(assetResponse.headers);
         const filename = scriptKey.split('/').pop();
-        headers.set('Content-Disposition', `attachment; filename="${filename}"`);
-        // 添加 Cache-Control 头以防止缓存，确保每次都计数
+
+        // 只有下载请求才添加 Content-Disposition attachment
+        if (isDownload) {
+          headers.set('Content-Disposition', `attachment; filename="${filename}"`);
+        } else {
+          // 查看请求，设置为 inline，让浏览器决定如何显示
+          headers.set('Content-Disposition', `inline; filename="${filename}"`);
+          // 确保设置正确的 Content-Type
+          if (filename.endsWith('.sh') || filename.endsWith('.py') || filename.endsWith('.ps1') || filename.endsWith('.bat')) {
+            headers.set('Content-Type', 'text/plain; charset=utf-8');
+          } else if (filename.endsWith('.js')) {
+            headers.set('Content-Type', 'application/javascript; charset=utf-8');
+          }
+        }
+
+        // 添加 Cache-Control 头
         headers.set('Cache-Control', 'no-cache');
 
         return new Response(assetResponse.body, {
